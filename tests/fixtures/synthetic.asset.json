@@ -1,0 +1,237 @@
+{
+  "m_Name": "synthetic_01",
+  "ScenarioId": "wrong_id",
+  "FirstBackground": "bg_test_a",
+  "Snippets": [
+    {
+      "Action": 6,
+      "ReferenceIndex": 0
+    },
+    {
+      "Action": 6,
+      "ReferenceIndex": 1
+    },
+    {
+      "Action": 1,
+      "ReferenceIndex": 0
+    },
+    {
+      "Action": 1,
+      "ReferenceIndex": 1
+    },
+    {
+      "Action": 4,
+      "ReferenceIndex": 0
+    },
+    {
+      "Action": 1,
+      "ReferenceIndex": 2
+    },
+    {
+      "Action": 1,
+      "ReferenceIndex": 3
+    },
+    {
+      "Action": 1,
+      "ReferenceIndex": 4
+    },
+    {
+      "Action": 6,
+      "ReferenceIndex": 2
+    },
+    {
+      "Action": 1,
+      "ReferenceIndex": 5
+    },
+    {
+      "Action": 6,
+      "ReferenceIndex": 3
+    },
+    {
+      "Action": 6,
+      "ReferenceIndex": 4
+    },
+    {
+      "Action": 1,
+      "ReferenceIndex": 6
+    },
+    {
+      "Action": 1,
+      "ReferenceIndex": 7
+    },
+    {
+      "Action": 6,
+      "ReferenceIndex": 5
+    },
+    {
+      "Action": 6,
+      "ReferenceIndex": 6
+    },
+    {
+      "Action": 6,
+      "ReferenceIndex": 7
+    },
+    {
+      "Action": 6,
+      "ReferenceIndex": 8
+    },
+    {
+      "Action": 6,
+      "ReferenceIndex": 9
+    },
+    {
+      "Action": 6,
+      "ReferenceIndex": 99
+    },
+    {
+      "Action": 1,
+      "ReferenceIndex": 8
+    },
+    {
+      "Action": 1,
+      "ReferenceIndex": 9
+    },
+    {
+      "Action": 1,
+      "ReferenceIndex": 10
+    },
+    {
+      "Action": 1,
+      "ReferenceIndex": 99
+    }
+  ],
+  "TalkData": [
+    {
+      "WindowDisplayName": "一歌",
+      "Body": "今天的風好大，樂譜差點被吹走了。",
+      "Motions": [
+        {
+          "MotionName": "w-normal01-idle",
+          "FacialName": "face_normal_01"
+        }
+      ]
+    },
+    {
+      "WindowDisplayName": "星乃一歌",
+      "Body": "等一下，我先把譜夾好。",
+      "Motions": [
+        {
+          "MotionName": "w-adult12-tilthead",
+          "FacialName": "face_smile_01"
+        }
+      ]
+    },
+    {
+      "WindowDisplayName": "咲希的訊息",
+      "Body": "我在樓梯口等你們喔～",
+      "Motions": [
+        {
+          "MotionName": "w-cute11-tilthead",
+          "FacialName": "face_laugh_01"
+        }
+      ]
+    },
+    {
+      "WindowDisplayName": "眾人",
+      "Body": "辛苦了！",
+      "Motions": []
+    },
+    {
+      "WindowDisplayName": "一歌",
+      "Body": "（說不定今天能把副歌寫完……）",
+      "Motions": [
+        {
+          "MotionName": "w-normal01-think",
+          "FacialName": "face_think_01"
+        }
+      ]
+    },
+    {
+      "WindowDisplayName": "穗波",
+      "Body": "那時候大家都還很小呢。",
+      "Motions": [
+        {
+          "MotionName": "w-adult01-idle",
+          "FacialName": "face_smile_01"
+        }
+      ]
+    },
+    {
+      "WindowDisplayName": "志步",
+      "Body": "哇，地板在晃！",
+      "Motions": [
+        {
+          "MotionName": "w-cool01-surprise",
+          "FacialName": "face_surprise_01"
+        }
+      ]
+    },
+    {
+      "WindowDisplayName": "一歌",
+      "Body": "\n",
+      "Motions": []
+    },
+    {
+      "WindowDisplayName": "真堂",
+      "Body": "下週的排練時間確定了。",
+      "Motions": []
+    },
+    {
+      "WindowDisplayName": "",
+      "Body": "窗外的雨聲漸漸變小。",
+      "Motions": []
+    },
+    {
+      "WindowDisplayName": "一歌",
+      "Body": "好！",
+      "Motions": [
+        {
+          "MotionName": "w-normal01-nod",
+          "FacialName": "face_smile_01"
+        }
+      ]
+    }
+  ],
+  "SpecialEffectData": [
+    {
+      "EffectType": 8,
+      "StringVal": "放學後"
+    },
+    {
+      "EffectType": 8,
+      "StringVal": "頂樓"
+    },
+    {
+      "EffectType": 9,
+      "StringVal": ""
+    },
+    {
+      "EffectType": 10,
+      "StringVal": ""
+    },
+    {
+      "EffectType": 5,
+      "StringVal": ""
+    },
+    {
+      "EffectType": 2,
+      "StringVal": ""
+    },
+    {
+      "EffectType": 7,
+      "StringVal": "bg_test_b"
+    },
+    {
+      "EffectType": 1,
+      "StringVal": ""
+    },
+    {
+      "EffectType": 8,
+      "StringVal": "幾天後"
+    },
+    {
+      "EffectType": 14,
+      "StringVal": ""
+    }
+  ]
+}
