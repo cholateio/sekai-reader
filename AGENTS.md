@@ -15,9 +15,9 @@ A static web reader that turns Project SEKAI Traditional Chinese event stories i
 
 - `src/scenario/` — `.asset` → episode model (`parseScenario`), mood labels
 - `src/storyboard/` — storyboard types, validation, rule-based fallback board, bundled boards
-- `src/render/` — comic renderer (`comic/`: panels, bubbles, backgrounds, slanted layout) and chat renderer
+- `src/render/` — comic renderer (`comic/`: panels, bubble shape rules `shape.ts`, SVG outlines `bubbleSvg.ts`, backgrounds and effect layers, slanted layout) and chat renderer
 - `src/art/` — `CharacterArt` seam (static chibi now, Spine later) and fallback name circles
-- `src/app/` — hash router, data loading, prefs, library / event / reader views
+- `src/app/` — hash router, data loading, prefs, unit easter eggs (`units.ts`), library / event / reader views
 - `data/` — event index and character table (`tc-event-index.json`)
 - `storyboards/` — AI-director storyboards, line numbers only (committed)
 - `prompts/` — storyboard director prompt
@@ -32,6 +32,7 @@ A static web reader that turns Project SEKAI Traditional Chinese event stories i
 - The reader never contacts Sekai-World at runtime, and no page may contain a `sekai.best` URL or a file picker for downloaded scripts.
 - Requests to storage.sekai.best go only through `scripts/fetch_episode.py`, one episode per run, within its 20-request budget; never write code that scans many episodes or events.
 - Storyboards contain structure only (line numbers, framing); dialogue text must never be written into a storyboard.
+- No full-panel halftone and no animated SVG filters in the comic (user-rejected noise; iOS performance).
 - Path-type constraints are mirrored in `kit.toml [protected]`; keep the two in sync (one glob per line).
 
 ## Conventions
