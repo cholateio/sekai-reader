@@ -30,3 +30,8 @@ test('sfx 與 cast 可含中文', () => expect(validateStoryboard(syntheticBoard
 test('未知格子類型被拒', () => { const b = syntheticBoard(); (b.panels[1] as any).t = 'dance'; fails(b, 'type'); });
 test('缺 meta 被拒', () => { const b: any = syntheticBoard(); delete b.meta; fails(b, 'meta'); });
 test('非物件輸入被拒', () => { expect(validateStoryboard(null, ep).ok).toBe(false); expect(validateStoryboard('x', ep).ok).toBe(false); });
+test('trans 不得帶台詞（渲染層只畫字幕）', () => { const b = syntheticBoard(); b.panels[9].l = [6]; b.panels[7].l = []; fails(b, 'trans'); });
+test('caps 只能出現在 est／trans', () => {
+  const b = syntheticBoard(); b.panels[0].caps = [1]; b.panels[1].caps = [0]; fails(b, 'caps only');
+});
+test('split 最多兩句', () => { const b = syntheticBoard(); b.panels[11].l = [8, 9, 10]; delete b.panels[12].l; fails(b, 'split'); });

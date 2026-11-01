@@ -115,7 +115,7 @@ export function buildPanel(p: Panel, ctx: PanelCtx): HTMLElement {
         h('div', { class: 'cast' }, names.map(n => ctx.art.render({ name: n, face: '', motion: '', mood: null }, 'sm'))));
     }
     case 'mono':
-      return pn('mono tone-bg', L.map(x => lineEl('div', 'mcap', x, x.who ? stripParen(x.body) : x.body)));
+      return pn('mono tone-bg', L.map((x, k) => lineEl('div', k % 2 ? 'mcap alt' : 'mcap', x, x.who ? stripParen(x.body) : x.body)));
     case 'sfx':
       return pn(`sfx-pn tone-bg${tone}`, h('span', { class: 'sfx big', 'aria-hidden': 'true' }, p.sfx ?? ''),
         L.length ? bubbles(ctx, L) : null, stage(ctx, L));

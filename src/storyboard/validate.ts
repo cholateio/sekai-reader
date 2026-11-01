@@ -54,6 +54,11 @@ export function validateStoryboard(input: unknown, ep: Episode): ValidationResul
         prev = Math.max(prev, r);
       }
     }
+    // Shape rules mirror what src/render/comic/panels.ts draws, so every accepted board renders every line/caption.
+    if (p.t === 'trans' && Array.isArray(p.l) && p.l.length) errors.push(`${at}: trans cannot carry lines`);
+    if (p.t === 'split' && Array.isArray(p.l) && p.l.length > 2) errors.push(`${at}: split takes at most 2 lines`);
+    if (p.caps !== undefined && p.t !== 'est' && p.t !== 'trans' && Array.isArray(p.caps) && p.caps.length)
+      errors.push(`${at}: caps only allowed on est/trans`);
     if (p.caps !== undefined) {
       if (!isIntArray(p.caps)) errors.push(`${at}: caps must be integers`);
       else for (const c of p.caps) {
