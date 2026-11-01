@@ -1,0 +1,73 @@
+import { expect, test } from 'vitest';
+import { StaticChibiArt } from '../src/art/StaticChibiArt';
+import { renderComic } from '../src/render/comic';
+import { speakerSide } from '../src/render/comic/bubbles';
+import { autoBoard } from '../src/storyboard/auto';
+import { syntheticBoard, syntheticEpisode } from './helpers';
+
+const ep = syntheticEpisode();
+const art = new StaticChibiArt('/sd');
+const opts = { bgUrl: () => null };
+const render = (b = syntheticBoard()) => renderComic(ep, b, art, opts);
+const rsOf = (root: HTMLElement) => [...root.querySelectorAll('[data-r]')].map(e => Number(e.getAttribute('data-r')));
+
+test('每句台詞剛好出現一次', () => expect(rsOf(render())).toEqual(ep.lines.map(l => l.r)));
+test('台詞文字原文呈現', () => {
+  const root = render();
+  for (const l of ep.lines)
+    expect(root.querySelector(`[data-r="${l.r}"]`)!.textContent).toContain(l.body.replace(/^（|）$/g, '').slice(0, 6));
+});
+test('沒有名字下標與表情標籤', () => {
+  const root = render();
+  expect(root.querySelector('.cc > span, .md-mood, .mood, .who-note')).toBeNull();
+  expect(root.textContent).not.toContain('微笑');
+});
+test('主角是小人圖、配角是圓圈', () => {
+  const root = render();
+  expect(root.querySelector('img.sd[src="/sd/chr_sd_01_01.webp"]')).not.toBeNull();
+  expect([...root.querySelectorAll('.circle')].map(e => e.textContent)).toContain('真堂');
+});
+test('根元素與格子數', () => {
+  const root = render();
+  expect(root.classList.contains('comic')).toBe(true);
+  expect(root.querySelectorAll('.pn').length).toBeGreaterThanOrEqual(13);
+});
+test('split 單句退化為 talk', () => {
+  const b = syntheticBoard();
+  b.panels[11] = { t: 'split', l: [8], edge: 1 };
+  b.panels.splice(12, 0, { t: 'talk', l: [9] });
+  const root = render(b);
+  expect(root.querySelector('.split')).toBeNull();
+  expect(rsOf(root)).toEqual(ep.lines.map(l => l.r));
+});
+test('split 兩句並排', () => expect(render().querySelector('.split')!.querySelectorAll('.pn').length).toBe(2));
+test('impact 無 l 不丟例外', () => {
+  const root = render();
+  expect(root.querySelector('.pn.impact')).not.toBeNull();
+});
+test('沒有 l 的各種格子都不丟例外', () => {
+  const b = syntheticBoard();
+  for (const t of ['close', 'pop', 'beat', 'insert', 'reveal', 'shout', 'mono', 'talk', 'split'] as const) b.panels.push({ t });
+  expect(() => render(b)).not.toThrow();
+});
+test('規則分鏡也能渲染', () => {
+  const root = renderComic(ep, autoBoard(ep), art, opts);
+  expect(rsOf(root)).toEqual(ep.lines.map(l => l.r));
+});
+test('心聲格去掉括號、思考框點線', () => {
+  const el = render().querySelector('[data-r="4"]')!;
+  expect(el.textContent).toBe('說不定今天能把副歌寫完……');
+});
+test('insert 標示唸出的人', () => expect(render().querySelector('.insert small')!.textContent).toBe('咲希 唸出的內容'));
+test('說話者左右交替、換場重置', () => {
+  const s = speakerSide();
+  expect([s.side('一歌'), s.side('咲希'), s.side('一歌'), s.side('')]).toEqual(['l', 'r', 'l', 'c']);
+  s.reset();
+  expect(s.side('咲希')).toBe('l');
+});
+test('姓＋名與名同一側', () => {
+  const s = speakerSide();
+  expect(s.side('一歌')).toBe('l');
+  expect(s.side('咲希')).toBe('r');
+  expect(s.side('星乃一歌')).toBe('l');
+});
