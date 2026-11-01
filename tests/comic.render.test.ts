@@ -79,3 +79,42 @@ test('特寫格對白框尾巴指向左側的角色', () => {
   expect(bb.classList.contains('l')).toBe(true);
   expect(bb.classList.contains('r')).toBe(false);
 });
+
+test('每句的形狀來自規則', () => {
+  const root = render();
+  expect(root.querySelector('[data-r="4"]')!.classList.contains('bb-cloud')).toBe(true);
+  expect(root.querySelector('[data-r="9"]')!.classList.contains('bb-box')).toBe(true);
+  expect(root.querySelector('[data-r="6"]')!.classList.contains('bb-wobble')).toBe(true);
+  expect(root.querySelector('[data-r="12"]')!.classList.contains('bb-whisper')).toBe(true);
+});
+test('分鏡 shape 覆寫生效（規則會給 round／phone，覆寫成 cloud／box）', () => {
+  const root = render();
+  expect(root.querySelector('[data-r="1"]')!.classList.contains('bb-cloud')).toBe(true);
+  expect(root.querySelector('[data-r="2"]')!.classList.contains('bb-box')).toBe(true);
+});
+test('沒有 shape 覆寫時手機訊息是 phone 框', () => {
+  const b = syntheticBoard(); delete b.panels.find(x => x.t === 'inset')!.shape;
+  expect(render(b).querySelector('[data-r="2"]')!.classList.contains('bb-phone')).toBe(true);
+});
+test('沒有舊式 class', () => expect(render().querySelector('.bb.thought, .bb.phone, .mcap')).toBeNull());
+test('shout 格的台詞是尖刺對白框，不再是固定星形', () => {
+  const b = syntheticBoard();
+  b.panels.find(p => p.t === 'reveal')!.l = [];
+  b.panels.find(p => p.t === 'shout')!.l = [11];
+  const root = render(b);
+  const bb = root.querySelector('.pn.shout-pn .bb')!;
+  expect(bb.classList.contains('bb-shout')).toBe(true);
+  expect(bb.classList.contains('huge')).toBe(true);
+  expect(bb.querySelector('svg.bo')).not.toBeNull();
+  expect(root.querySelector('.shout')).toBeNull();
+});
+test('reveal 的台詞也是對白框', () => {
+  const bb = render().querySelector('.pn.reveal .bb')!;
+  expect(bb.querySelector('svg.bo')).not.toBeNull();
+  expect(bb.classList.contains('small')).toBe(true);
+});
+test('每個 .bb 都有 svg.bo，每句台詞都在 .bb 或剪貼格裡', () => {
+  const root = render();
+  for (const bb of root.querySelectorAll('.bb')) expect(bb.querySelector('svg.bo')).not.toBeNull();
+  for (const el of root.querySelectorAll('[data-r]')) expect(el.classList.contains('bb') || el.classList.contains('itext')).toBe(true);
+});

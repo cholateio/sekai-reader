@@ -76,6 +76,6 @@ test('心聲框左右交錯不受背景層影響', () => {
   const b = syntheticBoard();
   b.panels.splice(11, 2, { t: 'talk', l: [8] }, { t: 'mono', l: [9, 10] });
   const root = renderComic(ep, b, art, { bgUrl: id => `/bg/${id}.webp` });
-  const caps = [...root.querySelectorAll('[data-r="9"], [data-r="10"]')];
-  expect(caps.map(c => c.classList.contains('alt'))).toEqual([false, true]);
+  const sides = [...root.querySelectorAll('[data-r="9"], [data-r="10"]')].map(c => ['l', 'r'].find(s => c.classList.contains(s)));
+  expect(sides).toEqual(['l', 'r']);
 });

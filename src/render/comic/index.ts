@@ -2,7 +2,7 @@ import type { CharacterArt } from '../../art/CharacterArt';
 import type { Episode } from '../../scenario/types';
 import type { Cam, Storyboard } from '../../storyboard/types';
 import { h } from '../dom';
-import { speakerSide } from './bubbles';
+import { fitBubbles, speakerSide, type FitOpts } from './bubbles';
 import { backgroundLayer, camFor, panelBg } from './background';
 import { applyEdges } from './layout';
 import { buildPanel, type PanelCtx } from './panels';
@@ -42,7 +42,30 @@ export function renderComic(ep: Episode, board: Storyboard, art: CharacterArt, o
     afterTrans = p.t === 'trans';
   }
   applyEdges(out);
+  watchBubbles(out, {});
   return out;
+}
+
+// Bubble outlines need real layout sizes, which only exist once the comic is mounted; remember each
+// comic's options so later refits (font load, width change, Aa size change) redraw the same way.
+const fitOptions = new WeakMap<HTMLElement, FitOpts>();
+
+function watchBubbles(root: HTMLElement, opts: FitOpts): void {
+  fitOptions.set(root, opts);
+  fitBubbles(root, opts);
+  document.fonts?.ready.then(() => fitBubbles(root, opts)).catch(() => {});
+  if (typeof ResizeObserver !== 'undefined') {
+    let lastWidth = -1;
+    new ResizeObserver(entries => {
+      const w = entries[0]?.contentRect.width ?? 0;
+      if (w !== lastWidth) { lastWidth = w; fitBubbles(root, opts); }
+    }).observe(root);
+  }
+}
+
+/** Redraws bubble outlines of every rendered comic under `scope`, e.g. after the reader font size changes. */
+export function refitComics(scope: ParentNode): void {
+  for (const root of scope.querySelectorAll<HTMLElement>('.comic')) fitBubbles(root, fitOptions.get(root) ?? {});
 }
 
 const clamp01 = (n: number) => Math.min(1, Math.max(0, n));

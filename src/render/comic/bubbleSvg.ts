@@ -68,13 +68,17 @@ export function shoutPath(g: BubbleGeom, rnd: () => number): string {
 }
 
 export function cloudCircles(g: BubbleGeom, rnd: () => number): { cx: number; cy: number; r: number }[] {
-  const { cx, cy, x0, y0, x1, y1 } = frame(g);
-  // Centres sit 6px inside the frame so the outer puffs stay within the canvas padding.
-  const rx = (x1 - x0) / 2 - 6, ry = (y1 - y0) / 2 - 6;
+  const { x0, y0, x1, y1 } = frame(g);
+  // Puffs run along a rectangle 6px inside the frame (not an inscribed ellipse) so the white body under them
+  // covers the text box corners; the 6px inset keeps outer puffs within the canvas padding.
+  const l = x0 + 6, t = y0 + 6, w = x1 - x0 - 12, h = y1 - y0 - 12, per = 2 * (w + h);
   const n = Math.max(10, Math.round((g.w / 2 + g.h / 2) / 7));
   return Array.from({ length: n }, (_, k) => {
-    const a = (k / n) * Math.PI * 2;
-    return { cx: n1(cx + rx * Math.cos(a)), cy: n1(cy + ry * Math.sin(a)), r: n1(11 + rnd() * 6) };
+    const s = (per * k) / n;
+    let x: number, y: number;
+    if (s < w) { x = l + s; y = t; } else if (s < w + h) { x = l + w; y = t + s - w; }
+    else if (s < 2 * w + h) { x = l + w - (s - w - h); y = t + h; } else { x = l; y = t + h - (s - 2 * w - h); }
+    return { cx: n1(x), cy: n1(y), r: n1(11 + rnd() * 6) };
   });
 }
 
@@ -101,10 +105,10 @@ export function drawBubble(svg: SVGSVGElement, shape: BubbleShape, tail: Tail, g
   const t = shape === 'box' || shape === 'cut' ? null : tailPath(tail, g);
 
   if (shape === 'cloud') {
-    const { cx, cy, x0, y0, x1, y1 } = frame(g);
+    const { cx, x0, y0, x1, y1 } = frame(g);
     const cs = cloudCircles(g, rnd);
     for (const c of cs) add('circle', { cx: c.cx, cy: c.cy, r: c.r, fill: '#fff', ...ink });
-    add('ellipse', { cx: n1(cx), cy: n1(cy), rx: n1((x1 - x0) / 2 - 6), ry: n1((y1 - y0) / 2 - 6), fill: '#fff', 'data-role': 'body' });
+    add('rect', { x: n1(x0 + 2), y: n1(y0 + 2), width: n1(x1 - x0 - 4), height: n1(y1 - y0 - 4), rx: 14, fill: '#fff', 'data-role': 'body' });
     for (const c of cs) add('circle', { cx: c.cx, cy: c.cy, r: n1(c.r - 1.3), fill: '#fff' });
     if (tail !== 'none') {
       const tx = tail === 'r' ? x1 - 30 : tail === 'c' ? cx : x0 + 30, dir = tail === 'r' ? 1 : tail === 'c' ? 0 : -1;

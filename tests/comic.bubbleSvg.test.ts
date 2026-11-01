@@ -76,7 +76,7 @@ test('框體帶 data-role=body，尾巴與外描邊不帶', () => {
   expect(body[0].getAttribute('fill')).toBe('#fff');
   drawBubble(svg, 'cloud', 'l', g, opts);
   expect(svg.querySelectorAll('[data-role="body"]').length).toBe(1);
-  expect(svg.querySelector('[data-role="body"]')!.tagName).toBe('ellipse');
+  expect(svg.querySelector('[data-role="body"]')!.tagName).toBe('rect');
   for (const s of ['round', 'box', 'phone', 'whisper', 'cut', 'wobble'] as const) {
     drawBubble(svg, s, 'l', g, opts);
     expect(svg.querySelectorAll('[data-role="body"]').length).toBe(1);
@@ -99,4 +99,22 @@ test('whisper 是虛線、shout 描邊 3、phone 淺灰底加訊號塊、cut 與
 test('box 用直角、round 用給定圓角', () => {
   expect(roundPath(g, 18)).toContain('A18,18');
   expect(roundPath(g, 2)).toContain('A2,2');
+});
+
+test('雲朵的填白主體蓋住整個文字方框（四角也蓋到）', () => {
+  const svg = svgEl();
+  drawBubble(svg, 'cloud', 'l', g, opts);
+  const body = svg.querySelector('[data-role="body"]')!;
+  const x = Number(body.getAttribute('x')), y = Number(body.getAttribute('y'));
+  const w = Number(body.getAttribute('width')), hh = Number(body.getAttribute('height'));
+  expect(x).toBeLessThanOrEqual(g.pad); expect(y).toBeLessThanOrEqual(g.pad);
+  expect(x + w).toBeGreaterThanOrEqual(g.pad + g.w); expect(y + hh).toBeGreaterThanOrEqual(g.pad + g.h);
+});
+test('雲朵沿方框周邊排列，四邊都有', () => {
+  const cs = cloudCircles(g, seeded(1));
+  const { pad, w, h } = g;
+  expect(cs.some(c => c.cy < pad + 8)).toBe(true);
+  expect(cs.some(c => c.cy > pad + h - 8)).toBe(true);
+  expect(cs.some(c => c.cx < pad + 8)).toBe(true);
+  expect(cs.some(c => c.cx > pad + w - 8)).toBe(true);
 });

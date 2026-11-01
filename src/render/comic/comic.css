@@ -16,25 +16,23 @@
 .comic .tone-bg { background-image: radial-gradient(var(--tone) 1.1px, transparent 1.5px); background-size: 6px 6px; }
 .comic .bubbles { display: flex; flex-direction: column; gap: 10px; flex: 1; }
 .comic .bb {
-  position: relative; background: var(--bubble); color: var(--bubble-ink); border: 2px solid var(--line-ink);
-  border-radius: 22px; padding: 9px 15px; max-width: 86%; white-space: pre-line; overflow-wrap: anywhere; line-height: 1.55;
+  /* The outline is the SVG .bo behind the text, drawn by fitBubbles; isolation keeps it above panel layers. */
+  position: relative; isolation: isolate; color: var(--bubble-ink); padding: 9px 15px; max-width: 86%;
+  white-space: pre-line; overflow-wrap: anywhere; line-height: 1.55;
 }
+.comic .bb .bo { position: absolute; z-index: -1; overflow: visible; pointer-events: none; }
+.comic .bb .bt { position: relative; }
 .comic .bb.l { align-self: flex-start; }
 .comic .bb.r { align-self: flex-end; }
 .comic .bb.c { align-self: center; }
-.comic .bb::after {
-  content: ""; position: absolute; bottom: -9px; width: 14px; height: 14px; background: var(--bubble);
-  border-right: 2px solid var(--line-ink); border-bottom: 2px solid var(--line-ink);
-}
-.comic .bb.l::after { left: 22px; transform: rotate(45deg) skew(12deg, 12deg); }
-.comic .bb.r::after { right: 22px; transform: rotate(45deg) skew(12deg, 12deg); }
-.comic .bb.c::after { left: calc(50% - 7px); transform: rotate(45deg); }
-.comic .bb.thought { border-style: dotted; border-width: 3px; border-radius: 40px; }
-.comic .bb.thought::after { display: none; }
-.comic .bb.phone { border-radius: 12px; }
-.comic .bb.cut { border-right-style: dashed; border-top-right-radius: 4px; border-bottom-right-radius: 4px; }
-.comic .bb.big { font-size: 1.22em; font-weight: 700; padding: 14px 20px; }
+.comic .bb-shout { padding: 22px 30px; font-weight: 900; text-align: center; }
+.comic .bb-cloud { padding: 16px 22px; font-family: 'Huninn', var(--font-body); }
+.comic .bb-whisper { color: #4a5160; }
+.comic .bb-phone { font-size: .94em; }
+.comic .bb-box { font-family: var(--font-display); line-height: 1.7; }
+.comic .bb.big { font-size: 1.22em; font-weight: 700; }
 .comic .bb.small { font-size: .92em; }
+.comic .bb.huge { font-size: 1.3em; font-weight: 900; max-width: 92%; }
 .comic .stage { display: flex; justify-content: space-between; align-items: flex-end; gap: 8px; }
 .comic .stage .side, .comic .cast { display: flex; gap: 8px; align-items: flex-end; }
 .comic .center { display: flex; justify-content: center; }
@@ -97,7 +95,6 @@
     repeating-conic-gradient(from 0deg at 50% 50%, var(--speed) 0deg 1.1deg, transparent 1.1deg 5deg), var(--impact);
   min-height: 300px; justify-content: center; align-items: center;
 }
-.comic .impact .bb { font-size: 1.3em; font-weight: 700; max-width: 92%; padding: 16px 20px; }
 .comic .beatrow { display: flex; }
 .comic .beatrow.r { justify-content: flex-end; }
 .comic .beat { width: 66%; min-height: 110px; }
@@ -109,21 +106,9 @@
   font-family: var(--font-display); font-weight: 700; font-size: clamp(30px, 10vw, 52px); line-height: 1.1;
   letter-spacing: .04em; color: var(--c-ink); text-wrap: balance;
 }
-.comic .shout-wrap {
-  align-self: center; max-width: 100%; display: grid; gap: 8px;
-  filter: drop-shadow(2px 0 0 var(--line-ink)) drop-shadow(-2px 0 0 var(--line-ink)) drop-shadow(0 2px 0 var(--line-ink)) drop-shadow(0 -2px 0 var(--line-ink));
-}
-.comic .shout {
-  background: var(--bubble); color: var(--bubble-ink); padding: 34px 44px; font-size: 1.4em; font-weight: 700;
-  text-align: center;
-}
+.comic .shout-wrap { align-self: center; max-width: 100%; display: grid; gap: 8px; justify-items: center; }
 .comic .cast { justify-content: center; flex-wrap: wrap; }
 .comic .mono { min-height: 220px; justify-content: center; gap: 14px; }
-.comic .mcap {
-  background: var(--panel); border: 2px solid var(--line-ink); padding: 10px 14px; max-width: 90%;
-  white-space: pre-line; font-family: var(--font-display); line-height: 1.7; align-self: flex-start;
-}
-.comic .mcap.alt { align-self: flex-end; }
 .comic .serious { background-image: linear-gradient(180deg, color-mix(in srgb, var(--line-ink) 8%, transparent), transparent 60%); }
 @media (prefers-reduced-motion: no-preference) {
   .comic .impact .bb { animation: thud .5s cubic-bezier(.2, 1.6, .4, 1) both; animation-timeline: view(); animation-range: entry 10% cover 35%; }
