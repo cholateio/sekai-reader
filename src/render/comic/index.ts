@@ -32,7 +32,7 @@ export function renderComic(ep: Episode, board: Storyboard, art: CharacterArt, o
     lastBg = bgId ?? lastBg;
     const url = bgId && p.t !== 'impact' ? opts.bgUrl(bgId) : null;
     const cam = camFor(p, shot);
-    ctx.decorate = (el, _p, part) => decorate(el, url, part === undefined ? cam : splitCam(part));
+    ctx.decorate = (el, _p, part) => decorate(el, url, part === undefined ? cam : splitCam(part, p.cam));
     const el = buildPanel(p, ctx);
     el.dataset.edge = String(p.edge ?? 0);
     if (sceneStart) el.classList.add('scene-start');
@@ -45,7 +45,10 @@ export function renderComic(ep: Episode, board: Storyboard, art: CharacterArt, o
   return out;
 }
 
-const splitCam = (part: number): Cam => ({ focus: [part ? 0.78 : 0.22, 0.6], zoom: 1.6, blur: 2 });
+const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
+const splitCam = (part: number, cam?: Cam): Cam => cam
+  ? { ...cam, focus: [clamp01(cam.focus[0] + (part ? 0.25 : -0.25)), cam.focus[1]] }
+  : { focus: [part ? 0.78 : 0.22, 0.6], zoom: 1.6, blur: 2 };
 
 function decorate(el: HTMLElement, url: string | null, cam: Cam | null): void {
   if (el.classList.contains('impact')) return;

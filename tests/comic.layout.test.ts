@@ -65,3 +65,10 @@ test('trans 前後不斜切', () => {
   const sfx = root.querySelector('.pn.sfx-pn') as HTMLElement;
   expect(sfx.style.getPropertyValue('--sb')).toBe('0px');
 });
+test('split 有 cam 時兩半格以它為中心左右錯開', () => {
+  const b = syntheticBoard();
+  b.panels[11].cam = { focus: [0.5, 0.3], zoom: 1.4 };
+  const root = renderComic(ep, b, art, { bgUrl: id => `/bg/${id}.webp` });
+  const pos = [...root.querySelectorAll('.split .bgl')].map(e => (e as HTMLElement).style.backgroundPosition);
+  expect(pos).toEqual(['25% 30%', '75% 30%']);
+});
