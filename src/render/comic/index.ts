@@ -1,8 +1,10 @@
 import type { CharacterArt } from '../../art/CharacterArt';
 import type { Episode } from '../../scenario/types';
-import type { Storyboard } from '../../storyboard/types';
+import type { Cam, Storyboard } from '../../storyboard/types';
 import { h } from '../dom';
 import { speakerSide } from './bubbles';
+import { backgroundLayer, camFor, panelBg } from './background';
+import { applyEdges } from './layout';
 import { buildPanel, type PanelCtx } from './panels';
 import './comic.css';
 
@@ -19,16 +21,38 @@ export function renderComic(ep: Episode, board: Storyboard, art: CharacterArt, o
   };
   let rows = 0;
   let afterTrans = false;
+  let lastBg: string | null = ep.firstBg;
+  let shot = 0;
   for (const p of board.panels) {
     if (p.t === 'trans') ctx.sides.reset();
     const sceneStart = p.t === 'est' && rows > 0 && !afterTrans;
     if (sceneStart) ctx.sides.reset();
+    if (p.t === 'est') shot = 0;
+    const bgId = panelBg(p, ep, lastBg);
+    lastBg = bgId ?? lastBg;
+    const url = bgId && p.t !== 'impact' ? opts.bgUrl(bgId) : null;
+    const cam = camFor(p, shot);
+    ctx.decorate = (el, _p, part) => decorate(el, url, part === undefined ? cam : splitCam(part));
     const el = buildPanel(p, ctx);
+    el.dataset.edge = String(p.edge ?? 0);
     if (sceneStart) el.classList.add('scene-start');
     out.append(el);
     rows++;
+    shot++;
     afterTrans = p.t === 'trans';
   }
-  void opts;
+  applyEdges(out);
   return out;
+}
+
+const splitCam = (part: number): Cam => ({ focus: [part ? 0.78 : 0.22, 0.6], zoom: 1.6, blur: 2 });
+
+function decorate(el: HTMLElement, url: string | null, cam: Cam | null): void {
+  if (el.classList.contains('impact')) return;
+  if (!url || !cam) { el.classList.add('tone-bg'); return; }
+  el.classList.add('has-bg');
+  el.classList.remove('tone-bg');
+  const layer = backgroundLayer(url, cam);
+  el.prepend(layer);
+  if (el.classList.contains('closeup') || el.classList.contains('pop')) layer.after(h('div', { class: 'tint', 'aria-hidden': 'true' }));
 }
