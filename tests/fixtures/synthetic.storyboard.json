@@ -1,0 +1,18 @@
+{
+  "meta": { "director": "ai", "promptVersion": "test", "model": "hand-written fixture", "generatedAt": "2026-11-01" },
+  "panels": [
+    { "t": "est", "caps": [0, 1], "tone": "day", "cam": { "focus": [0.5, 0.5], "zoom": 1 }, "edge": 0 },
+    { "t": "talk", "l": [0], "edge": 1 },
+    { "t": "close", "l": [1], "fx": "blush", "edge": -1 },
+    { "t": "insert", "l": [2], "edge": 1 },
+    { "t": "shout", "l": [3], "cast": ["一歌", "咲希", "穗波", "志步"], "edge": 0 },
+    { "t": "mono", "l": [4], "edge": -1 },
+    { "t": "pop", "l": [5], "fx": "sparkle", "edge": 1 },
+    { "t": "beat", "l": [6], "edge": -1 },
+    { "t": "sfx", "sfx": "轟隆", "edge": 0 },
+    { "t": "trans", "caps": [2], "edge": 0 },
+    { "t": "impact", "edge": 0 },
+    { "t": "split", "l": [8, 9], "edge": 1 },
+    { "t": "reveal", "l": [10], "edge": 0 }
+  ]
+}
