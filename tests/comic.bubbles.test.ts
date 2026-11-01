@@ -23,9 +23,10 @@ test('bubble 可指定文字與額外 class', () => {
   expect(el.className).toBe('bb bb-shout c huge');
   expect(el.querySelector('.bt')!.textContent).toBe('改寫');
 });
-test('box 與 cut 沒有尾巴，其餘依側邊', () => {
+test('box、cut、shout 沒有尾巴，其餘依側邊', () => {
   expect(bubble(line, 'l', 'box').getAttribute('data-tail')).toBe('none');
   expect(bubble(line, 'r', 'cut').getAttribute('data-tail')).toBe('none');
+  expect(bubble(line, 'l', 'shout').getAttribute('data-tail')).toBe('none');  // spiky body has no edge for a tail to attach to
   expect(bubble(line, 'r', 'round').getAttribute('data-tail')).toBe('r');
   expect(bubble(line, 'c', 'cloud').getAttribute('data-tail')).toBe('c');
 });

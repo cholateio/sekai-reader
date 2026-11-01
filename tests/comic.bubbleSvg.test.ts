@@ -118,3 +118,21 @@ test('雲朵沿方框周邊排列，四邊都有', () => {
   expect(cs.some(c => c.cx < pad + 8)).toBe(true);
   expect(cs.some(c => c.cx > pad + w - 8)).toBe(true);
 });
+test('寬吶喊框的尖刺伸出量有上限（不隨寬度放大）', () => {
+  const wide = { w: 330, h: 70, pad: 16 };
+  for (let seed = 1; seed <= 20; seed++) {
+    for (const [x, y] of pairs(shoutPath(wide, seeded(seed)))) {
+      expect(x).toBeGreaterThanOrEqual(wide.pad - 14);
+      expect(x).toBeLessThanOrEqual(wide.pad + wide.w + 14);
+      expect(y).toBeGreaterThanOrEqual(wide.pad - 14);
+      expect(y).toBeLessThanOrEqual(wide.pad + wide.h + 14);
+    }
+  }
+});
+test('團體圓角只套在普通框，虛線框維持預設圓角', () => {
+  const svg = svgEl();
+  drawBubble(svg, 'whisper', 'l', g, { ...opts, radius: 6 });
+  expect(svg.querySelector('[data-role="body"]')!.getAttribute('d')).toContain('A18,18');
+  drawBubble(svg, 'round', 'l', g, { ...opts, radius: 6 });
+  expect(svg.querySelector('[data-role="body"]')!.getAttribute('d')).toContain('A6,6');
+});

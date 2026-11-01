@@ -9,6 +9,7 @@ const NS = 'http://www.w3.org/2000/svg';
 const INK_W = 2.5;
 const TAIL_DROP = 12;
 const PHONE_FILL = '#eef1f6';
+const DEFAULT_RADIUS = 18;
 
 // Paths use absolute coordinates only so every "x,y" pair in `d` is a real canvas point.
 const n1 = (v: number) => Math.round(v * 10) / 10;
@@ -56,13 +57,20 @@ export function wobblePath(g: BubbleGeom, rnd: () => number): string {
 
 export function shoutPath(g: BubbleGeom, rnd: () => number): string {
   const { cx, cy, x0, y0, x1, y1 } = frame(g);
-  const rx = (x1 - x0) / 2 + 2, ry = (y1 - y0) / 2 + 2;
+  const rx = (x1 - x0) / 2, ry = (y1 - y0) / 2;
   const n = Math.max(18, Math.round((rx + ry) / 9));
   const pts: string[] = [];
   for (let k = 0; k < n; k++) {
     const a = (k / n) * Math.PI * 2 + (rnd() - 0.5) * 0.12;
-    const f = k % 2 ? 0.8 + rnd() * 0.06 : 1 + rnd() * 0.1;
-    pts.push(pt(cx + rx * f * Math.cos(a), cy + ry * f * Math.sin(a)));
+    const ex = Math.cos(a), ey = Math.sin(a);
+    if (k % 2) {
+      const f = 0.8 + rnd() * 0.06;
+      pts.push(pt(cx + rx * f * ex, cy + ry * f * ey));
+    } else {
+      // Spike length is absolute (4–10px past the frame) so wide bubbles never outgrow the panel padding.
+      const spike = 4 + rnd() * 6;
+      pts.push(pt(cx + (rx + spike) * ex, cy + (ry + spike) * ey));
+    }
   }
   return `M${pts.join('L')}Z`;
 }
@@ -130,7 +138,8 @@ export function drawBubble(svg: SVGSVGElement, shape: BubbleShape, tail: Tail, g
   } else if (shape === 'cut') {
     d = cutPath(g);
   } else {
-    d = roundPath(g, shape === 'box' ? 2 : shape === 'phone' ? 8 : opts.radius);
+    // opts.radius is the unit's round-bubble style; other rounded shapes keep their own radius.
+    d = roundPath(g, shape === 'box' ? 2 : shape === 'phone' ? 8 : shape === 'round' ? opts.radius : DEFAULT_RADIUS);
     if (shape === 'phone') body.fill = PHONE_FILL;
     if (shape === 'whisper') Object.assign(body, { 'stroke-width': 2, 'stroke-dasharray': '7 5' });
   }

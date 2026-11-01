@@ -29,7 +29,7 @@ export function lineEl(tag: string, cls: string, line: Line, text: string = line
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const PAD = 16;
 const INK = '#14161b';
-const TAILLESS: ReadonlySet<BubbleShape> = new Set(['box', 'cut']);
+const TAILLESS: ReadonlySet<BubbleShape> = new Set(['box', 'cut', 'shout']);
 
 /**
  * Text lives in normal DOM (.bt); the outline is an SVG (.bo) behind it, drawn later by fitBubbles once the
