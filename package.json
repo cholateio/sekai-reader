@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "test": "vitest run && npm run -s test:py",
     "build:episode": "tsx scripts/build_episode.ts",
-    "test:py": "python3 -m unittest discover -s tests -p \"test_*.py\""
+    "test:py": "python3 -m unittest discover -s tests -p \"test_*.py\"",
+    "check:layout": "tsx scripts/check_layout.ts"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",

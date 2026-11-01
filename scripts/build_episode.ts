@@ -42,11 +42,12 @@ async function main(): Promise<number> {
   }
 
   const manifest = {
+    episodes: readdirSync(join(PUB, 'episodes')).filter(f => f.endsWith('.json')).map(f => f.slice(0, -5)).sort(),
     bg: readdirSync(join(PUB, 'bg')).filter(f => f.endsWith('.webp')).map(f => f.slice(0, -5)).sort(),
     sd: readdirSync(join(PUB, 'sd')).map(f => /^chr_sd_(\d+)_01\.webp$/.exec(f)).filter(m => m).map(m => Number(m![1])).sort((a, b) => a - b),
   };
   writeFileSync(join(PUB, 'manifest.json'), JSON.stringify(manifest));
-  console.log(`manifest: bg=${manifest.bg.join(',')} sd=${manifest.sd.join(',')}`);
+  console.log(`manifest: episodes=${manifest.episodes.join(',')} bg=${manifest.bg.join(',')} sd=${manifest.sd.join(',')}`);
 
   if (missing.length) { console.error(`missing backgrounds: ${missing.join(', ')}`); return 1; }
   return 0;

@@ -34,8 +34,8 @@ function stage(ctx: PanelCtx, L: Line[]): HTMLElement | null {
   return h('div', { class: 'stage' }, h('span', { class: 'side' }, byside('l')), h('span', { class: 'side' }, byside('r')));
 }
 
-const bubbles = (ctx: PanelCtx, L: Line[], cut: Set<number> = new Set(), extra = '') =>
-  h('div', { class: 'bubbles' }, L.map(x => bubble(x, ctx.sides.side(x.who), (cut.has(x.r) ? ' cut' : '') + extra)));
+const bubbles = (ctx: PanelCtx, L: Line[], cut: Set<number> = new Set(), extra = '', side?: string) =>
+  h('div', { class: 'bubbles' }, L.map(x => bubble(x, side ?? ctx.sides.side(x.who), (cut.has(x.r) ? ' cut' : '') + extra)));
 
 const SHOUT_SHAPE = shoutShape();
 
@@ -73,7 +73,8 @@ export function buildPanel(p: Panel, ctx: PanelCtx): HTMLElement {
       return pn('insert-pn', h('div', { class: 'insert' },
         L.map(x => [h('small', {}, `${x.who || '旁白'} 唸出的內容`), lineEl('span', 'itext', x)])));
     case 'close': {
-      const el = pn(`closeup${tone}`, chip(ctx, L[0], 'lg'), bubbles(ctx, L));
+      // The close-up figure always sits on the left of the grid, so tails point left.
+      const el = pn(`closeup${tone}`, chip(ctx, L[0], 'lg'), bubbles(ctx, L, undefined, '', 'l'));
       el.style.setProperty('--hue', colorOf(L[0]?.who ?? ''));
       if (p.fx === 'blush') el.append(h('span', { class: 'fx blush', 'aria-hidden': 'true' }, '///'));
       return el;

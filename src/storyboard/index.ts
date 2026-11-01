@@ -10,3 +10,10 @@ export function resolveStoryboard(input: unknown, ep: Episode): Storyboard {
   console.warn(`storyboard for ${ep.sid} rejected, using rules`, res.errors);
   return autoBoard(ep);
 }
+
+// Storyboards are committed to git and bundled at build time; dialogue never is.
+const BOARDS = import.meta.glob('../../storyboards/*.json', { eager: true, import: 'default' }) as Record<string, unknown>;
+
+export function loadStoryboard(sid: string): unknown {
+  return BOARDS[`../../storyboards/${sid}.json`];
+}

@@ -71,3 +71,11 @@ test('姓＋名與名同一側', () => {
   expect(s.side('咲希')).toBe('r');
   expect(s.side('星乃一歌')).toBe('l');
 });
+test('特寫格對白框尾巴指向左側的角色', () => {
+  const b = syntheticBoard();
+  b.panels[2] = { t: 'talk', l: [1] };
+  b.panels[3] = { t: 'close', l: [2] };  // 咲希 is the second speaker in the scene, so her side is 'r'
+  const bb = render(b).querySelector('.closeup [data-r="2"]')!;
+  expect(bb.classList.contains('l')).toBe(true);
+  expect(bb.classList.contains('r')).toBe(false);
+});
