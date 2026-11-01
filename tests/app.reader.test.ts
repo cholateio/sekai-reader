@@ -4,6 +4,7 @@ import { startApp } from '../src/app/router';
 import { loadEpisode, loadManifest } from '../src/app/load';
 import { viewReader } from '../src/app/views/reader';
 import { prefs } from '../src/app/storage';
+import { refitComics } from '../src/render/comic';
 import { parseScenario } from '../src/scenario/parse';
 import type { RawScenario } from '../src/scenario/types';
 import { loadStoryboard, resolveStoryboard } from '../src/storyboard';
@@ -113,4 +114,54 @@ test('重開已讀完的話數不會把進度覆寫成 0', async () => {
   window.dispatchEvent(new Event('scroll'));
   expect(prefs.get('pos:event_173_01', 0)).toBe(0.9999);
   delete (document.documentElement as any).scrollHeight;
+});
+
+test('黑白開關只在漫畫模式，切換後記住', () => {
+  prefs.set('mode', 'comic');
+  mount(viewReader(ep, syntheticBoard(), ctx()));
+  const btn = document.querySelector('[aria-label="黑白"]') as HTMLButtonElement;
+  expect(btn).not.toBeNull();
+  btn.click();
+  expect(document.body.classList.contains('bw')).toBe(true);
+  expect(prefs.get('bw', false)).toBe(true);
+  expect(btn.getAttribute('aria-pressed')).toBe('true');
+  prefs.set('mode', 'chat');
+  mount(viewReader(ep, syntheticBoard(), ctx()));
+  expect(document.querySelector('[aria-label="黑白"]')).toBeNull();
+  expect(document.body.classList.contains('bw')).toBe(false);
+});
+test('prefs 接受 bw 鍵', () => { prefs.set('bw', true); expect(prefs.get('bw', false)).toBe(true); });
+test('重新載入時依偏好套上 bw', () => {
+  prefs.set('mode', 'comic'); prefs.set('bw', true);
+  mount(viewReader(ep, syntheticBoard(), ctx()));
+  expect(document.body.classList.contains('bw')).toBe(true);
+  expect((document.querySelector('[aria-label="黑白"]') as HTMLElement).getAttribute('aria-pressed')).toBe('true');
+});
+test('離開閱讀頁時拿掉 bw', async () => {
+  prefs.set('bw', true);
+  vi.stubGlobal('fetch', vi.fn(async (u: string) => u === '/manifest.json' ? Response.json({ bg: [], sd: [], episodes: [] }) : new Response('', { status: 404 })));
+  document.body.classList.add('bw');
+  history.replaceState(null, '', '#library');
+  await startApp(document.createElement('div'));
+  expect(document.body.classList.contains('bw')).toBe(false);
+});
+test('Aa 改字級後對白框依新尺寸重畫（舊外框被換掉）', () => {
+  prefs.set('mode', 'comic');
+  mount(viewReader(ep, syntheticBoard(), ctx()));
+  const bb = document.querySelector('.bb') as HTMLElement;
+  let rect = { width: 200, height: 60 };
+  bb.getBoundingClientRect = () => ({ ...rect, x: 0, y: 0, top: 0, left: 0, right: rect.width, bottom: rect.height, toJSON() {} }) as DOMRect;
+  refitComics(document);
+  const svg = bb.querySelector('svg.bo')!;
+  expect(svg.getAttribute('viewBox')).toBe('0 0 232 92');
+  const d1 = svg.querySelector('[data-role="body"]')!.getAttribute('d');
+  rect = { width: 300, height: 90 };
+  (document.querySelector('[aria-label="放大字級"]') as HTMLElement).click();
+  expect(svg.getAttribute('viewBox')).toBe('0 0 332 122');
+  expect(svg.querySelector('[data-role="body"]')!.getAttribute('d')).not.toBe(d1);
+});
+test('閱讀頁把活動團體傳給漫畫', () => {
+  prefs.set('mode', 'comic');
+  mount(viewReader(ep, syntheticBoard(), { ...ctx(), unit: { accent: '#4455dd', glyph: '✦', roundRadius: 18, monoShape: 'cloud' } }));
+  expect(document.querySelector('.comic.has-unit')).not.toBeNull();
 });

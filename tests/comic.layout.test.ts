@@ -26,7 +26,8 @@ test('backgroundLayer 樣式', () => {
   expect(el.style.backgroundImage).toContain('/bg/x.webp');
   expect(el.style.backgroundPosition).toBe('25% 50%');
   expect(el.style.transform).toBe('scale(1.5)');
-  expect(el.style.filter).toContain('blur(2px)');
+  expect(el.style.getPropertyValue('--blur')).toBe('2px');
+  expect(el.style.filter).toBe('');
 });
 test('panelBg 的後備順序', () => {
   expect(panelBg({ t: 'talk', bg: 'bg_x', l: [0] }, ep, null)).toBe('bg_x');
@@ -175,3 +176,4 @@ test('狀聲字：sfx 格反相、est 有 sfx 才出現、impact 有 sfx 才出�
   expect(r2.querySelector('.pn.est .sfx:not(.ink)')!.textContent).toBe('sasa');
   expect(r2.querySelector('.pn.impact .sfx')!.textContent).toBe('don');
 });
+test('沒有 blur 時 --blur 為空', () => expect(backgroundLayer('/bg/x.webp', { focus: [0.5, 0.5], zoom: 1 }).style.getPropertyValue('--blur')).toBe(''));

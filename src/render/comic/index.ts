@@ -4,11 +4,12 @@ import type { Cam, Panel, Storyboard } from '../../storyboard/types';
 import { h } from '../dom';
 import { fitBubbles, speakerSide, type FitOpts } from './bubbles';
 import { backgroundLayer, camFor, panelBg } from './background';
+import type { UnitFlavor } from './flavor';
 import { applyEdges } from './layout';
 import { buildPanel, type PanelCtx } from './panels';
 import './comic.css';
 
-export interface ComicOptions { bgUrl: (id: string) => string | null }
+export interface ComicOptions { bgUrl: (id: string) => string | null; unit?: UnitFlavor | null }
 
 export function renderComic(ep: Episode, board: Storyboard, art: CharacterArt, opts: ComicOptions): HTMLElement {
   const out = h('div', { class: 'comic' },
@@ -18,7 +19,12 @@ export function renderComic(ep: Episode, board: Storyboard, art: CharacterArt, o
   const ctx: PanelCtx = {
     ep, art, lines: new Map(ep.lines.map(l => [l.r, l])), sides: speakerSide(),
     decorate: () => {},
+    flavor: opts.unit ?? null,
   };
+  if (opts.unit) {
+    out.classList.add('has-unit');
+    out.style.setProperty('--unit', opts.unit.accent);
+  }
   let rows = 0;
   let afterTrans = false;
   let lastBg: string | null = ep.firstBg;
@@ -34,6 +40,7 @@ export function renderComic(ep: Episode, board: Storyboard, art: CharacterArt, o
     const cam = camFor(p, shot);
     ctx.decorate = (el, _p, part) => decorate(el, url, part === undefined ? cam : splitCam(part, p.cam), part === undefined ? p : null);
     const el = buildPanel(p, ctx);
+    if (opts.unit && GLYPH_PANELS.has(p.t)) el.append(h('span', { class: 'glyph', 'aria-hidden': 'true' }, opts.unit.glyph));
     el.dataset.edge = String(p.edge ?? 0);
     if (sceneStart) el.classList.add('scene-start');
     out.append(el);
@@ -42,7 +49,7 @@ export function renderComic(ep: Episode, board: Storyboard, art: CharacterArt, o
     afterTrans = p.t === 'trans';
   }
   applyEdges(out);
-  watchBubbles(out, {});
+  watchBubbles(out, opts.unit ? { roundRadius: opts.unit.roundRadius } : {});
   return out;
 }
 
@@ -67,6 +74,8 @@ function watchBubbles(root: HTMLElement, opts: FitOpts): void {
 export function refitComics(scope: ParentNode): void {
   for (const root of scope.querySelectorAll<HTMLElement>('.comic')) fitBubbles(root, fitOptions.get(root) ?? {});
 }
+
+const GLYPH_PANELS = new Set(['est', 'shout', 'impact']);
 
 const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 // part 0/1 = left/right half of split and pair panels; part 2 = the small inset frame.

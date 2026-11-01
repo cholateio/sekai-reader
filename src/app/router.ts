@@ -3,6 +3,7 @@ import { loadStoryboard, resolveStoryboard } from '../storyboard';
 import { eventById } from './catalog';
 import { loadEpisode, loadManifest, type Manifest } from './load';
 import { prefs } from './storage';
+import { unitFlavor } from './units';
 import { viewMissing } from './views/common';
 import { viewEvent } from './views/event';
 import { viewLibrary } from './views/library';
@@ -28,7 +29,7 @@ function onScroll(): void {
 }
 
 async function route(r: string, manifest: Manifest): Promise<{ nodes: HTMLElement[]; restore: number }> {
-  document.body.classList.remove('paper');
+  document.body.classList.remove('paper', 'bw');
   posKey = null;
   if (r === 'library') return { nodes: viewLibrary(manifest), restore: 0 };
   let m = /^event-(\d+)$/.exec(r);
@@ -46,7 +47,7 @@ async function route(r: string, manifest: Manifest): Promise<{ nodes: HTMLElemen
     posKey = sid;
     return {
       nodes: viewReader(ep, resolveStoryboard(loadStoryboard(sid), ep), {
-        title: `第 ${no} 話 ${title}`, sub: ev.name, back: `event-${id}`, manifest,
+        title: `第 ${no} 話 ${title}`, sub: ev.name, back: `event-${id}`, manifest, unit: unitFlavor(ev.unit),
         next: nx ? { title: nx[1], href: manifest.episodes.includes(nx[2]) ? `read-${id}-${nx[0]}` : null } : null,
       }),
       restore: prefs.get(`pos:${sid}`, 0),

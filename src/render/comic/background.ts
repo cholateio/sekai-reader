@@ -29,7 +29,8 @@ export function backgroundLayer(url: string, cam: Cam): HTMLElement {
   el.style.backgroundPosition = pos;
   el.style.transform = `scale(${cam.zoom})`;
   el.style.transformOrigin = pos;
-  if (cam.blur) el.style.filter = `blur(${cam.blur}px) saturate(1.1)`;
+  // Blur goes through a custom property so the stylesheet can compose it with grayscale (black-and-white mode).
+  if (cam.blur) el.style.setProperty('--blur', `${cam.blur}px`);
   return el;
 }
 

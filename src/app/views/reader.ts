@@ -1,6 +1,7 @@
 import { StaticChibiArt } from '../../art/StaticChibiArt';
 import { renderChat } from '../../render/chat';
-import { renderComic } from '../../render/comic';
+import { refitComics, renderComic } from '../../render/comic';
+import type { UnitFlavor } from '../../render/comic/flavor';
 import { h } from '../../render/dom';
 import type { Episode } from '../../scenario/types';
 import type { Storyboard } from '../../storyboard/types';
@@ -15,6 +16,8 @@ export interface ReaderCtx {
   manifest: Manifest;
   /** Next episode in the same event; href null when it is not available yet. */
   next: { title: string; href: string | null } | null;
+  /** Unit easter egg for the comic; null/undefined for mixed events. */
+  unit?: UnitFlavor | null;
 }
 
 const SIZE_MIN = 13, SIZE_MAX = 22, SIZE_DEFAULT = 16;
@@ -22,6 +25,8 @@ const SIZE_MIN = 13, SIZE_MAX = 22, SIZE_DEFAULT = 16;
 export function applyPrefs(): void {
   document.documentElement.style.setProperty('--reader-size', `${prefs.get('size', SIZE_DEFAULT)}px`);
   document.body.classList.toggle('nomood', !prefs.get('mood', true));
+  // Black-and-white only affects the comic's backgrounds and chibi art.
+  document.body.classList.toggle('bw', prefs.get('mode', 'comic') === 'comic' && prefs.get('bw', false));
 }
 
 export function viewReader(ep: Episode, board: Storyboard, ctx: ReaderCtx): HTMLElement[] {
@@ -31,12 +36,13 @@ export function viewReader(ep: Episode, board: Storyboard, ctx: ReaderCtx): HTML
   const bg = new Set(ctx.manifest.bg);
   const body = mode === 'comic'
     ? renderComic(ep, board, new StaticChibiArt('/sd', ctx.manifest.sd.length ? ctx.manifest.sd : undefined),
-      { bgUrl: id => (bg.has(id) ? `/bg/${id}.webp` : null) })
+      { bgUrl: id => (bg.has(id) ? `/bg/${id}.webp` : null), unit: ctx.unit ?? null })
     : renderChat(ep);
 
   const setSize = (d: number) => {
     prefs.set('size', Math.min(SIZE_MAX, Math.max(SIZE_MIN, prefs.get('size', SIZE_DEFAULT) + d)));
     applyPrefs();
+    refitComics(document);
   };
   const tools = h('div', { class: 'tools', hidden: true },
     h('button', { class: 'iconbtn', 'aria-label': '縮小字級', onclick: () => setSize(-1) }, 'A−'),
@@ -49,7 +55,15 @@ export function viewReader(ep: Episode, board: Storyboard, ctx: ReaderCtx): HTML
         (ev.currentTarget as HTMLElement).setAttribute('aria-pressed', String(v));
         applyPrefs();
       },
-    }, '表情') : null);
+    }, '表情') : h('button', {
+      class: 'iconbtn', 'aria-pressed': String(prefs.get('bw', false)), 'aria-label': '黑白',
+      onclick: (ev: Event) => {
+        const v = !prefs.get('bw', false);
+        prefs.set('bw', v);
+        (ev.currentTarget as HTMLElement).setAttribute('aria-pressed', String(v));
+        applyPrefs();
+      },
+    }, '黑白'));
   const setMode = (m: 'comic' | 'chat') => { prefs.set('mode', m); rerender(); };
 
   const end = h('div', { class: 'end' });

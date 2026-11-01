@@ -154,3 +154,25 @@ test('insert 有白霧與紙片', () => {
   expect(el.querySelector('.insert [data-r]')).not.toBeNull();
 });
 test('每句台詞剛好出現一次（含 pair、inset）', () => expect(rsOf(render())).toEqual(ep.lines.map(l => l.r)));
+
+import { unitFlavor } from '../src/app/units';
+test('團體彩蛋：字幕色、角落圖案', () => {
+  const root = renderComic(ep, syntheticBoard(), art, { bgUrl: () => null, unit: unitFlavor('light_sound') });
+  expect(root.classList.contains('has-unit')).toBe(true);
+  expect(root.style.getPropertyValue('--unit')).toBe('#4455dd');
+  expect(root.querySelector('.pn.est .glyph')!.textContent).toBe('✦');
+  expect(root.querySelector('.pn.shout-pn .glyph')).not.toBeNull();
+  expect(root.querySelector('.pn.impact .glyph')).not.toBeNull();
+  expect(root.querySelector('.pn.talk .glyph')).toBeNull();
+});
+test('沒有團體時沒有任何點綴', () => {
+  const root = renderComic(ep, syntheticBoard(), art, { bgUrl: () => null, unit: null });
+  expect(root.classList.contains('has-unit')).toBe(false);
+  expect(root.querySelector('.glyph')).toBeNull();
+});
+test('目錄缺 unit 欄位不丟例外', () =>
+  expect(() => renderComic(ep, syntheticBoard(), art, { bgUrl: () => null, unit: unitFlavor(undefined) })).not.toThrow());
+test('25時 的心聲格用 whisper', () => {
+  const root = renderComic(ep, syntheticBoard(), art, { bgUrl: () => null, unit: unitFlavor('school_refusal') });
+  expect(root.querySelector('[data-r="4"]')!.classList.contains('bb-whisper')).toBe(true);
+});
