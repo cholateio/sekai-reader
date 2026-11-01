@@ -118,3 +118,39 @@ test('每個 .bb 都有 svg.bo，每句台詞都在 .bb 或剪貼格裡', () => 
   for (const bb of root.querySelectorAll('.bb')) expect(bb.querySelector('svg.bo')).not.toBeNull();
   for (const el of root.querySelectorAll('[data-r]')) expect(el.classList.contains('bb') || el.classList.contains('itext')).toBe(true);
 });
+
+test('beat 滿版橫排、網點在說話者對側', () => {
+  const root = render();
+  const beat = root.querySelector('.pn.beat')!;
+  expect(root.querySelector('.beatrow')).toBeNull();
+  const side = ['l', 'r'].find(s => beat.querySelector('.bb')!.classList.contains(s));
+  expect(beat.querySelector(`.fx-tone-${side === 'l' ? 'r' : 'l'}`)).not.toBeNull();
+  expect(beat.querySelector('img.sd, .circle')).not.toBeNull();
+});
+test('pair 兩半各一句各一人', () => {
+  const pair = render().querySelector('.pair')!;
+  const halves = pair.querySelectorAll('.pn.half');
+  expect(halves.length).toBe(2);
+  for (const hf of halves) { expect(hf.querySelectorAll('[data-r]').length).toBe(1); expect(hf.querySelector('.cc')).not.toBeNull(); }
+});
+test('inset 只有兩句（合成分鏡）時大小格各一句', () => {
+  const el = render().querySelector('.pn.inset-pn')!;
+  const small = el.querySelector('.inset')!;
+  expect(small.querySelector('[data-r]')!.getAttribute('data-r')).toBe('2');
+  expect(el.querySelectorAll(':scope > .bubbles [data-r]').length).toBe(1);
+  expect(small.querySelector('.cc')).not.toBeNull();
+});
+test('inset 三句時大格兩句、小格最後一句', () => {
+  const b = syntheticBoard();
+  const ins = b.panels.find(x => x.t === 'inset')!; ins.l = [1, 2, 3]; delete ins.shape;
+  delete b.panels.find(x => x.t === 'close')!.l;
+  const el = render(b).querySelector('.pn.inset-pn')!;
+  expect(el.querySelectorAll(':scope > .bubbles [data-r]').length).toBe(2);
+  expect(el.querySelector('.inset [data-r]')!.getAttribute('data-r')).toBe('3');
+});
+test('insert 有白霧與紙片', () => {
+  const el = render().querySelector('.pn.insert-pn')!;
+  expect(el.querySelector('.fx-wash')).not.toBeNull();
+  expect(el.querySelector('.insert [data-r]')).not.toBeNull();
+});
+test('每句台詞剛好出現一次（含 pair、inset）', () => expect(rsOf(render())).toEqual(ep.lines.map(l => l.r)));

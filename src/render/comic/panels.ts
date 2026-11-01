@@ -67,7 +67,7 @@ export function buildPanel(p: Panel, ctx: PanelCtx): HTMLElement {
         L.length ? bubbles(ctx, p, L) : null, stage(ctx, L));
     }
     case 'insert':
-      return pn('insert-pn', h('div', { class: 'insert' },
+      return pn('insert-pn', h('div', { class: 'fx fx-wash', 'aria-hidden': 'true' }), h('div', { class: 'insert' },
         L.map(x => [h('small', {}, `${x.who || '旁白'} 唸出的內容`), lineEl('span', 'itext', x)])));
     case 'close': {
       // The close-up figure always sits on the left of the grid, so tails point left.
@@ -83,8 +83,25 @@ export function buildPanel(p: Panel, ctx: PanelCtx): HTMLElement {
       return el;
     }
     case 'beat': {
-      const s = L[0] ? ctx.sides.side(L[0].who) : 'l';
-      return h('div', { class: `beatrow ${s === 'r' ? 'r' : 'l'}` }, pn('beat tone-bg', bubbles(ctx, p, L), stage(ctx, L)));
+      // Full-width short panel: figure on the speaker's side, bubble next to it, tone fills the far side.
+      const sp = L[0] && ctx.sides.side(L[0].who) === 'r' ? 'r' : 'l';
+      return pn(`beat beat-${sp}`, h('div', { class: `fx fx-tone-${sp === 'l' ? 'r' : 'l'}`, 'aria-hidden': 'true' }),
+        chip(ctx, L[0]), bubbles(ctx, p, L, '', sp));
+    }
+    case 'pair':
+      return h('div', { class: 'pair' }, L.map((x, k) => {
+        const side: Side = k ? 'r' : 'l';
+        const el = h('div', { class: `pn half half-${side}` }, h('div', { class: 'bubbles' }, bub(ctx, p, x, side)),
+          h('div', { class: `stage stage-${side}` }, chip(ctx, x)));
+        ctx.decorate(el, p, k);
+        return el;
+      }));
+    case 'inset': {
+      if (L.length < 2) return pn(`talk${tone}`, bubbles(ctx, p, L), stage(ctx, L));
+      const big = L.slice(0, -1), last = L[L.length - 1];
+      const small = h('div', { class: 'inset' }, bub(ctx, p, last, 'c'), h('div', { class: 'center' }, chip(ctx, last)));
+      ctx.decorate(small, p, 2);
+      return pn(`inset-pn${tone}`, caps.map(c => h('span', { class: 'cap' }, c.text)), bubbles(ctx, p, big), stage(ctx, big), small);
     }
     case 'split':
       return h('div', { class: 'split' }, L.map((x, k) => {

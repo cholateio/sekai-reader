@@ -3,7 +3,7 @@ import { h } from '../dom';
 type Kind = 'bleed' | 'pn' | 'flat';
 const kindOf = (r: Element): Kind =>
   r.classList.contains('pn') ? (r.classList.contains('est') ? 'bleed' : 'pn')
-    : r.classList.contains('beatrow') || r.classList.contains('split') ? 'pn' : 'flat';
+    : r.classList.contains('split') || r.classList.contains('pair') ? 'pn' : 'flat';
 
 // Extra space kept above an est that starts a new scene without a trans card (pacing beat).
 const SCENE_GAP = 20;
@@ -31,10 +31,7 @@ export function applyEdges(root: HTMLElement, S = 22, G = 10, INK = 2.5): void {
     const db = k < dirs.length ? dirs[k] : 0;
     let parts: [HTMLElement, number, number][];
     if (row.classList.contains('pn')) parts = [[row, 0, 1]];
-    else if (row.classList.contains('beatrow')) {
-      const right = row.classList.contains('r');
-      parts = [[row.firstElementChild as HTMLElement, right ? 0.34 : 0, right ? 1 : 0.66]];
-    } else if (row.classList.contains('split')) {
+    else if (row.classList.contains('split') || row.classList.contains('pair')) {
       const n = row.children.length;
       parts = [...row.children].map((c, i) => [c as HTMLElement, i / n, (i + 1) / n]);
     } else return;

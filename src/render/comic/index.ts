@@ -69,9 +69,12 @@ export function refitComics(scope: ParentNode): void {
 }
 
 const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
-const splitCam = (part: number, cam?: Cam): Cam => cam
-  ? { ...cam, focus: [clamp01(cam.focus[0] + (part ? 0.25 : -0.25)), cam.focus[1]] }
-  : { focus: [part ? 0.78 : 0.22, 0.6], zoom: 1.6, blur: 2 };
+// part 0/1 = left/right half of split and pair panels; part 2 = the small inset frame.
+const splitCam = (part: number, cam?: Cam): Cam => part === 2
+  ? { focus: cam?.focus ?? [0.75, 0.6], zoom: 2, blur: 2 }
+  : cam
+    ? { ...cam, focus: [clamp01(cam.focus[0] + (part ? 0.25 : -0.25)), cam.focus[1]] }
+    : { focus: [part ? 0.78 : 0.22, 0.6], zoom: 1.6, blur: 2 };
 
 function decorate(el: HTMLElement, url: string | null, cam: Cam | null): void {
   if (el.classList.contains('impact')) return;

@@ -128,3 +128,14 @@ test('框列接 est 的接縫一律平接、少留一條墨線', () => {
   expect(estRow.style.marginTop).toBe('17.5px');
   expect(clipOf(ests[1])).toMatchObject({ tl: 0, tr: 0 });
 });
+test('inset 小格不被包進 .pw', () => expect(withBg().querySelector('.inset')!.parentElement!.classList.contains('inset-pn')).toBe(true));
+test('pair 兩半各有背景與斜切', () => {
+  const root = withBg();
+  expect(root.querySelectorAll('.pair .pn .bgl').length).toBe(2);
+  for (const pn of root.querySelectorAll('.pair .pn')) expect((pn as HTMLElement).style.getPropertyValue('clip-path')).toContain('polygon(');
+});
+test('inset 小格有自己的背景層', () => expect(withBg().querySelector('.inset .bgl')).not.toBeNull());
+test('pair 列（容器）在斜接縫下方整列往上疊', () => {
+  const b = syntheticBoard(); b.panels.find(p => p.t === 'reveal')!.edge = 1;
+  expect((render(b).querySelector('.pair') as HTMLElement).style.marginTop).toBe('-22px');
+});
