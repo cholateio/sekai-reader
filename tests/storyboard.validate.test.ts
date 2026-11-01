@@ -6,10 +6,10 @@ const ep = syntheticEpisode();
 const fails = (b: unknown, needle: string) =>
   expect(validateStoryboard(b, ep)).toMatchObject({ ok: false, errors: expect.arrayContaining([expect.stringContaining(needle)]) });
 
-test('合成分鏡通過驗證並涵蓋 13 種格子', () => {
+test('合成分鏡通過驗證並涵蓋 15 種格子', () => {
   const b = syntheticBoard();
   expect(validateStoryboard(b, ep)).toEqual({ ok: true, board: b });
-  expect(new Set(b.panels.map(p => p.t)).size).toBe(13);
+  expect(new Set(b.panels.map(p => p.t)).size).toBe(15);
 });
 test('空白台詞 r 不算遺漏', () => {
   expect(ep.lines.some(l => l.r === 7)).toBe(false);
@@ -35,3 +35,27 @@ test('caps 只能出現在 est／trans', () => {
   const b = syntheticBoard(); b.panels[0].caps = [1]; b.panels[1].caps = [0]; fails(b, 'caps only');
 });
 test('split 最多兩句', () => { const b = syntheticBoard(); b.panels[11].l = [8, 9, 10]; delete b.panels[12].l; fails(b, 'split'); });
+
+test('合成分鏡涵蓋 15 種格子且至少一格有 shape', () => {
+  const b = syntheticBoard();
+  expect(new Set(b.panels.map(p => p.t)).size).toBe(15);
+  expect(b.panels.some(p => p.shape)).toBe(true);
+});
+test('pair 必須恰好兩句', () => {
+  const b = syntheticBoard(); const p = b.panels.find(x => x.t === 'pair')!;
+  const moved = p.l!.pop()!; b.panels.push({ t: 'talk', l: [moved] }); fails(b, 'pair');
+});
+test('inset 二到四句', () => {
+  const b = syntheticBoard(); const p = b.panels.find(x => x.t === 'inset')!;
+  const moved = p.l!.pop()!; delete p.shape; b.panels.find(x => x.t === 'close')!.l!.unshift(moved); fails(b, 'inset');
+});
+test('inset 五句被拒', () => {
+  const b = syntheticBoard(); const p = b.panels.find(x => x.t === 'inset')!;
+  p.l = [1, 2, 3, 4, 5]; delete p.shape;
+  for (const t of ['close', 'mono', 'pop'] as const) delete b.panels.find(x => x.t === t)!.l;
+  fails(b, 'inset');
+});
+test('shape 長度須等於 l', () => { const b = syntheticBoard(); b.panels[1].shape = ['round', 'round']; fails(b, 'shape length'); });
+test('shape 值必須在列舉內', () => { const b = syntheticBoard(); (b.panels[1] as any).shape = ['star']; fails(b, 'invalid shape'); });
+test('shape 不得含中文', () => { const b = syntheticBoard(); (b.panels[1] as any).shape = ['圓']; fails(b, 'CJK'); expect(validateStoryboard(b, ep)).not.toMatchObject({ errors: expect.arrayContaining([expect.stringContaining('unknown field')]) }); });
+test('shape 必須是陣列', () => { const b = syntheticBoard(); (b.panels[1] as any).shape = 'round'; fails(b, 'shape must be an array'); });

@@ -58,7 +58,7 @@ test('心聲格去掉括號、思考框點線', () => {
   const el = render().querySelector('[data-r="4"]')!;
   expect(el.textContent).toBe('說不定今天能把副歌寫完……');
 });
-test('insert 標示唸出的人', () => expect(render().querySelector('.insert small')!.textContent).toBe('咲希 唸出的內容'));
+test('insert 標示唸出的人', () => expect(render().querySelector('.insert small')!.textContent).toBe('一歌 唸出的內容'));
 test('說話者左右交替、換場重置', () => {
   const s = speakerSide();
   expect([s.side('一歌'), s.side('咲希'), s.side('一歌'), s.side('')]).toEqual(['l', 'r', 'l', 'c']);

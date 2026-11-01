@@ -1,9 +1,9 @@
 import type { Episode } from '../scenario/types';
-import { PANEL_TYPES, type Storyboard } from './types';
+import { BUBBLE_SHAPES, PANEL_TYPES, type Storyboard } from './types';
 
 export type ValidationResult = { ok: true; board: Storyboard } | { ok: false; errors: string[] };
 
-const PANEL_KEYS = new Set(['t', 'l', 'caps', 'cut', 'fx', 'tone', 'big', 'cast', 'sfx', 'wide', 'cam', 'edge', 'bg']);
+const PANEL_KEYS = new Set(['t', 'l', 'caps', 'cut', 'fx', 'tone', 'big', 'cast', 'sfx', 'wide', 'cam', 'edge', 'bg', 'shape']);
 const ENUMS: Record<string, readonly string[]> = {
   fx: ['blush', 'sparkle'], tone: ['day', 'office', 'serious'], big: ['quote', 'num'],
 };
@@ -57,6 +57,16 @@ export function validateStoryboard(input: unknown, ep: Episode): ValidationResul
     // Shape rules mirror what src/render/comic/panels.ts draws, so every accepted board renders every line/caption.
     if (p.t === 'trans' && Array.isArray(p.l) && p.l.length) errors.push(`${at}: trans cannot carry lines`);
     if (p.t === 'split' && Array.isArray(p.l) && p.l.length > 2) errors.push(`${at}: split takes at most 2 lines`);
+    const nLines = Array.isArray(p.l) ? p.l.length : 0;
+    if (p.t === 'pair' && nLines !== 2) errors.push(`${at}: pair needs exactly 2 lines`);
+    if (p.t === 'inset' && (nLines < 2 || nLines > 4)) errors.push(`${at}: inset needs 2-4 lines`);
+    if (p.shape !== undefined) {
+      if (!Array.isArray(p.shape)) errors.push(`${at}: shape must be an array`);
+      else {
+        if (p.shape.length !== nLines) errors.push(`${at}: shape length ${p.shape.length} != l length ${nLines}`);
+        for (const s of p.shape) if (!BUBBLE_SHAPES.includes(s as never)) errors.push(`${at}: invalid shape ${String(s)}`);
+      }
+    }
     if (p.caps !== undefined && p.t !== 'est' && p.t !== 'trans' && Array.isArray(p.caps) && p.caps.length)
       errors.push(`${at}: caps only allowed on est/trans`);
     if (p.caps !== undefined) {

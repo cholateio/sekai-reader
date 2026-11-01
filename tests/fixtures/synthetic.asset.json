@@ -97,6 +97,18 @@
     },
     {
       "Action": 1,
+      "ReferenceIndex": 11
+    },
+    {
+      "Action": 1,
+      "ReferenceIndex": 12
+    },
+    {
+      "Action": 1,
+      "ReferenceIndex": 13
+    },
+    {
+      "Action": 1,
       "ReferenceIndex": 99
     }
   ],
@@ -190,6 +202,21 @@
           "FacialName": "face_smile_01"
         }
       ]
+    },
+    {
+      "WindowDisplayName": "志步",
+      "Body": "真的嗎？",
+      "Motions": []
+    },
+    {
+      "WindowDisplayName": "穗波",
+      "Body": "……嗯……",
+      "Motions": []
+    },
+    {
+      "WindowDisplayName": "一歌",
+      "Body": "走吧！",
+      "Motions": []
     }
   ],
   "SpecialEffectData": [

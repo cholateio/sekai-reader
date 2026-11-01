@@ -1,10 +1,14 @@
 export type PanelType =
   | 'est' | 'talk' | 'close' | 'pop' | 'beat' | 'insert' | 'sfx'
-  | 'trans' | 'impact' | 'split' | 'reveal' | 'shout' | 'mono';
+  | 'trans' | 'impact' | 'split' | 'reveal' | 'shout' | 'mono' | 'pair' | 'inset';
 
 export const PANEL_TYPES: readonly PanelType[] = [
-  'est', 'talk', 'close', 'pop', 'beat', 'insert', 'sfx', 'trans', 'impact', 'split', 'reveal', 'shout', 'mono',
+  'est', 'talk', 'close', 'pop', 'beat', 'insert', 'sfx', 'trans', 'impact', 'split', 'reveal', 'shout', 'mono', 'pair', 'inset',
 ];
+
+export type BubbleShape = 'round' | 'shout' | 'cloud' | 'whisper' | 'wobble' | 'cut' | 'phone' | 'box';
+
+export const BUBBLE_SHAPES: readonly BubbleShape[] = ['round', 'shout', 'cloud', 'whisper', 'wobble', 'cut', 'phone', 'box'];
 
 export interface Cam { focus: [number, number]; zoom: number; blur?: number }
 
@@ -22,6 +26,8 @@ export interface Panel {
   cam?: Cam;
   edge?: -1 | 0 | 1;
   bg?: string;
+  /** Per-line bubble shape override, same length as `l`; omitted lines follow the shape rules. */
+  shape?: BubbleShape[];
 }
 
 export interface Storyboard {

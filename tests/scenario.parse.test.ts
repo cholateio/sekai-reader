@@ -8,7 +8,7 @@ const raw = rawJson as RawScenario;
 test('sid 以 m_Name 為準', () => expect(parseScenario(raw).sid).toBe('synthetic_01'));
 test('firstBg 取 FirstBackground', () => expect(parseScenario(raw).firstBg).toBe('bg_test_a'));
 test('空白台詞不進 lines，越界索引被略過', () =>
-  expect(parseScenario(raw).lines.map(l => l.r)).toEqual([0, 1, 2, 3, 4, 5, 6, 8, 9, 10]));
+  expect(parseScenario(raw).lines.map(l => l.r)).toEqual([0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13]));
 test('姓名與訊息後綴', () => {
   const L = parseScenario(raw).lines;
   expect(L[1]).toMatchObject({ who: '星乃一歌', phone: false });
