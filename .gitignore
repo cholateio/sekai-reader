@@ -60,3 +60,9 @@ __pycache__/
 
 # Logs
 *.log
+
+# Game assets (never in git) and local scratch
+/assets/
+/scratch/
+*:Zone.Identifier
+__pycache__/
