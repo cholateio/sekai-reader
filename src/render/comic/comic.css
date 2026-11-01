@@ -106,10 +106,12 @@
 .comic .inset-pn > .bubbles, .comic .inset-pn > .stage { max-width: 54%; }
 .comic .inset {
   position: absolute; right: 10px; bottom: 10px; width: 46%; z-index: 2; overflow: hidden;
-  border: 2.5px solid var(--line-ink); background: #fff; padding: 10px; box-shadow: 4px 4px 0 var(--line-ink);
+  /* 18px padding: bubble outlines extend up to ~16px past their text box and the frame clips (overflow hidden). */
+  border: 2.5px solid var(--line-ink); background: #fff; padding: 18px; box-shadow: 4px 4px 0 var(--line-ink);
   display: flex; flex-direction: column; gap: 6px;
 }
 .comic .inset .bb { max-width: 100%; }
+.comic .inset > :not(.bgl):not(.fxl) { position: relative; z-index: 1; }
 /* Full-panel effect layers (.fx-*) sit above the background, below figures and bubbles. */
 .comic .fxl { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
 .comic .bgl.dark { opacity: .35; }

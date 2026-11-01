@@ -63,3 +63,12 @@ test('huge 會畫雙描邊、roundRadius 選項生效', () => {
   fitBubbles(r2, { roundRadius: 6 });
   expect(r2.querySelector('[data-role="body"]')!.getAttribute('d')).toContain('A6,6');
 });
+test('量測用不受 transform 影響的版面尺寸（impact 進場動畫會先縮放）', () => {
+  const root = h('div', {}, bubble(line, 'c', 'shout'));
+  const bb = root.querySelector('.bb') as HTMLElement;
+  bb.getBoundingClientRect = () => ({ width: 140, height: 42, x: 0, y: 0, top: 0, left: 0, right: 140, bottom: 42, toJSON() {} }) as DOMRect;
+  Object.defineProperty(bb, 'offsetWidth', { configurable: true, get: () => 200 });
+  Object.defineProperty(bb, 'offsetHeight', { configurable: true, get: () => 60 });
+  fitBubbles(root);
+  expect(root.querySelector('svg.bo')!.getAttribute('viewBox')).toBe('0 0 232 92');
+});

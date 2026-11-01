@@ -54,7 +54,10 @@ export function fitBubbles(root: ParentNode, opts: FitOpts = {}): void {
   for (const bb of root.querySelectorAll<HTMLElement>('.bb')) {
     const svg = bb.querySelector<SVGSVGElement>('svg.bo');
     if (!svg) continue;
-    const { width, height } = bb.getBoundingClientRect();
+    // offset* is the untransformed layout size: the impact entry animation scales bubbles while they scroll in,
+    // and getBoundingClientRect would report the shrunken box. jsdom has no layout, so fall back to the rect.
+    const rect = bb.getBoundingClientRect();
+    const width = bb.offsetWidth || rect.width, height = bb.offsetHeight || rect.height;
     if (!width || !height) continue;
     const w = round1(width), hgt = round1(height);
     svg.setAttribute('viewBox', `0 0 ${round1(w + 2 * PAD)} ${round1(hgt + 2 * PAD)}`);

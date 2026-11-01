@@ -177,3 +177,14 @@ test('狀聲字：sfx 格反相、est 有 sfx 才出現、impact 有 sfx 才出�
   expect(r2.querySelector('.pn.impact .sfx')!.textContent).toBe('don');
 });
 test('沒有 blur 時 --blur 為空', () => expect(backgroundLayer('/bg/x.webp', { focus: [0.5, 0.5], zoom: 1 }).style.getPropertyValue('--blur')).toBe(''));
+test('pair 設 serious 時兩個半格都有暗角', () => {
+  const b = syntheticBoard(); b.panels.find(p => p.t === 'pair')!.tone = 'serious';
+  const halves = render(b).querySelectorAll('.pair .pn');
+  expect(halves.length).toBe(2);
+  for (const hf of halves) expect(hf.querySelector('.fx-vignette')).not.toBeNull();
+});
+test('半格與小格不帶整格類型的效果層', () => {
+  const b = syntheticBoard(); b.panels.find(p => p.t === 'split')!.t = 'split';
+  const root = withBg();
+  for (const sub of root.querySelectorAll('.split .pn, .pair .pn, .inset')) expect(sub.querySelector('.fx-speed, .fx-focus, .fx-flash')).toBeNull();
+});

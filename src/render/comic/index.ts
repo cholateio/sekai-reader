@@ -38,7 +38,7 @@ export function renderComic(ep: Episode, board: Storyboard, art: CharacterArt, o
     lastBg = bgId ?? lastBg;
     const url = bgId ? opts.bgUrl(bgId) : null;
     const cam = camFor(p, shot);
-    ctx.decorate = (el, _p, part) => decorate(el, url, part === undefined ? cam : splitCam(part, p.cam), part === undefined ? p : null);
+    ctx.decorate = (el, _p, part) => decorate(el, url, part === undefined ? cam : splitCam(part, p.cam), p, part !== undefined);
     const el = buildPanel(p, ctx);
     if (opts.unit && GLYPH_PANELS.has(p.t)) el.append(h('span', { class: 'glyph', 'aria-hidden': 'true' }, opts.unit.glyph));
     el.dataset.edge = String(p.edge ?? 0);
@@ -90,20 +90,20 @@ const FX_LAYER: Partial<Record<Panel['t'], string>> = {
   pop: 'fx-speed', impact: 'fx-focus', reveal: 'fx-flash', shout: 'fx-flash', mono: 'fx-wash',
 };
 
-/** p is null for sub-frames (split/pair halves, the inset), which only get a background. */
-function decorate(el: HTMLElement, url: string | null, cam: Cam | null, p: Panel | null): void {
+/** Sub-frames (split/pair halves, the inset) get the background and tone, but not the panel-type effect layer. */
+function decorate(el: HTMLElement, url: string | null, cam: Cam | null, p: Panel, sub: boolean): void {
   const layers: HTMLElement[] = [];
   if (url && cam) {
     el.classList.add('has-bg');
     const bgl = backgroundLayer(url, cam);
-    if (p?.t === 'impact') bgl.classList.add('dark');
+    if (p.t === 'impact' && !sub) bgl.classList.add('dark');
     layers.push(bgl);
     if (el.classList.contains('closeup') || el.classList.contains('pop')) layers.push(h('div', { class: 'tint', 'aria-hidden': 'true' }));
-  } else if (p?.t !== 'impact') {
+  } else if (p.t !== 'impact' || sub) {
     el.classList.add('paper');
   }
-  const fx = p && FX_LAYER[p.t];
+  const fx = !sub && FX_LAYER[p.t];
   if (fx) layers.push(h('div', { class: `fxl ${fx}`, 'aria-hidden': 'true' }));
-  if (p?.tone === 'serious') layers.push(h('div', { class: 'fxl fx-vignette', 'aria-hidden': 'true' }));
+  if (p.tone === 'serious') layers.push(h('div', { class: 'fxl fx-vignette', 'aria-hidden': 'true' }));
   el.prepend(...layers);
 }
