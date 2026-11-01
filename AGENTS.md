@@ -1,31 +1,43 @@
 <!-- Tool-neutral project memory. Never put local paths, costs or personal data here. -->
-# [Project name]
+# sekai-reader
 
 ## Project goal
 
-[One sentence: what this is and who it is for. Example: "A personal site that lists my projects and writing."]
+A static web reader that turns Project SEKAI Traditional Chinese event stories into phone-friendly vertical comics (with a chat-style fallback) for fans who want to read without the game.
 
 ## Stack
 
-- Language / framework: [e.g. TypeScript, Next.js 16, Tailwind v4]
-- Services: [e.g. Postgres on Supabase, hosted on Vercel; "none" if there are none]
-- Test: `[the exact command, copy-pasteable, e.g. npm test]`   <!-- write it so it runs as-is from the repo root -->
+- Language / framework: TypeScript, Vite 6, no UI framework (own `h()` helper); Python 3 for the one-off fetch script
+- Services: none (static site; planned host Cloudflare Pages, not deployed)
+- Test: `npm test`
 
 ## File layout
 
-- `[src/]` — [what lives here]
-- `[docs/specs/]` — requirement specs; the authority for what to build
-- `[tests/]` — [what lives here]
+- `src/scenario/` — `.asset` → episode model (`parseScenario`), mood labels
+- `src/storyboard/` — storyboard types, validation, rule-based fallback board, bundled boards
+- `src/render/` — comic renderer (`comic/`: panels, bubbles, backgrounds, slanted layout) and chat renderer
+- `src/art/` — `CharacterArt` seam (static chibi now, Spine later) and fallback name circles
+- `src/app/` — hash router, data loading, prefs, library / event / reader views
+- `data/` — event index and character table (`tc-event-index.json`)
+- `storyboards/` — AI-director storyboards, line numbers only (committed)
+- `prompts/` — storyboard director prompt
+- `scripts/` — `build_episode.ts`, `fetch_episode.py`, `check_layout.ts`
+- `assets/` — git-ignored game assets: `raw/` inputs, `public/` reader files (Vite publicDir)
+- `tests/` — Vitest + unittest; `fixtures/` holds an original synthetic script; `real/` skips without assets
+- `docs/specs/` — requirement specs; the authority for what to build
 
 ## Constraints
 
-- [Things that must never change or break. Example: "Public URLs must not change; other sites link to them."]
-- [Example: "Never edit applied database migrations; add a new one."]
+- Game assets (`.asset` scripts, backgrounds, character images, and `dist/` which contains them) are never committed; they live only under the git-ignored `assets/`.
+- The reader never contacts Sekai-World at runtime, and no page may contain a `sekai.best` URL or a file picker for downloaded scripts.
+- Requests to storage.sekai.best go only through `scripts/fetch_episode.py`, one episode per run, within its 20-request budget; never write code that scans many episodes or events.
+- Storyboards contain structure only (line numbers, framing); dialogue text must never be written into a storyboard.
 - Path-type constraints are mirrored in `kit.toml [protected]`; keep the two in sync (one glob per line).
 
 ## Conventions
 
-- [Naming, commit style, formatting. Example: "Conventional commits; run `npm run lint` before committing."]
+- Docs, prose and commit messages in Traditional Chinese; code comments in English, only for invariants, cross-file coupling and non-obvious reasons.
+- Every rendered line carries `data-r`; tests assert each line appears exactly once, keep that invariant when adding panel types.
 - GitHub Actions: top-level `permissions: contents: read`, raised per job only when needed.
 - GitHub Actions: pin every `uses:` to a 40-character commit SHA with a trailing `# vX.Y.Z` comment.
 

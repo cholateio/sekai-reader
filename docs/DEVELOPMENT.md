@@ -1,50 +1,55 @@
 # Development
 
-Everything you need to pick this project back up after months away. Replace each `[placeholder]`; delete sections that do not apply.
+Everything you need to pick this project back up after months away.
 
 ## Restart in 30 seconds
 
 ```bash
-[install command, e.g. npm install]
-# [environment reminder, e.g. make sure .env.local exists (see below); restore it from the password manager or the hosting dashboard]
-[start the dev server]          # -> [default URL, e.g. http://localhost:3000]
+npm install
+# assets/raw/ is git-ignored: restore event_173_01.asset, bg/*.webp, sd/*.webp from your local backup
+npm run build:episode event_173_01   # -> assets/public/ (episodes, bg thumbnails, sd, manifest.json)
+npm run dev                          # -> http://localhost:5173 (opens #read-173-1)
 ```
 
 ## Commands
 
 | Command | Purpose |
 |---------|---------|
-| `[dev command]` | Local development |
-| `[build command]` | Production build |
-| `[start command]` | Run the production build |
-| `[lint / test command]` | [what the quality gate covers, e.g. "the only gate; there are no tests yet"] |
+| `npm run dev` | Local development (Vite serves `assets/public/` as the public dir) |
+| `npm run build` | Type-check and production build into `dist/` (includes `assets/public/`) |
+| `npm run preview` | Serve `dist/` |
+| `npm test` | Vitest (jsdom) + Python unittest. Real-data tests skip when `assets/raw/event_173_01.asset` is absent |
+| `npm run build:episode <sid>` | `.asset` → episode JSON, backgrounds resized to 1280 px WebP q82, chibi copied, manifest rebuilt; non-zero exit if a needed background is missing |
+| `npm run check:layout` | Build + preview + headless Chromium at 390×844: scroll width, panel count, 49 lines, no broken images, no `sekai.best`; screenshots in `scratch/` |
+| `python3 scripts/fetch_episode.py <sid>` | One-off download of one episode's assets into `assets/raw/` (max 20 requests, 1 s apart). Only when files are lost |
 
 ## Environment variables
 
-Stored in `[env file, e.g. .env.local]`, never committed. This table lists names and purposes only, no values. Keep an `.env.example` with the same names and empty values.
-
-| Variable | Purpose |
-|----------|---------|
-| `[VAR_NAME]` | [what it is used for] |
-
-Without `[env file]`: [what breaks, e.g. "uploads silently fall back to local storage; the dashboard returns 500"]. Restore the file before debugging anything else.
+None. `check:layout` looks for Chromium in `~/.cache/ms-playwright/chromium-*`; set `CHROME_PATH` to override.
 
 ## Deploy
 
-- Hosting: [platform, e.g. Vercel, Railway, self-hosted] ([how a deploy is triggered, e.g. push to main])
-- Database: [e.g. Postgres on Supabase, SQLite file, none] ([where it lives / how to connect])
-- Assets: [where images and files live, e.g. an S3 bucket; delete this line if none]
+- Hosting: not deployed yet. Planned: a Cloudflare Pages project on `*.pages.dev`, uploading `dist/`.
+- Database: none.
+- Assets: local only (`assets/`, git-ignored). `dist/` contains them after a build, so never commit `dist/`.
 
 ## Easy to forget
 
-Grows over time. Add a line whenever something nearly bit you, or looks like a bug but is intentional.
-
-- [First gotcha or convention]
+- Episode identity is the asset's `m_Name`; `ScenarioId` inside the file can be stale (event_173_01 says event_172_01).
+- FX7 (background change) comes before the next location caption, so the caption's `bg` is already the new background.
+- Storyboards hold line numbers only. The validator rejects any CJK text outside `sfx`/`cast`, unknown fields, missing or repeated lines; a rejected board silently falls back to the rule-based board (see the console warning).
+- Cloudflare Pages free plan: 20,000 files per site and 25 MiB per file. Voice files for all episodes would not fit.
+- The Spine runtime needs a Spine Editor license before chibi animation can ship; `src/art/CharacterArt.ts` is the only seam to swap.
+- Never point `fetch_episode.py` at more than one episode per run, and never loop it.
 
 ## Docs map
 
 | File | What it holds |
 |------|---------------|
 | `AGENTS.md` | Goal, stack, layout, constraints and conventions (tool-neutral) |
-| `docs/specs/` | Requirement specs |
+| `docs/specs/` | Requirement specs (authoritative) |
+| `docs/PLAN.md` | Original project plan (background; superseded where the spec differs) |
+| `scripts/build_index.py` | Rebuilds `data/tc-event-index.json` from the Sekai-World TC master DB on GitHub (not storage.sekai.best) |
+| `scripts/compact_script.py` | `.asset` → compact script, the AI director's input format |
+| `prompts/storyboard_director.md` | AI director prompt used to produce storyboards |
 | `docs/DEVELOPMENT.md` | This file |
