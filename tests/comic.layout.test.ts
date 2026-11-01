@@ -79,3 +79,52 @@ test('心聲框左右交錯不受背景層影響', () => {
   const sides = [...root.querySelectorAll('[data-r="9"], [data-r="10"]')].map(c => ['l', 'r'].find(s => c.classList.contains(s)));
   expect(sides).toEqual(['l', 'r']);
 });
+
+const render = (b = syntheticBoard()) => renderComic(ep, b, art, { bgUrl: () => null });
+const clipOf = (pn: Element) => {
+  const m = /polygon\(0 ([\d.]+)px, 100% ([\d.]+)px, 100% calc\(100% - ([\d.]+)px\), 0 calc\(100% - ([\d.]+)px\)\)/
+    .exec((pn as HTMLElement).style.getPropertyValue('clip-path'))!;
+  return { tl: +m[1], tr: +m[2], br: +m[3], bl: +m[4] };
+};
+
+test('斜接縫的下一列往上疊 S，平接縫不疊', () => {
+  const root = withBg();
+  const rows = [...root.children].filter(r => !r.classList.contains('credit')) as HTMLElement[];
+  const talk0 = root.querySelector('[data-r="0"]')!.closest('.pw') as HTMLElement;   // above is est (bleed, no ink) → flat, one ink line less
+  expect(talk0.style.marginTop).toBe('-2.5px');
+  expect(rows[rows.indexOf(talk0) + 1].style.marginTop).toBe('-22px');                 // talk0 edge 1 → slanted, ink on both sides
+  const split = root.querySelector('.split') as HTMLElement;                            // impact edge 0 above → flat, ink on both sides
+  expect(split.style.marginTop).toBe('');
+  expect(root.style.gap).toBe('15px');
+});
+test('split 列（容器）在斜接縫下方整列往上疊', () => {
+  const b = syntheticBoard(); b.panels.find(p => p.t === 'impact')!.edge = 1;
+  expect((render(b).querySelector('.split') as HTMLElement).style.marginTop).toBe('-22px');
+});
+test('斜接縫兩邊平行：上格底邊位移與下格頂邊位移互補', () => {
+  const root = withBg();
+  const rows = [...root.children].filter(r => r.classList.contains('pw')) as HTMLElement[];
+  let slanted = 0;
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i - 1].nextElementSibling !== rows[i]) continue;
+    const up = clipOf(rows[i - 1].querySelector(':scope > .pn')!), dn = clipOf(rows[i].querySelector(':scope > .pn')!);
+    if (up.bl + up.br === 0) { expect([dn.tl, dn.tr]).toEqual([0, 0]); continue; }
+    slanted++;
+    expect(up.bl + dn.tl).toBe(22);
+    expect(up.br + dn.tr).toBe(22);
+  }
+  expect(slanted).toBeGreaterThan(0);
+});
+test('框列接 est 的接縫一律平接、少留一條墨線', () => {
+  const b = syntheticBoard();
+  const trans = b.panels.find(p => p.t === 'trans')!;
+  trans.t = 'talk'; delete trans.caps; trans.l = [];
+  b.panels.splice(b.panels.indexOf(trans) + 1, 0, { t: 'est', caps: [2], edge: 0 });
+  trans.edge = 1;
+  const ests = render(b).querySelectorAll('.pn.est');
+  expect(ests.length).toBe(2);
+  const estRow = ests[1].closest('.pw') as HTMLElement;
+  // Scene change without a trans card keeps its 20px pacing gap; the est side has no ink, so 20 - 2.5.
+  expect(estRow.style.marginTop).toBe('17.5px');
+  expect(clipOf(ests[1])).toMatchObject({ tl: 0, tr: 0 });
+});
