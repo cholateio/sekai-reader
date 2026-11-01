@@ -14,13 +14,16 @@
 }
 .comic .scene-start { margin-top: 18px; }
 .comic .pn.paper { background-color: var(--paper); }
-.comic .bubbles { display: flex; flex-direction: column; gap: 10px; flex: 1; }
+.comic .bubbles { display: flex; flex-direction: column; gap: 2px; flex: 1; }
 .comic .bb {
   /* The outline is the SVG .bo behind the text, drawn by fitBubbles; isolation keeps it above panel layers. */
   position: relative; isolation: isolate; color: var(--bubble-ink); padding: 9px 15px; max-width: 86%;
   white-space: pre-line; overflow-wrap: anywhere; line-height: 1.55;
 }
 .comic .bb .bo { position: absolute; z-index: -1; overflow: visible; pointer-events: none; }
+/* Room for the outline outside the text box: ~3px frame on top, tail (12px) and stroke below. */
+.comic .bb { margin-block: 5px 15px; }
+.comic .bb-cloud { margin-block: 9px 20px; }
 .comic .bb .bt { position: relative; }
 .comic .bb.l { align-self: flex-start; }
 .comic .bb.r { align-self: flex-end; }
