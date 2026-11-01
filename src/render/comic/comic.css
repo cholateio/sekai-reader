@@ -165,4 +165,3 @@
 .comic .beatrow .pw > .pn.beat, .comic .split .pw > .pn { width: 100%; height: 100%; }
 .comic .beatrow .pw { width: 66%; }
 .comic .beatrow.r .pw { margin-left: auto; }
-.comic .split { gap: 0; }
