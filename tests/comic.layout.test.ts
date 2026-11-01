@@ -14,7 +14,7 @@ test('camFor 依類型給預設取景', () => {
   expect(camFor({ t: 'est' }, 4)).toEqual({ focus: [0.5, 0.5], zoom: 1 });
   expect(camFor({ t: 'reveal' }, 2)).toEqual({ focus: [0.5, 0.4], zoom: 1.15, blur: 2 });
   expect(camFor({ t: 'talk' }, 7)).toEqual({ focus: [0.7, 0.58], zoom: 1.32 });
-  expect(camFor({ t: 'impact' }, 0)).toBeNull();
+  expect(camFor({ t: 'impact' }, 0)).toEqual({ focus: [0.5, 0.5], zoom: 1.2 });
 });
 test('分鏡指定的 cam 優先', () => {
   const cam = { focus: [0.1, 0.9] as [number, number], zoom: 2 };
@@ -39,13 +39,14 @@ test('有背景的格子帶 .bgl，背景依場景切換', () => {
   const urlOf = (r: number) => (root.querySelector(`[data-r="${r}"]`)!.closest('.pn')!.querySelector('.bgl') as HTMLElement).style.backgroundImage;
   expect(urlOf(0)).toContain('bg_test_a');
   expect(urlOf(10)).toContain('bg_test_b');
-  expect(root.querySelector('.pn.impact .bgl')).toBeNull();
+  expect(root.querySelector('.pn.impact .bgl.dark')).not.toBeNull();
 });
 test('split 每半格各有背景', () => expect(withBg().querySelectorAll('.split .pn .bgl').length).toBe(2));
-test('沒有背景圖時退回網點、不出現 .bgl', () => {
+test('沒有背景圖時退回素紙色、不出現 .bgl、不鋪整面網點', () => {
   const root = noBg();
   expect(root.querySelector('.bgl')).toBeNull();
-  for (const pn of root.querySelectorAll('.pn:not(.impact)')) expect(pn.classList.contains('tone-bg')).toBe(true);
+  expect(root.querySelector('.tone-bg')).toBeNull();
+  for (const pn of root.querySelectorAll('.pn:not(.impact)')) expect(pn.classList.contains('paper')).toBe(true);
 });
 test('格子都包進 .pw，est 為滿版', () => {
   const root = withBg();
@@ -138,4 +139,39 @@ test('inset 小格有自己的背景層', () => expect(withBg().querySelector('.
 test('pair 列（容器）在斜接縫下方整列往上疊', () => {
   const b = syntheticBoard(); b.panels.find(p => p.t === 'reveal')!.edge = 1;
   expect((render(b).querySelector('.pair') as HTMLElement).style.marginTop).toBe('-22px');
+});
+
+const sel: Record<string, string> = { pop: 'pop', impact: 'impact', reveal: 'reveal', shout: 'shout-pn', mono: 'mono' };
+test.each([['pop', 'fx-speed'], ['impact', 'fx-focus'], ['reveal', 'fx-flash'], ['shout', 'fx-flash'], ['mono', 'fx-wash']])(
+  '%s 格有 %s', (t, cls) => expect(withBg().querySelector(`.pn.${sel[t]} .${cls}`)).not.toBeNull());
+test('camFor 的新預設', () => {
+  expect(camFor({ t: 'impact' }, 0)).toEqual({ focus: [0.5, 0.5], zoom: 1.2 });
+  expect(camFor({ t: 'beat' }, 0)).toEqual({ focus: [0.32, 0.62], zoom: 1.3, blur: 2 });
+  expect(camFor({ t: 'shout' }, 0)).toEqual({ focus: [0.5, 0.5], zoom: 1.3, blur: 1 });
+});
+test('impact 的對白框是 huge', () => {
+  const b = syntheticBoard();
+  b.panels.find(p => p.t === 'reveal')!.l = [];
+  b.panels.find(p => p.t === 'impact')!.l = [11];
+  expect(render(b).querySelector('.pn.impact .bb.huge.bb-shout')).not.toBeNull();
+});
+test('impact 背景缺檔仍有集中線、沒有紙色 class', () => {
+  const pn = noBg().querySelector('.pn.impact') as HTMLElement;
+  expect(pn.querySelector('.bgl')).toBeNull();
+  expect(pn.querySelector('.fx-focus')).not.toBeNull();
+  expect(pn.classList.contains('paper')).toBe(false);
+});
+test('serious 色調有暗角', () => {
+  const b = syntheticBoard(); b.panels[1].tone = 'serious';
+  expect(render(b).querySelector('[data-r="0"]')!.closest('.pn')!.querySelector('.fx-vignette')).not.toBeNull();
+});
+test('狀聲字：sfx 格反相、est 有 sfx 才出現、impact 有 sfx 才出現', () => {
+  const root = render();
+  expect(root.querySelector('.pn.est .sfx')).toBeNull();
+  expect(root.querySelector('.pn.sfx-pn .sfx.ink')!.textContent).toBe('轟隆');
+  expect(root.querySelector('.pn.impact .sfx')).toBeNull();
+  const b = syntheticBoard(); b.panels[0].sfx = 'sasa'; b.panels.find(p => p.t === 'impact')!.sfx = 'don';
+  const r2 = render(b);
+  expect(r2.querySelector('.pn.est .sfx:not(.ink)')!.textContent).toBe('sasa');
+  expect(r2.querySelector('.pn.impact .sfx')!.textContent).toBe('don');
 });

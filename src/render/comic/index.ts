@@ -1,6 +1,6 @@
 import type { CharacterArt } from '../../art/CharacterArt';
 import type { Episode } from '../../scenario/types';
-import type { Cam, Storyboard } from '../../storyboard/types';
+import type { Cam, Panel, Storyboard } from '../../storyboard/types';
 import { h } from '../dom';
 import { fitBubbles, speakerSide, type FitOpts } from './bubbles';
 import { backgroundLayer, camFor, panelBg } from './background';
@@ -30,9 +30,9 @@ export function renderComic(ep: Episode, board: Storyboard, art: CharacterArt, o
     if (p.t === 'est') shot = 0;
     const bgId = panelBg(p, ep, lastBg);
     lastBg = bgId ?? lastBg;
-    const url = bgId && p.t !== 'impact' ? opts.bgUrl(bgId) : null;
+    const url = bgId ? opts.bgUrl(bgId) : null;
     const cam = camFor(p, shot);
-    ctx.decorate = (el, _p, part) => decorate(el, url, part === undefined ? cam : splitCam(part, p.cam));
+    ctx.decorate = (el, _p, part) => decorate(el, url, part === undefined ? cam : splitCam(part, p.cam), part === undefined ? p : null);
     const el = buildPanel(p, ctx);
     el.dataset.edge = String(p.edge ?? 0);
     if (sceneStart) el.classList.add('scene-start');
@@ -76,12 +76,25 @@ const splitCam = (part: number, cam?: Cam): Cam => part === 2
     ? { ...cam, focus: [clamp01(cam.focus[0] + (part ? 0.25 : -0.25)), cam.focus[1]] }
     : { focus: [part ? 0.78 : 0.22, 0.6], zoom: 1.6, blur: 2 };
 
-function decorate(el: HTMLElement, url: string | null, cam: Cam | null): void {
-  if (el.classList.contains('impact')) return;
-  if (!url || !cam) { el.classList.add('tone-bg'); return; }
-  el.classList.add('has-bg');
-  el.classList.remove('tone-bg');
-  const layer = backgroundLayer(url, cam);
-  el.prepend(layer);
-  if (el.classList.contains('closeup') || el.classList.contains('pop')) layer.after(h('div', { class: 'tint', 'aria-hidden': 'true' }));
+// Full-panel effect layers per panel type (spec: 加重表現); they sit between the background and the content.
+const FX_LAYER: Partial<Record<Panel['t'], string>> = {
+  pop: 'fx-speed', impact: 'fx-focus', reveal: 'fx-flash', shout: 'fx-flash', mono: 'fx-wash',
+};
+
+/** p is null for sub-frames (split/pair halves, the inset), which only get a background. */
+function decorate(el: HTMLElement, url: string | null, cam: Cam | null, p: Panel | null): void {
+  const layers: HTMLElement[] = [];
+  if (url && cam) {
+    el.classList.add('has-bg');
+    const bgl = backgroundLayer(url, cam);
+    if (p?.t === 'impact') bgl.classList.add('dark');
+    layers.push(bgl);
+    if (el.classList.contains('closeup') || el.classList.contains('pop')) layers.push(h('div', { class: 'tint', 'aria-hidden': 'true' }));
+  } else if (p?.t !== 'impact') {
+    el.classList.add('paper');
+  }
+  const fx = p && FX_LAYER[p.t];
+  if (fx) layers.push(h('div', { class: `fxl ${fx}`, 'aria-hidden': 'true' }));
+  if (p?.tone === 'serious') layers.push(h('div', { class: 'fxl fx-vignette', 'aria-hidden': 'true' }));
+  el.prepend(...layers);
 }

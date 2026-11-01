@@ -61,13 +61,13 @@ export function buildPanel(p: Panel, ctx: PanelCtx): HTMLElement {
       return h('div', { class: 'trans' }, caps.map(c => c.text).join('　'));
     case 'est': {
       const time = caps.find(c => c.time)?.time;
-      return pn(`est tone-bg ${p.tone ?? ''}`,
+      return pn(`est ${p.tone ?? ''}`,
         caps.map(c => h('span', { class: 'cap' }, c.text)), time ? h('span', { class: 'cap' }, time) : null,
         p.sfx ? h('span', { class: 'sfx', 'aria-hidden': 'true' }, p.sfx) : null,
         L.length ? bubbles(ctx, p, L) : null, stage(ctx, L));
     }
     case 'insert':
-      return pn('insert-pn', h('div', { class: 'fx fx-wash', 'aria-hidden': 'true' }), h('div', { class: 'insert' },
+      return pn('insert-pn', h('div', { class: 'fxl fx-wash', 'aria-hidden': 'true' }), h('div', { class: 'insert' },
         L.map(x => [h('small', {}, `${x.who || '旁白'} 唸出的內容`), lineEl('span', 'itext', x)])));
     case 'close': {
       // The close-up figure always sits on the left of the grid, so tails point left.
@@ -85,7 +85,7 @@ export function buildPanel(p: Panel, ctx: PanelCtx): HTMLElement {
     case 'beat': {
       // Full-width short panel: figure on the speaker's side, bubble next to it, tone fills the far side.
       const sp = L[0] && ctx.sides.side(L[0].who) === 'r' ? 'r' : 'l';
-      return pn(`beat beat-${sp}`, h('div', { class: `fx fx-tone-${sp === 'l' ? 'r' : 'l'}`, 'aria-hidden': 'true' }),
+      return pn(`beat beat-${sp}`, h('div', { class: `fxl fx-tone-${sp === 'l' ? 'r' : 'l'}`, 'aria-hidden': 'true' }),
         chip(ctx, L[0]), bubbles(ctx, p, L, '', sp));
     }
     case 'pair':
@@ -110,12 +110,13 @@ export function buildPanel(p: Panel, ctx: PanelCtx): HTMLElement {
         return el;
       }));
     case 'impact':
-      return pn('impact', L.map(x => bub(ctx, p, x, 'c')), h('div', { class: 'center' }, chip(ctx, L[0])));
+      return pn('impact', p.sfx ? h('span', { class: 'sfx', 'aria-hidden': 'true' }, p.sfx) : null,
+        L.map(x => bub(ctx, p, x, 'c', ' huge')), h('div', { class: 'center' }, chip(ctx, L[0])));
     case 'reveal': {
       const x = L[0];
       const m = x ? (p.big === 'num' ? x.body.match(/\d[\d,]{2,}/) : p.big === 'quote' ? x.body.match(/「([^」]+)」/) : null) : null;
       const big = m ? (m[1] ?? m[0]) : '';
-      return pn('reveal tone-bg', big ? h('div', { class: 'bigtxt', 'aria-hidden': 'true' }, big) : null,
+      return pn('reveal', big ? h('div', { class: 'bigtxt', 'aria-hidden': 'true' }, big) : null,
         L.map(y => bub(ctx, p, y, 'c', ' small')), chip(ctx, x));
     }
     case 'shout': {
@@ -125,12 +126,12 @@ export function buildPanel(p: Panel, ctx: PanelCtx): HTMLElement {
         h('div', { class: 'cast' }, names.map(n => ctx.art.render({ name: n, face: '', motion: '', mood: null }, 'sm'))));
     }
     case 'mono':
-      return pn('mono tone-bg', h('div', { class: 'bubbles' },
+      return pn('mono', h('div', { class: 'bubbles' },
         L.map((x, k) => bub(ctx, p, x, k % 2 ? 'r' : 'l', '', x.who ? stripParen(x.body) : x.body))));
     case 'sfx':
-      return pn(`sfx-pn tone-bg${tone}`, h('span', { class: 'sfx big', 'aria-hidden': 'true' }, p.sfx ?? ''),
+      return pn(`sfx-pn${tone}`, h('span', { class: 'sfx ink', 'aria-hidden': 'true' }, p.sfx ?? ''),
         L.length ? bubbles(ctx, p, L) : null, stage(ctx, L));
     default:
-      return pn(`talk${p.wide ? ' tone-bg wide' : ''}${tone}`, bubbles(ctx, p, L), stage(ctx, L));
+      return pn(`talk${p.wide ? ' wide' : ''}${tone}`, bubbles(ctx, p, L), stage(ctx, L));
   }
 }

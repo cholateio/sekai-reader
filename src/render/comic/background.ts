@@ -15,7 +15,9 @@ export function camFor(p: Panel, shot: number): Cam | null {
     case 'pop': return { focus: f, zoom: 1.5, blur: 1.5 };
     case 'reveal': return { focus: [0.5, 0.4], zoom: 1.15, blur: 2 };
     case 'insert': return { focus: f, zoom: 1.4, blur: 5 };
-    case 'impact': return null;
+    case 'impact': return { focus: [0.5, 0.5], zoom: 1.2 };
+    case 'beat': return { focus: f, zoom: 1.3, blur: 2 };
+    case 'shout': return { focus: [0.5, 0.5], zoom: 1.3, blur: 1 };
     default: return { focus: f, zoom: Math.round((1.2 + (shot % 3) * 0.12) * 100) / 100 };
   }
 }

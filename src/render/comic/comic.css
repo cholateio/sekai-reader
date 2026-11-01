@@ -13,7 +13,7 @@
   box-sizing: border-box;
 }
 .comic .scene-start { margin-top: 18px; }
-.comic .tone-bg { background-image: radial-gradient(var(--tone) 1.1px, transparent 1.5px); background-size: 6px 6px; }
+.comic .pn.paper { background-color: var(--paper); }
 .comic .bubbles { display: flex; flex-direction: column; gap: 10px; flex: 1; }
 .comic .bb {
   /* The outline is the SVG .bo behind the text, drawn by fitBubbles; isolation keeps it above panel layers. */
@@ -62,11 +62,14 @@
 .comic .fx.blush { color: #e7577f; font-size: 22px; letter-spacing: -2px; font-weight: 700; left: 84px; top: 46px; }
 .comic .fx.sparkle { color: #137385; font-size: 18px; letter-spacing: 6px; right: 14px; top: 10px; }
 .comic .sfx {
-  position: absolute; right: 12px; top: 8px; font-family: var(--font-display); font-weight: 700; font-size: 30px;
-  color: var(--panel); -webkit-text-stroke: 2px var(--line-ink); paint-order: stroke fill; transform: rotate(-8deg);
-  letter-spacing: .04em; z-index: 2;
+  /* Hand-lettered sound effect: heavy white glyphs with a black outline and hard shadow. */
+  position: absolute; right: 12px; top: 8px; font-family: var(--font-body); font-weight: 900; font-size: 32px;
+  line-height: 1; color: #fff; -webkit-text-stroke: 2.5px var(--line-ink); paint-order: stroke fill;
+  text-shadow: 3px 3px 0 var(--line-ink); transform: rotate(-8deg); letter-spacing: .04em; z-index: 3;
+  pointer-events: none;
 }
-.comic .sfx.big { position: static; align-self: flex-end; font-size: 34px; }
+.comic .sfx.ink { position: static; align-self: flex-start; font-size: 38px; color: var(--line-ink); -webkit-text-stroke: 3px #fff; text-shadow: 4px 4px 0 rgba(0, 0, 0, .25); transform: rotate(-6deg); }
+.comic .impact .sfx { left: 14px; right: auto; top: 14px; font-size: 56px; transform: rotate(-14deg); }
 .comic .cap {
   align-self: flex-start; background: var(--line-ink); color: var(--panel); padding: 4px 10px;
   font-family: var(--font-display); font-size: .95em; border-radius: 2px;
@@ -90,11 +93,7 @@
   background: repeating-conic-gradient(from 0deg at 30% 85%, color-mix(in srgb, var(--hue) 26%, var(--panel)) 0deg 4deg, var(--panel) 4deg 9deg);
 }
 .comic .pop .bubbles { justify-content: center; }
-.comic .impact {
-  background: radial-gradient(circle at 50% 50%, var(--impact) 0 18%, transparent 58%),
-    repeating-conic-gradient(from 0deg at 50% 50%, var(--speed) 0deg 1.1deg, transparent 1.1deg 5deg), var(--impact);
-  min-height: 300px; justify-content: center; align-items: center;
-}
+.comic .impact { background: var(--impact); min-height: 300px; justify-content: center; align-items: center; }
 .comic .pn.beat { flex-direction: row; align-items: center; gap: 12px; min-height: 110px; }
 .comic .pn.beat-r { flex-direction: row-reverse; }
 .comic .pn.beat .bubbles { justify-content: center; }
@@ -112,7 +111,23 @@
 }
 .comic .inset .bb { max-width: 100%; }
 /* Full-panel effect layers (.fx-*) sit above the background, below figures and bubbles. */
-.comic .fx-tone-l, .comic .fx-tone-r, .comic .fx-wash { position: absolute; inset: 0; pointer-events: none; }
+.comic .fxl { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
+.comic .bgl.dark { opacity: .35; }
+.comic .fx-focus {
+  inset: -45%; opacity: .85;
+  background: repeating-conic-gradient(from 0deg at 50% 50%, #fff 0 1deg, transparent 1deg 5.5deg);
+  -webkit-mask: radial-gradient(circle at 50% 50%, transparent 24%, #000 62%); mask: radial-gradient(circle at 50% 50%, transparent 24%, #000 62%);
+}
+.comic .fx-speed {
+  opacity: .55; background: repeating-linear-gradient(180deg, var(--line-ink) 0 1.2px, transparent 1.2px 8px);
+  -webkit-mask: linear-gradient(90deg, transparent 30%, #000); mask: linear-gradient(90deg, transparent 30%, #000);
+}
+.comic .fx-flash {
+  /* Edge-only flash: the centre half stays clear (user: full-panel halftone is noisy). */
+  opacity: .45; background: radial-gradient(circle, var(--line-ink) 1.3px, transparent 1.7px) 0 0 / 8px 8px;
+  -webkit-mask: radial-gradient(ellipse at 50% 45%, transparent 52%, #000 88%); mask: radial-gradient(ellipse at 50% 45%, transparent 52%, #000 88%);
+}
+.comic .fx-vignette { background: linear-gradient(180deg, rgba(0, 0, 0, .45), rgba(0, 0, 0, .1) 55%, rgba(0, 0, 0, .45)); }
 .comic .fx-tone-l, .comic .fx-tone-r {
   background: radial-gradient(rgba(20, 22, 27, .3) 1.2px, transparent 1.6px) 0 0 / 7px 7px;
 }
@@ -124,10 +139,9 @@
   font-family: var(--font-display); font-weight: 700; font-size: clamp(30px, 10vw, 52px); line-height: 1.1;
   letter-spacing: .04em; color: var(--c-ink); text-wrap: balance;
 }
-.comic .shout-wrap { align-self: center; max-width: 100%; display: grid; gap: 8px; justify-items: center; }
+.comic .shout-wrap { align-self: stretch; display: flex; flex-direction: column; gap: 8px; align-items: center; }
 .comic .cast { justify-content: center; flex-wrap: wrap; }
 .comic .mono { min-height: 220px; justify-content: center; gap: 14px; }
-.comic .serious { background-image: linear-gradient(180deg, color-mix(in srgb, var(--line-ink) 8%, transparent), transparent 60%); }
 @media (prefers-reduced-motion: no-preference) {
   .comic .impact .bb { animation: thud .5s cubic-bezier(.2, 1.6, .4, 1) both; animation-timeline: view(); animation-range: entry 10% cover 35%; }
   @keyframes thud { from { transform: scale(.7); opacity: .2; } to { transform: scale(1); opacity: 1; } }
@@ -140,8 +154,8 @@
 .comic .closeup .tint { opacity: 1; background: radial-gradient(circle at 24% 60%, color-mix(in srgb, var(--hue) 45%, transparent), transparent 62%); }
 .comic .pop.has-bg { background: var(--panel); }
 .comic .pop .tint { background: repeating-conic-gradient(from 0deg at 30% 85%, color-mix(in srgb, var(--hue) 30%, transparent) 0deg 4deg, transparent 4deg 9deg); }
-.comic .has-bg > :not(.bgl):not(.tint) { z-index: 1; }
-.comic .has-bg > :not(.bgl):not(.tint):not(.fx):not(.sfx) { position: relative; }
+/* Content stacks above background and effect layers; .inset, glyphs (.fx) and .sfx keep their own positioning. */
+.comic .pn > :not(.bgl):not(.tint):not(.fxl):not(.fx):not(.sfx):not(.inset) { position: relative; z-index: 1; }
 .comic .has-bg::after {
   content: ""; position: absolute; inset: auto 0 0 0; height: 46%; z-index: 0; pointer-events: none;
   background: linear-gradient(transparent, rgba(0, 0, 0, .28));

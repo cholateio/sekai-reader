@@ -38,7 +38,7 @@ test('背景沒有縮圖的格子退回網點，有縮圖的帶背景層', () =>
   const pnOf = (r: number) => root.querySelector(`[data-r="${r}"]`)!.closest('.pn')!;
   expect(pnOf(0).querySelector('.bgl')).not.toBeNull();
   expect(pnOf(10).querySelector('.bgl')).toBeNull();
-  expect(pnOf(10).classList.contains('tone-bg')).toBe(true);
+  expect(pnOf(10).classList.contains('paper')).toBe(true);
 });
 test('閱讀設定只寫入允許的鍵', () => {
   expect(() => prefs.set('ep:x' as never, 1)).toThrow();
