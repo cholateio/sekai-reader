@@ -100,3 +100,17 @@ describe.skipIf(!existsSync(ASSET))('173-1 打包的分鏡', () => {
   });
 });
 test('沒有分鏡的話數回 undefined', () => expect(loadStoryboard('event_1_01')).toBeUndefined());
+
+test('重開已讀完的話數不會把進度覆寫成 0', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (u: string) =>
+    u === '/manifest.json' ? Response.json({ bg: [], sd: [], episodes: ['event_173_01'] })
+      : u === '/episodes/event_173_01.json' ? Response.json(syntheticEpisode()) : new Response('', { status: 404 })));
+  Object.defineProperty(document.documentElement, 'scrollHeight', { configurable: true, get: () => 5000 });
+  prefs.set('pos:event_173_01', 0.9999);
+  history.replaceState(null, '', '#read-173-1');
+  await startApp(document.createElement('div'));
+  await new Promise(r => requestAnimationFrame(() => r(null)));
+  window.dispatchEvent(new Event('scroll'));
+  expect(prefs.get('pos:event_173_01', 0)).toBe(0.9999);
+  delete (document.documentElement as any).scrollHeight;
+});

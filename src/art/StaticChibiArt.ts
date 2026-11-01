@@ -17,7 +17,8 @@ export class StaticChibiArt implements CharacterArt {
     if (this.available && !this.available.has(c.id)) return fallbackCircle(req.name, c.color, size);
     const src = `${this.sdBaseUrl}/chr_sd_${String(c.id).padStart(2, '0')}_01.webp`;
     const wrap = h('span', { class: `cc cc-${size}` });
-    const img = h('img', { class: 'sd', src, alt: req.name, decoding: 'async' });
+    // Intrinsic size of chr_sd_*_01.webp; reserves the box so panels do not grow when images arrive.
+    const img = h('img', { class: 'sd', src, alt: req.name, decoding: 'async', width: 160, height: 136 });
     img.addEventListener('error', () => wrap.replaceChildren(...fallbackCircle(req.name, c.color, size).childNodes), { once: true });
     wrap.append(img);
     return wrap;

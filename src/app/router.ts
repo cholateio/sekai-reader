@@ -12,6 +12,10 @@ export const DEFAULT_ROUTE = '#read-173-1';
 
 let posKey: string | null = null;
 let scrollTick = 0;
+// Scroll events right after a render come from our own restore scrollTo, not the reader; saving them
+// would overwrite a finished episode's position with 0 (final review 2026-11-01).
+const RESTORE_QUIET_MS = 800;
+let quietUntil = 0;
 
 function onScroll(): void {
   const el = document.documentElement;
@@ -19,7 +23,8 @@ function onScroll(): void {
   const p = max > 0 ? Math.min(1, scrollY / max) : 1;
   const bar = document.querySelector<HTMLElement>('.progress i');
   if (bar) bar.style.width = `${p * 100}%`;
-  if (posKey && Date.now() - scrollTick > 400) { scrollTick = Date.now(); prefs.set(`pos:${posKey}`, p); }
+  const now = Date.now();
+  if (posKey && now >= quietUntil && now - scrollTick > 400) { scrollTick = now; prefs.set(`pos:${posKey}`, p); }
 }
 
 async function route(r: string, manifest: Manifest): Promise<{ nodes: HTMLElement[]; restore: number }> {
@@ -59,6 +64,7 @@ export async function startApp(app: HTMLElement): Promise<void> {
     const mine = ++seq;
     const { nodes, restore } = await route(location.hash.slice(1), manifest);
     if (mine !== seq) return;
+    quietUntil = Date.now() + RESTORE_QUIET_MS;
     app.replaceChildren(h('div', { class: 'wrap' }, nodes));
     requestAnimationFrame(() => {
       const max = document.documentElement.scrollHeight - innerHeight;

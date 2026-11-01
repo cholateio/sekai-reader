@@ -53,3 +53,7 @@ test('圖片載入失敗換成圓圈', () => {
   expect(el.querySelector('img')).toBeNull();
   expect(el.textContent).toBe('一歌');
 });
+test('小人圖預留尺寸，載入時版面不跳動', () => {
+  const img = art.render(req('一歌'), 'sm').querySelector('img')!;
+  expect([img.getAttribute('width'), img.getAttribute('height')]).toEqual(['160', '136']);
+});
