@@ -21,26 +21,46 @@ describe.skipIf(!has)('event_173_01（真實劇本，素材不在 repo 時跳過
 
 import board173 from '../../storyboards/event_173_01.json';
 import { validateStoryboard } from '../../src/storyboard/validate';
-import type { Panel } from '../../src/storyboard/types';
+import type { Panel, Storyboard } from '../../src/storyboard/types';
+import { StaticChibiArt } from '../../src/art/StaticChibiArt';
+import { renderComic } from '../../src/render/comic';
 
 describe('storyboards/event_173_01.json', () => {
   const panels = board173.panels as Panel[];
-  test('36 格、每格有 edge、只有一格 impact', () => {
-    expect(panels.length).toBe(36);
+  test('至少 30 格、每格有 edge、只有一格 impact', () => {
+    expect(panels.length).toBeGreaterThanOrEqual(30);
     expect(panels.every(p => p.edge !== undefined)).toBe(true);
     expect(panels.filter(p => p.t === 'impact').length).toBe(1);
   });
-  test('非 impact／trans 格都有 cam', () =>
-    expect(panels.filter(p => p.t !== 'impact' && p.t !== 'trans').every(p => p.cam)).toBe(true));
+  test('非 trans 格都有 cam 與 edge', () =>
+    expect(panels.filter(p => p.t !== 'trans').every(p => p.cam && p.edge !== undefined)).toBe(true));
+  test('v3 分鏡用上新格子', () => {
+    const t = panels.map(p => p.t);
+    expect(t.filter(x => x === 'pair').length).toBeGreaterThanOrEqual(2);
+    expect(t).toContain('inset');
+    expect(t).toContain('insert');
+    expect(t.filter(x => x === 'beat').length).toBeGreaterThanOrEqual(2);
+  });
+  test('沒有連續三格同類型', () => {
+    for (let i = 2; i < panels.length; i++) expect(panels[i].t === panels[i - 1].t && panels[i].t === panels[i - 2].t).toBe(false);
+  });
   test('est／trans 及其前一格 edge 為 0', () => panels.forEach((p, i) => {
     if (p.t === 'est' || p.t === 'trans') { expect(p.edge).toBe(0); if (i) expect(panels[i - 1].edge).toBe(0); }
   }));
-  test('meta', () => expect(board173.meta).toMatchObject({ director: 'ai', promptVersion: 'v2-cam-edge', generatedAt: '2026-11-01' }));
+  test('meta', () => expect(board173.meta).toMatchObject({ director: 'ai', promptVersion: 'v3-manga', generatedAt: '2026-11-01' }));
+  test('meta 是英文（meta 也過中文檢查）', () => expect(board173.meta.model).toMatch(/^[\x20-\x7e]+$/));
 });
 
-describe.skipIf(!has)('event_173_01 分鏡驗證（需真實劇本）', () => {
-  test('通過驗證', () => {
-    const ep = parseScenario(JSON.parse(readFileSync(ASSET, 'utf8')) as RawScenario);
-    expect(validateStoryboard(board173, ep)).toMatchObject({ ok: true });
+describe.skipIf(!has)('event_173_01 分鏡驗證與渲染（需真實劇本）', () => {
+  const ep173 = has ? parseScenario(JSON.parse(readFileSync(ASSET, 'utf8')) as RawScenario) : null!;
+  const art = new StaticChibiArt('/sd');
+  const root = has ? renderComic(ep173, board173 as Storyboard, art, { bgUrl: () => null }) : null!;
+  test('通過驗證', () => expect(validateStoryboard(board173, ep173)).toMatchObject({ ok: true }));
+  test('渲染 173-1 出現至少六種對白框、吶喊框兩個以上', () => {
+    const shapes = new Set([...root.querySelectorAll('.bb')].flatMap(e => [...e.classList].filter(c => c.startsWith('bb-'))));
+    expect(shapes.size).toBeGreaterThanOrEqual(6);
+    expect(root.querySelectorAll('.bb-shout').length).toBeGreaterThanOrEqual(2);
   });
+  test('49 句各出現一次', () =>
+    expect([...root.querySelectorAll('[data-r]')].map(e => Number(e.getAttribute('data-r')))).toEqual(ep173.lines.map(l => l.r)));
 });

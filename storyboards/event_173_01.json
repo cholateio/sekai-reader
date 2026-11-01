@@ -1,8 +1,8 @@
 {
  "meta": {
   "director": "ai",
-  "promptVersion": "v2-cam-edge",
-  "model": "claude (offline, 2026-10-30 board + 2026-11-01 cam/edge)",
+  "promptVersion": "v3-manga",
+  "model": "claude (offline, 2026-11-01 v3 manga redo)",
   "generatedAt": "2026-11-01"
  },
  "panels": [
@@ -18,19 +18,10 @@
    "edge": 0
   },
   {
-   "t": "talk",
-   "l": [0],
+   "t": "pair",
+   "l": [0, 1],
    "cam": {
-    "focus": [0.72, 0.74],
-    "zoom": 1.25
-   },
-   "edge": -1
-  },
-  {
-   "t": "talk",
-   "l": [1],
-   "cam": {
-    "focus": [0.22, 0.62],
+    "focus": [0.5, 0.68],
     "zoom": 1.3
    },
    "edge": 1
@@ -43,7 +34,7 @@
     "zoom": 1.4,
     "blur": 5
    },
-   "edge": 0
+   "edge": -1
   },
   {
    "t": "close",
@@ -54,16 +45,16 @@
     "zoom": 1.9,
     "blur": 3
    },
-   "edge": -1
+   "edge": 1
   },
   {
-   "t": "talk",
+   "t": "pair",
    "l": [4, 5],
    "cam": {
-    "focus": [0.74, 0.62],
-    "zoom": 1.2
+    "focus": [0.6, 0.62],
+    "zoom": 1.25
    },
-   "edge": 1
+   "edge": 0
   },
   {
    "t": "talk",
@@ -83,7 +74,7 @@
     "zoom": 1.5,
     "blur": 1.5
    },
-   "edge": 0
+   "edge": 1
   },
   {
    "t": "talk",
@@ -92,13 +83,13 @@
     "focus": [0.2, 0.6],
     "zoom": 1.25
    },
-   "edge": 1
+   "edge": 0
   },
   {
-   "t": "talk",
+   "t": "inset",
    "l": [9, 10],
    "cam": {
-    "focus": [0.78, 0.76],
+    "focus": [0.78, 0.7],
     "zoom": 1.3
    },
    "edge": -1
@@ -108,7 +99,8 @@
    "l": [11],
    "cam": {
     "focus": [0.6, 0.72],
-    "zoom": 1.45
+    "zoom": 1.3,
+    "blur": 2
    },
    "edge": 1
   },
@@ -121,16 +113,16 @@
     "zoom": 1.9,
     "blur": 3
    },
-   "edge": 0
+   "edge": -1
   },
   {
-   "t": "talk",
+   "t": "pair",
    "l": [14, 15],
    "cam": {
     "focus": [0.3, 0.62],
     "zoom": 1.2
    },
-   "edge": -1
+   "edge": 1
   },
   {
    "t": "talk",
@@ -139,7 +131,7 @@
     "focus": [0.8, 0.7],
     "zoom": 1.32
    },
-   "edge": 1
+   "edge": 0
   },
   {
    "t": "talk",
@@ -153,8 +145,8 @@
   },
   {
    "t": "sfx",
-   "sfx": "噹——噹——",
    "l": [21],
+   "sfx": "噹——噹——",
    "cam": {
     "focus": [0.4, 0.42],
     "zoom": 1.3
@@ -162,7 +154,7 @@
    "edge": 0
   },
   {
-   "t": "talk",
+   "t": "pair",
    "l": [22, 23],
    "cam": {
     "focus": [0.72, 0.76],
@@ -194,9 +186,10 @@
    "l": [27],
    "cam": {
     "focus": [0.18, 0.66],
-    "zoom": 1.45
+    "zoom": 1.3,
+    "blur": 2
    },
-   "edge": 0
+   "edge": -1
   },
   {
    "t": "talk",
@@ -225,18 +218,23 @@
    "edge": 0
   },
   {
-   "t": "talk",
+   "t": "inset",
    "l": [30, 31],
    "cam": {
     "focus": [0.3, 0.55],
     "zoom": 1.25
    },
-   "edge": 0
+   "edge": 1
   },
   {
    "t": "impact",
    "l": [32],
-   "edge": 1
+   "sfx": "咚",
+   "cam": {
+    "focus": [0.5, 0.5],
+    "zoom": 1.2
+   },
+   "edge": 0
   },
   {
    "t": "split",
@@ -258,11 +256,12 @@
    "edge": 1
   },
   {
-   "t": "talk",
+   "t": "beat",
    "l": [37],
    "cam": {
     "focus": [0.62, 0.55],
-    "zoom": 1.32
+    "zoom": 1.3,
+    "blur": 2
    },
    "edge": 0
   },
@@ -278,7 +277,7 @@
    "edge": -1
   },
   {
-   "t": "talk",
+   "t": "pair",
    "l": [39, 40],
    "cam": {
     "focus": [0.32, 0.42],
@@ -302,9 +301,10 @@
    "l": [42],
    "cam": {
     "focus": [0.48, 0.72],
-    "zoom": 1.45
+    "zoom": 1.3,
+    "blur": 2
    },
-   "edge": 0
+   "edge": 1
   },
   {
    "t": "talk",
@@ -314,7 +314,7 @@
     "focus": [0.28, 0.56],
     "zoom": 1.2
    },
-   "edge": 1
+   "edge": -1
   },
   {
    "t": "close",
@@ -324,18 +324,18 @@
     "zoom": 1.9,
     "blur": 3
    },
-   "edge": -1
+   "edge": 1
   },
   {
    "t": "shout",
    "l": [46],
    "cast": ["一歌", "咲希", "穗波", "志步"],
    "cam": {
-    "focus": [0.75, 0.62],
-    "zoom": 1.2,
-    "blur": 2
+    "focus": [0.5, 0.5],
+    "zoom": 1.3,
+    "blur": 1
    },
-   "edge": 1
+   "edge": 0
   },
   {
    "t": "mono",
