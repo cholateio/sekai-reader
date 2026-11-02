@@ -1,8 +1,8 @@
-/* Comic pages always use light paper, also in dark mode: bubbles and ink lines are drawn for white paper. */
+/* Black page: gutters are the page colour, frames are light lines; bubbles stay white with black ink. */
 .comic {
-  --paper: #fbfaf7; --panel: #ffffff; --line-ink: #14161b; --tone: rgba(20, 22, 27, .17);
-  --bubble: #ffffff; --bubble-ink: #15171c; --impact: #0b0c10; --speed: rgba(255, 255, 255, .13);
-  --gutter: #14161b; --gutter-ink: #f3f5fa; --c-muted: #5f687b; --c-ink: #1b2130;
+  --paper: var(--bg); --panel: #1c222d; --line-ink: #14161b; --frame: #c9cfda; --tone: rgba(20, 22, 27, .17);
+  --bubble: #ffffff; --bubble-ink: #15171c; --impact: #05060a; --speed: rgba(255, 255, 255, .13);
+  --gutter: #1c222d; --gutter-ink: #e8ecf4; --c-muted: #9aa3b5; --c-ink: #e8ecf4;
   display: flex; flex-direction: column; padding: 14px 0 0; font-size: var(--reader-size, 14px);
   color: var(--c-ink); font-family: var(--font-body);
 }
@@ -13,7 +13,7 @@
   box-sizing: border-box;
 }
 .comic .scene-start { margin-top: 18px; }
-.comic .pn.paper { background-color: var(--paper); }
+.comic .pn.paper { background-color: var(--panel); }
 .comic .bubbles { display: flex; flex-direction: column; gap: 2px; flex: 1; }
 .comic .bb {
   /* The outline is the SVG .bo behind the text, drawn by fitBubbles; isolation keeps it above panel layers. */
@@ -74,7 +74,7 @@
 .comic .sfx.ink { position: static; align-self: flex-start; font-size: 32px; color: var(--line-ink); -webkit-text-stroke: 3px #fff; text-shadow: 4px 4px 0 rgba(0, 0, 0, .25); transform: rotate(-6deg); }
 .comic .impact .sfx { left: 14px; right: auto; top: 14px; font-size: 48px; transform: rotate(-14deg); }
 .comic .cap {
-  align-self: flex-start; background: var(--line-ink); color: var(--panel); padding: 4px 10px;
+  align-self: flex-start; background: var(--line-ink); color: #f3f5fa; padding: 4px 10px;
   font-family: var(--font-display); font-size: .95em; border-radius: 2px;
 }
 .comic .cap + .cap { margin-top: -4px; }
@@ -110,7 +110,7 @@
 .comic .inset {
   position: absolute; right: 10px; bottom: 10px; width: 46%; z-index: 2; overflow: hidden;
   /* 18px padding: bubble outlines extend up to ~16px past their text box and the frame clips (overflow hidden). */
-  border: 2.5px solid var(--line-ink); background: #fff; padding: 18px; box-shadow: 4px 4px 0 var(--line-ink);
+  border: 2.5px solid var(--frame); background: var(--panel); padding: 18px; box-shadow: 4px 4px 0 #000;
   display: flex; flex-direction: column; gap: 6px;
 }
 .comic .inset .bb { max-width: 100%; }
@@ -168,7 +168,7 @@
 .comic .est.has-bg { min-height: 220px; justify-content: flex-start; }
 .comic .reveal.has-bg .bgl { opacity: .3; }
 .comic .reveal.has-bg::after { display: none; }
-.comic .has-bg .bigtxt { text-shadow: 0 0 12px #fff, 0 0 4px #fff; }
+.comic .has-bg .bigtxt { text-shadow: 0 0 12px #000, 0 0 4px #000; }
 
 /* ---- slanted manga frames (Task 8) ---- */
 /* Below 672px the comic eats 6px of the 16px page gutter, leaving a 10px paper margin on each side. */
@@ -178,8 +178,8 @@
 .comic .trans { border-radius: 0; }
 .comic .pw {
   position: relative;
-  filter: drop-shadow(2.5px 0 0 var(--line-ink)) drop-shadow(-2.5px 0 0 var(--line-ink))
-    drop-shadow(0 2.5px 0 var(--line-ink)) drop-shadow(0 -2.5px 0 var(--line-ink));
+  filter: drop-shadow(2.5px 0 0 var(--frame)) drop-shadow(-2.5px 0 0 var(--frame))
+    drop-shadow(0 2.5px 0 var(--frame)) drop-shadow(0 -2.5px 0 var(--frame));
 }
 .comic .pw.bleed { filter: none; }
 .comic .pw > .pn { border: 0; border-radius: 0; padding: calc(14px + var(--st, 0px)) 18px calc(14px + var(--sb, 0px)); }

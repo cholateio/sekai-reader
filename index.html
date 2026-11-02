@@ -2,6 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
+<meta name="theme-color" content="#0b0d12">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="description" content="《世界計畫》台服活動劇情的條漫閱讀器">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11,6 +12,10 @@
 </head>
 <body>
 <div id="app"></div>
+<div class="curtain" aria-hidden="true" data-curtain>
+<svg class="c-l" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M0 0 H100 C82 25, 82 75, 100 100 H0 Z"/></svg>
+<svg class="c-r" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M100 0 H0 C18 25, 18 75, 0 100 H100 Z"/></svg>
+</div>
 <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

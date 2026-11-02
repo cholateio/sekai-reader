@@ -1,28 +1,12 @@
 :root {
-  --bg: #eef1f6; --surface: #ffffff; --sunk: #e3e8f0; --ink: #1b2130; --muted: #5f687b; --line: #d6dce7;
-  --accent: #137385; --accent-ink: #ffffff; --scene: #26304a; --scene-ink: #f3f5fa;
-  --flash: #f4ecdc; --flash-ink: #5a4b2e; --warn: #9a5b00; --warn-bg: #fff3dc;
+  /* One theme only: near-black everywhere, reading included (user, 2026-11-02). */
+  --bg: #0b0d12; --surface: #161a22; --sunk: #11141b; --ink: #e8ecf4; --muted: #9aa3b5; --line: #262c38;
+  --accent: #4cc3cf; --accent-ink: #0d1a1d; --scene: #2b3756; --scene-ink: #eef1f8;
+  --flash: #2b261c; --flash-ink: #e2d2ae; --warn: #f0b660; --warn-bg: #2d2416;
   --font-display: "LXGW WenKai TC", "Kaiti TC", "BiauKai", serif;
   --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
   --reader-size: 14px;
-  color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #121620; --surface: #1c222d; --sunk: #161b25; --ink: #e8ecf4; --muted: #9aa3b5;
-    --line: #2b3342; --accent: #4cc3cf; --accent-ink: #0d1a1d; --scene: #2b3756; --scene-ink: #eef1f8;
-    --flash: #2b261c; --flash-ink: #e2d2ae; --warn: #f0b660; --warn-bg: #2d2416; color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #121620; --surface: #1c222d; --sunk: #161b25; --ink: #e8ecf4; --muted: #9aa3b5;
-  --line: #2b3342; --accent: #4cc3cf; --accent-ink: #0d1a1d; --scene: #2b3756; --scene-ink: #eef1f8;
-  --flash: #2b261c; --flash-ink: #e2d2ae; --warn: #f0b660; --warn-bg: #2d2416; color-scheme: dark;
-}
-/* Comic mode: the whole page turns to paper, light even under a dark system theme. */
-body.paper {
-  --bg: #fbfaf7; --surface: #ffffff; --sunk: #eceae4; --ink: #1b2130; --muted: #5f687b; --line: #d9d6cf;
-  --accent: #137385; --accent-ink: #ffffff; color-scheme: light;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -138,3 +122,14 @@ a { color: var(--accent); }
 .primary { background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 10px; padding: 10px 18px; font-weight: 500; }
 .ghost { background: none; border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; color: var(--muted); }
 @media (prefers-reduced-motion: reduce) { .progress i, .drawer-item .switch, .drawer-item .switch::after { transition: none; } }
+
+/* Opening curtain (see src/app/curtain.ts): hidden unless data-play is set on the first load of a session. */
+.curtain { display: none; }
+.curtain[data-play] { display: block; position: fixed; inset: 0; z-index: 100; pointer-events: none; overflow: hidden; }
+.curtain[data-play] svg { position: absolute; top: 0; height: 100%; inline-size: 75vw; fill: var(--scene); }
+.curtain[data-play] .c-l { left: 0; animation: curtain-l 1.2s cubic-bezier(.7, 0, .25, 1) .15s forwards; }
+.curtain[data-play] .c-r { right: 0; animation: curtain-r 1.2s cubic-bezier(.7, 0, .25, 1) .15s forwards; }
+@keyframes curtain-l { to { transform: translateX(-102%); } }
+@keyframes curtain-r { to { transform: translateX(102%); } }
+/* With reduced motion the animation never runs and the curtain would cover the page forever: never render it. */
+@media (prefers-reduced-motion: reduce) { .curtain, .curtain[data-play] { display: none; } }

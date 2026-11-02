@@ -11,7 +11,8 @@ const PORT = 4179;
 const W = 390, H = 844, DPR = 2;
 // Spec (manga-style design, 驗收 1): 10px paper margin each side, 10px visible seams, slant offset 22px.
 const MARGIN = 10, G = 10, S = 22;
-const PAPER: [number, number, number] = [0xfb, 0xfa, 0xf7];
+// Page/gutter colour (--bg in app.css): the seam scan counts these pixels.
+const PAPER: [number, number, number] = [0x0b, 0x0d, 0x12];
 
 function findChrome(): string | null {
   if (process.env.CHROME_PATH && existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
@@ -48,6 +49,13 @@ async function main(): Promise<number> {
     page.on('response', r => { if (r.status() >= 400) errors.push(`${r.status()} ${r.url()}`); });
     await page.goto(`http://localhost:${PORT}/`, { waitUntil: 'networkidle' });
     await page.waitForSelector('.comic .pw');
+    // First load of the session plays the curtain; it must be gone (removed) once the animation ends.
+    const curtainPlayed = await page.evaluate(() => document.querySelector('[data-curtain]')?.hasAttribute('data-play') ?? false);
+    await page.waitForTimeout(1600);
+    const curtainGone = await page.evaluate(() => !document.querySelector('[data-curtain]'));
+    await page.reload({ waitUntil: 'networkidle' });
+    const curtainOnce = await page.evaluate(() => !document.querySelector('[data-curtain]'));
+    await page.waitForSelector('.comic .pw');
     const m = await page.evaluate(() => ({
       hash: location.hash,
       scrollWidth: document.documentElement.scrollWidth,
@@ -77,6 +85,7 @@ async function main(): Promise<number> {
     check(!m.sekai, 'no sekai.best on page');
     check(m.paper, 'paper body in comic mode');
     check(errors.length === 0, `no page/network errors ${errors.join(' | ')}`);
+    check(curtainPlayed && curtainGone && curtainOnce, `curtain plays once per session and removes itself ${JSON.stringify({ curtainPlayed, curtainGone, curtainOnce })}`);
 
     mkdirSync('scratch', { recursive: true });
     await page.screenshot({ path: 'scratch/layout-top.png' });
@@ -186,7 +195,8 @@ async function mangaChecks(page: Page, check: Check): Promise<void> {
     const body = pn.querySelector('.bb [data-role="body"]');
     return { bg: getComputedStyle(pn).backgroundColor, fill: body ? getComputedStyle(body).fill : null, focus: !!pn.querySelector('.fx-focus') };
   });
-  check(!!imp && imp.bg === 'rgb(11, 12, 16)' && imp.fill === 'rgb(255, 255, 255)' && imp.focus,
+  const dark = (c: string) => (c.match(/\d+/g) ?? []).slice(0, 3).every(v => Number(v) < 32);
+  check(!!imp && dark(imp.bg) && imp.fill === 'rgb(255, 255, 255)' && imp.focus,
     `impact readable without background ${JSON.stringify(imp)}`);
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForSelector('.comic .pw');

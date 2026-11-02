@@ -47,6 +47,7 @@ None. `check:layout` looks for Chromium in `~/.cache/ms-playwright/chromium-*`; 
 - Full-panel halftone is a design anti-goal (user found it noisy): dots only on the far side of beat panels, flash edges, phone bubbles. No animated SVG filters (slow on iOS).
 - Black-and-white mode composes `blur(var(--blur))` with grayscale in CSS; never write `filter` inline on `.bgl`.
 - `npm run check:layout` measures seams from screenshot pixels after painting panels a sentinel green; if it fails, look at `scratch/layout-*.png` first.
+- The seam scan in `check_layout.ts` matches the page colour (`PAPER`, = `--bg` in app.css); change both together. It also reloads once so the opening curtain (first load of a session only) is gone before measuring.
 
 ## Docs map
 
