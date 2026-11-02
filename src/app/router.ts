@@ -4,7 +4,7 @@ import { eventById } from './catalog';
 import { loadEpisode, loadManifest, type Manifest } from './load';
 import { prefs } from './storage';
 import { unitFlavor } from './units';
-import { viewMissing } from './views/common';
+import { leavePage, viewMissing } from './views/common';
 import { viewEvent } from './views/event';
 import { viewLibrary } from './views/library';
 import { viewReader } from './views/reader';
@@ -63,6 +63,7 @@ export async function startApp(app: HTMLElement): Promise<void> {
   const render = async () => {
     if (!location.hash || location.hash === '#') history.replaceState(null, '', DEFAULT_ROUTE);
     const mine = ++seq;
+    leavePage();
     const { nodes, restore } = await route(location.hash.slice(1), manifest);
     if (mine !== seq) return;
     quietUntil = Date.now() + RESTORE_QUIET_MS;

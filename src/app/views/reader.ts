@@ -6,7 +6,7 @@ import type { Episode } from '../../scenario/types';
 import type { Storyboard } from '../../storyboard/types';
 import type { Manifest } from '../load';
 import { prefs } from '../storage';
-import { go } from './common';
+import { go, pageSignal } from './common';
 
 export interface ReaderCtx {
   title: string;
@@ -56,11 +56,7 @@ export function viewReader(ep: Episode, board: Storyboard, ctx: ReaderCtx): HTML
   };
   menu.addEventListener('click', () => setOpen(drawer.hidden));
   scrim.addEventListener('click', () => setOpen(false));
-  const onKey = (e: KeyboardEvent) => {
-    if (!drawer.isConnected) { document.removeEventListener('keydown', onKey); return; }
-    if (e.key === 'Escape') setOpen(false);
-  };
-  document.addEventListener('keydown', onKey);
+  document.addEventListener('keydown', (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); }, { signal: pageSignal() });
 
   const end = h('div', { class: 'end' });
   if (ctx.next) {

@@ -106,7 +106,8 @@ a { color: var(--accent); }
 .drawer {
   position: fixed; top: 0; right: 0; bottom: 0; z-index: 31; width: min(280px, 82vw); overflow-y: auto;
   background: var(--surface); box-shadow: -8px 0 24px rgba(0, 0, 0, .2);
-  padding: calc(env(safe-area-inset-top, 0px) + 18px) 18px 24px; display: flex; flex-direction: column; gap: 6px;
+  padding: calc(env(safe-area-inset-top, 0px) + 18px) max(18px, env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + 24px) 18px;
+  display: flex; flex-direction: column; gap: 6px;
 }
 .scrim[hidden], .drawer[hidden] { display: none; }
 .drawer-head { display: grid; gap: 2px; padding-bottom: 12px; margin-bottom: 6px; border-bottom: 1px solid var(--line); }

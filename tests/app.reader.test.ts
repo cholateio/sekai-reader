@@ -182,3 +182,22 @@ test('字級固定 14px，舊的字級設定不再生效', () => {
 test('偏好設定不再接受對話模式相關的鍵', () => {
   for (const k of ['mode', 'mood', 'size']) expect(() => prefs.set(k as never, 1)).toThrow();
 });
+test('離開閱讀頁時移除側邊欄的鍵盤監聽器（不必等下一次按鍵）', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (u: string) =>
+    u === '/manifest.json' ? Response.json({ bg: [], sd: [], episodes: ['event_173_01'] })
+      : u === '/episodes/event_173_01.json' ? Response.json(syntheticEpisode()) : new Response('', { status: 404 })));
+  const signals: AbortSignal[] = [];
+  const orig = document.addEventListener.bind(document);
+  const spy = vi.spyOn(document, 'addEventListener').mockImplementation((type: string, fn: any, opts?: any) => {
+    if (type === 'keydown') signals.push(opts?.signal);
+    return orig(type, fn, opts);
+  });
+  history.replaceState(null, '', '#read-173-1');
+  await startApp(document.createElement('div'));
+  expect(signals.length).toBeGreaterThan(0);
+  history.replaceState(null, '', '#library');
+  window.dispatchEvent(new HashChangeEvent('hashchange'));
+  await new Promise(r => setTimeout(r, 0));
+  expect(signals.every(s => s?.aborted)).toBe(true);
+  spy.mockRestore();
+});
