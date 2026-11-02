@@ -12,7 +12,7 @@ const W = 390, H = 844, DPR = 2;
 // Spec (manga-style design, 驗收 1): 10px paper margin each side, 10px visible seams, slant offset 22px.
 const MARGIN = 10, G = 10, S = 22;
 // Page/gutter colour (--bg in app.css): the seam scan counts these pixels.
-const PAPER: [number, number, number] = [0x0b, 0x0d, 0x12];
+const PAPER: [number, number, number] = [0xfc, 0xfc, 0xfa];
 
 function findChrome(): string | null {
   if (process.env.CHROME_PATH && existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;

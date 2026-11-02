@@ -1,12 +1,12 @@
-/* Black page: gutters are the page colour, frames are light lines; bubbles stay white with black ink. */
+/* Paper page (cholate-blog palette): gutters are the page colour, frames and bubble outlines are ink. */
 .comic {
-  --paper: var(--bg); --panel: #1c222d; --line-ink: #14161b; --frame: #c9cfda; --tone: rgba(20, 22, 27, .17);
-  --bubble: #ffffff; --bubble-ink: #15171c; --impact: #05060a; --speed: rgba(255, 255, 255, .13);
-  --gutter: #1c222d; --gutter-ink: #e8ecf4; --c-muted: #9aa3b5; --c-ink: #e8ecf4;
+  --paper: var(--bg); --panel: #ffffff; --line-ink: #14161b; --frame: #14161b; --tone: rgba(20, 22, 27, .17);
+  --bubble: #ffffff; --bubble-ink: #15171c; --impact: #0b0c10; --speed: rgba(255, 255, 255, .13);
+  --gutter: var(--ink); --gutter-ink: #f5f5f1; --c-muted: var(--muted); --c-ink: var(--ink);
   display: flex; flex-direction: column; padding: 14px 0 0; font-size: var(--reader-size, 14px);
   color: var(--c-ink); font-family: var(--font-body);
 }
-.comic .credit { font-size: 11px; color: var(--c-muted); display: flex; justify-content: space-between; gap: 8px; }
+.comic .credit { font-family: var(--font-mono); font-size: 11px; color: var(--c-muted); display: flex; justify-content: space-between; gap: 8px; }
 .comic .pn {
   position: relative; border: 2.5px solid var(--line-ink); background: var(--panel); border-radius: 3px;
   overflow: hidden; padding: 14px; display: flex; flex-direction: column; gap: 10px; min-height: 140px;
@@ -28,7 +28,7 @@
 .comic .bb.l { align-self: flex-start; }
 .comic .bb.r { align-self: flex-end; }
 .comic .bb.c { align-self: center; }
-.comic .bb-shout { padding: 12px 16px; font-weight: 900; text-align: center; }
+.comic .bb-shout { padding: 12px 16px; font-family: var(--font-heavy); font-weight: 900; text-align: center; }
 .comic .bb-cloud { padding: 16px 22px; font-family: 'Huninn', var(--font-body); }
 .comic .bb-whisper { color: #4a5160; }
 .comic .bb-phone { font-size: .94em; }
@@ -66,7 +66,7 @@
 .comic .fx.sparkle { color: #137385; font-size: 18px; letter-spacing: 6px; right: 14px; top: 10px; }
 .comic .sfx {
   /* Hand-lettered sound effect: heavy white glyphs with a black outline and hard shadow. */
-  position: absolute; right: 12px; top: 8px; font-family: var(--font-body); font-weight: 900; font-size: 28px;
+  position: absolute; right: 12px; top: 8px; font-family: var(--font-heavy); font-weight: 900; font-size: 28px;
   line-height: 1; color: #fff; -webkit-text-stroke: 2.5px var(--line-ink); paint-order: stroke fill;
   text-shadow: 3px 3px 0 var(--line-ink); transform: rotate(-8deg); letter-spacing: .04em; z-index: 3;
   pointer-events: none;
@@ -112,7 +112,7 @@
 .comic .inset {
   position: absolute; right: 10px; bottom: 10px; width: 46%; z-index: 2; overflow: hidden;
   /* 18px padding: bubble outlines extend up to ~16px past their text box and the frame clips (overflow hidden). */
-  border: 2.5px solid var(--frame); background: var(--panel); padding: 18px; box-shadow: 4px 4px 0 #000;
+  border: 2.5px solid var(--frame); background: var(--panel); padding: 18px; box-shadow: 4px 4px 0 var(--line-ink);
   display: flex; flex-direction: column; gap: 6px;
 }
 .comic .inset .bb { max-width: 100%; }
@@ -170,7 +170,7 @@
 .comic .est.has-bg { min-height: 220px; justify-content: flex-start; }
 .comic .reveal.has-bg .bgl { opacity: .3; }
 .comic .reveal.has-bg::after { display: none; }
-.comic .has-bg .bigtxt { text-shadow: 0 0 12px #000, 0 0 4px #000; }
+.comic .has-bg .bigtxt { text-shadow: 0 0 12px #fff, 0 0 4px #fff; }
 
 /* ---- slanted manga frames (Task 8) ---- */
 /* Below 672px the comic eats 6px of the 16px page gutter, leaving a 10px paper margin on each side. */
