@@ -7,13 +7,13 @@ event_173_01 (MVP)
 ┌──────────────────────────┐   36 panels, 49 lines, two scenes
 │ 午休時間 / 中庭  [est]    │   every line appears exactly once
 ├─────────────────────────╲┤   panels touch both screen edges
-│ (chibi)  speech bubble   │   comic ⇄ chat mode toggle
+│ (chibi)  speech bubble   │   one menu button, nothing else
 └──────────────────────────┘
 ```
 
-- **Comic mode**: an AI director decides panel types, framing and slant; the dialogue is always the original text, referenced by line number only.
-- **Chat mode**: the same episode as a message thread with scene cards, flashback boxes and mood tags.
-- **Exactly once**: automated tests check that every line of the episode is rendered once, in order, in both modes.
+- **AI-directed panels**: an AI director decides panel types, framing and slant; the dialogue is always the original text, referenced by line number only.
+- **Manga vocabulary**: eight bubble shapes chosen from the line itself, focus and speed lines, sound effects, slanted gutters of equal width.
+- **Exactly once**: automated tests check that every line of the episode is rendered once, in order.
 - **Static site**: the build output is plain files; there is no server, no login and no tracking.
 
 Only event 173 episode 1 is readable for now; every other episode shows 「尚未提供」.
@@ -22,7 +22,7 @@ Only event 173 episode 1 is readable for now; every other episode shows 「尚�
 
 ```
 .asset script ──► episode JSON ─┐
-storyboard JSON (line numbers) ─┼──► comic / chat renderer ──► static page
+storyboard JSON (line numbers) ─┼──► comic renderer ──► static page
 background + chibi images ──────┘
 ```
 
@@ -39,7 +39,7 @@ You need Node.js 22 or newer and Python 3, plus the episode's assets (one `.asse
 
 ## Privacy & security
 
-- The reader stores only your reading preferences (comic/chat mode, font size, scroll position) in your browser's localStorage.
+- The reader stores only your reading preferences (black-and-white mode, scroll position) in your browser's localStorage.
 - At runtime the page loads its own files and Google Fonts; it never contacts Sekai-World or any game server.
 - No accounts, keys or secrets are involved.
 

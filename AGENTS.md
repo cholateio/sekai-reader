@@ -3,7 +3,7 @@
 
 ## Project goal
 
-A static web reader that turns Project SEKAI Traditional Chinese event stories into phone-friendly vertical comics (with a chat-style fallback) for fans who want to read without the game.
+A static web reader that turns Project SEKAI Traditional Chinese event stories into phone-friendly vertical comics for fans who want to read without the game.
 
 ## Stack
 
@@ -15,7 +15,7 @@ A static web reader that turns Project SEKAI Traditional Chinese event stories i
 
 - `src/scenario/` — `.asset` → episode model (`parseScenario`), mood labels
 - `src/storyboard/` — storyboard types, validation, rule-based fallback board, bundled boards
-- `src/render/` — comic renderer (`comic/`: panels, bubble shape rules `shape.ts`, SVG outlines `bubbleSvg.ts`, backgrounds and effect layers, slanted layout) and chat renderer
+- `src/render/` — comic renderer (`comic/`: panels, bubble shape rules `shape.ts`, SVG outlines `bubbleSvg.ts`, backgrounds and effect layers, slanted layout)
 - `src/art/` — `CharacterArt` seam (static chibi now, Spine later) and fallback name circles
 - `src/app/` — hash router, data loading, prefs, unit easter eggs (`units.ts`), library / event / reader views
 - `data/` — event index and character table (`tc-event-index.json`)

@@ -1,8 +1,8 @@
 const STORE = 'sekai-reader:';
 
 // Only reader preferences live in localStorage; episode content never does (spec: no localStorage scripts).
-type PrefKey = 'mode' | 'size' | 'mood' | 'bw' | `pos:${string}`;
-const ALLOWED = /^(mode|size|mood|bw|pos:[a-z0-9_]+)$/;
+type PrefKey = 'bw' | `pos:${string}`;
+const ALLOWED = /^(bw|pos:[a-z0-9_]+)$/;
 
 export const prefs = {
   get<T>(k: PrefKey, d: T): T {

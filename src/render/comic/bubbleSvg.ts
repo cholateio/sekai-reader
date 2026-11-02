@@ -55,21 +55,26 @@ export function wobblePath(g: BubbleGeom, rnd: () => number): string {
   return `M${pts.join('L')}Z`;
 }
 
+/**
+ * Spiky outline that always contains the text box: valley points sit on the frame rectangle (corners included)
+ * and every spike points outward from its side by 6–11px, so long lines can never poke out of the star.
+ */
 export function shoutPath(g: BubbleGeom, rnd: () => number): string {
-  const { cx, cy, x0, y0, x1, y1 } = frame(g);
-  const rx = (x1 - x0) / 2, ry = (y1 - y0) / 2;
-  const n = Math.max(18, Math.round((rx + ry) / 9));
+  const { x0, y0, x1, y1 } = frame(g);
+  const across = Math.max(2, Math.round((x1 - x0) / 30)), down = Math.max(1, Math.round((y1 - y0) / 30));
+  const sides: { from: [number, number]; to: [number, number]; n: number; normal: [number, number] }[] = [
+    { from: [x0, y0], to: [x1, y0], n: across, normal: [0, -1] },
+    { from: [x1, y0], to: [x1, y1], n: down, normal: [1, 0] },
+    { from: [x1, y1], to: [x0, y1], n: across, normal: [0, 1] },
+    { from: [x0, y1], to: [x0, y0], n: down, normal: [-1, 0] },
+  ];
   const pts: string[] = [];
-  for (let k = 0; k < n; k++) {
-    const a = (k / n) * Math.PI * 2 + (rnd() - 0.5) * 0.12;
-    const ex = Math.cos(a), ey = Math.sin(a);
-    if (k % 2) {
-      const f = 0.8 + rnd() * 0.06;
-      pts.push(pt(cx + rx * f * ex, cy + ry * f * ey));
-    } else {
-      // Spike length is absolute (4–10px past the frame) so wide bubbles never outgrow the panel padding.
-      const spike = 4 + rnd() * 6;
-      pts.push(pt(cx + (rx + spike) * ex, cy + (ry + spike) * ey));
+  for (const { from, to, n, normal } of sides) {
+    for (let k = 0; k < n; k++) {
+      const t = (k + 0.5 + (rnd() - 0.5) * 0.4) / n, len = 6 + rnd() * 5;
+      pts.push(pt(from[0] + (to[0] - from[0]) * t + normal[0] * len, from[1] + (to[1] - from[1]) * t + normal[1] * len));
+      const e = (k + 1) / n;
+      pts.push(pt(from[0] + (to[0] - from[0]) * e, from[1] + (to[1] - from[1]) * e));
     }
   }
   return `M${pts.join('L')}Z`;

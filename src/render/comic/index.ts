@@ -53,12 +53,9 @@ export function renderComic(ep: Episode, board: Storyboard, art: CharacterArt, o
   return out;
 }
 
-// Bubble outlines need real layout sizes, which only exist once the comic is mounted; remember each
-// comic's options so later refits (font load, width change, Aa size change) redraw the same way.
-const fitOptions = new WeakMap<HTMLElement, FitOpts>();
-
+// Bubble outlines need real layout sizes, which only exist once the comic is mounted; redraw after
+// web fonts load and whenever the comic's width changes.
 function watchBubbles(root: HTMLElement, opts: FitOpts): void {
-  fitOptions.set(root, opts);
   fitBubbles(root, opts);
   document.fonts?.ready.then(() => fitBubbles(root, opts)).catch(() => {});
   if (typeof ResizeObserver !== 'undefined') {
@@ -68,11 +65,6 @@ function watchBubbles(root: HTMLElement, opts: FitOpts): void {
       if (w !== lastWidth) { lastWidth = w; fitBubbles(root, opts); }
     }).observe(root);
   }
-}
-
-/** Redraws bubble outlines of every rendered comic under `scope`, e.g. after the reader font size changes. */
-export function refitComics(scope: ParentNode): void {
-  for (const root of scope.querySelectorAll<HTMLElement>('.comic')) fitBubbles(root, fitOptions.get(root) ?? {});
 }
 
 const GLYPH_PANELS = new Set(['est', 'shout', 'impact']);

@@ -19,7 +19,8 @@ test('shoutPath 可重現且點都在畫布內', () => {
   const p1 = shoutPath(g, seeded(3));
   expect(shoutPath(g, seeded(3))).toBe(p1);
   inCanvas(p1);
-  expect(pairs(p1).length).toBe(Math.max(18, Math.round((103 + 33) / 9)));
+  expect(pairs(p1).length % 2).toBe(0);
+  expect(pairs(p1).length).toBeGreaterThanOrEqual(12);
 });
 test('shoutPath 不同種子形狀不同', () => expect(shoutPath(g, seeded(1))).not.toBe(shoutPath(g, seeded(2))));
 test('wobblePath 44 點且在畫布內', () => { const d = wobblePath(g, seeded(1)); expect(pairs(d).length).toBe(44); inCanvas(d); });
@@ -135,4 +136,30 @@ test('團體圓角只套在普通框，虛線框維持預設圓角', () => {
   expect(svg.querySelector('[data-role="body"]')!.getAttribute('d')).toContain('A18,18');
   drawBubble(svg, 'round', 'l', g, { ...opts, radius: 6 });
   expect(svg.querySelector('[data-role="body"]')!.getAttribute('d')).toContain('A6,6');
+});
+
+const inside = (pt: number[], poly: number[][]) => {
+  let c = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i], [xj, yj] = poly[j];
+    if ((yi > pt[1]) !== (yj > pt[1]) && pt[0] < ((xj - xi) * (pt[1] - yi)) / (yj - yi) + xi) c = !c;
+  }
+  return c;
+};
+test.each([[200, 60], [600, 64], [120, 120], [330, 70]])('吶喊框把 %ix%i 的文字方框整個包在星形裡', (w, h) => {
+  const geom = { w, h, pad: 16 };
+  for (let seed = 1; seed <= 10; seed++) {
+    const poly = pairs(shoutPath(geom, seeded(seed)));
+    const { pad } = geom;
+    for (const corner of [[pad, pad], [pad + w, pad], [pad + w, pad + h], [pad, pad + h], [pad + w / 2, pad + h / 2]])
+      expect(inside(corner, poly)).toBe(true);
+  }
+});
+test('吶喊框的內凹點貼在文字方框外緣（框外 3px 的矩形）上', () => {
+  const pts = pairs(shoutPath(g, seeded(4)));
+  const x0 = g.pad - 3, y0 = g.pad - 3, x1 = g.pad + g.w + 3, y1 = g.pad + g.h + 3;
+  pts.filter((_, k) => k % 2 === 1).forEach(([x, y]) => {
+    const onEdge = Math.abs(x - x0) < 0.11 || Math.abs(x - x1) < 0.11 || Math.abs(y - y0) < 0.11 || Math.abs(y - y1) < 0.11;
+    expect(onEdge).toBe(true);
+  });
 });

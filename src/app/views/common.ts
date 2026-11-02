@@ -2,7 +2,6 @@ import { h } from '../../render/dom';
 import { unitOf } from '../catalog';
 
 export const go = (hash: string) => { location.hash = hash; };
-export const rerender = () => window.dispatchEvent(new HashChangeEvent('hashchange'));
 
 export function backButton(hash: string, label: string): HTMLElement {
   return h('button', { class: 'iconbtn', onclick: () => go(hash), 'aria-label': label }, '←');

@@ -191,7 +191,12 @@ async function mangaChecks(page: Page, check: Check): Promise<void> {
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForSelector('.comic .pw');
 
-  await page.click('[aria-label="閱讀設定"]');
+  const chrome = await page.evaluate(() => ({
+    buttons: document.querySelectorAll('.rbar button').length,
+    menuInside: (() => { const r = document.querySelector('.rbar .menu')!.getBoundingClientRect(); return r.right <= innerWidth && r.top >= 0; })(),
+  }));
+  check(chrome.buttons === 1 && chrome.menuInside, `page chrome is one menu button ${JSON.stringify(chrome)}`);
+  await page.click('button[aria-label="選單"]');
   await page.click('[aria-label="黑白"]');
   await page.waitForTimeout(200);
   const bw = await page.evaluate(() => {
@@ -201,7 +206,7 @@ async function mangaChecks(page: Page, check: Check): Promise<void> {
   });
   check(bw.filter.includes('blur(') && bw.filter.includes('grayscale(') && bw.fill === 'rgb(255, 255, 255)' && bw.glyph,
     `black-and-white keeps blur and bubble colours ${JSON.stringify(bw)}`);
-  await page.click('[aria-label="閱讀設定"]');
+  await page.keyboard.press('Escape');
   await page.evaluate(() => scrollTo(0, 0));
   await page.waitForTimeout(200);
   await page.screenshot({ path: 'scratch/layout-bw.png' });

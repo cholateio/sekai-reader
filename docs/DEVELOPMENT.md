@@ -41,7 +41,7 @@ None. `check:layout` looks for Chromium in `~/.cache/ms-playwright/chromium-*`; 
 - Cloudflare Pages free plan: 20,000 files per site and 25 MiB per file. Voice files for all episodes would not fit.
 - The Spine runtime needs a Spine Editor license before chibi animation can ship; `src/art/CharacterArt.ts` is the only seam to swap.
 - Never point `fetch_episode.py` at more than one episode per run, and never loop it.
-- Bubble outlines are SVG drawn after layout (`fitBubbles`): they need the comic mounted, and redraw on font load, width change and the Aa buttons (`refitComics`). Measure with `offsetWidth`/`offsetHeight`, never `getBoundingClientRect` (the impact entry animation scales bubbles).
+- Bubble outlines are SVG drawn after layout (`fitBubbles`): they need the comic mounted, and redraw on font load and width change. The reading size is fixed at 14px (no Aa control). Measure with `offsetWidth`/`offsetHeight`, never `getBoundingClientRect` (the impact entry animation scales bubbles).
 - Bubble shape comes from `src/render/comic/shape.ts` rules; a storyboard `shape` override is for when the rule is wrong, not for decoration.
 - Seams stay 10px of visible paper because `applyEdges` pulls each row up by the slant (22px) plus one ink width per side without ink (est). A scene change without a trans card keeps a 20px pacing gap on purpose.
 - Full-panel halftone is a design anti-goal (user found it noisy): dots only on the far side of beat panels, flash edges, phone bubbles. No animated SVG filters (slow on iOS).

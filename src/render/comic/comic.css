@@ -3,10 +3,10 @@
   --paper: #fbfaf7; --panel: #ffffff; --line-ink: #14161b; --tone: rgba(20, 22, 27, .17);
   --bubble: #ffffff; --bubble-ink: #15171c; --impact: #0b0c10; --speed: rgba(255, 255, 255, .13);
   --gutter: #14161b; --gutter-ink: #f3f5fa; --c-muted: #5f687b; --c-ink: #1b2130;
-  display: flex; flex-direction: column; padding: 14px 0 0; font-size: var(--reader-size, 16px);
+  display: flex; flex-direction: column; padding: 14px 0 0; font-size: var(--reader-size, 14px);
   color: var(--c-ink); font-family: var(--font-body);
 }
-.comic .credit { font-size: 12px; color: var(--c-muted); display: flex; justify-content: space-between; gap: 8px; }
+.comic .credit { font-size: 11px; color: var(--c-muted); display: flex; justify-content: space-between; gap: 8px; }
 .comic .pn {
   position: relative; border: 2.5px solid var(--line-ink); background: var(--panel); border-radius: 3px;
   overflow: hidden; padding: 14px; display: flex; flex-direction: column; gap: 10px; min-height: 140px;
@@ -28,7 +28,7 @@
 .comic .bb.l { align-self: flex-start; }
 .comic .bb.r { align-self: flex-end; }
 .comic .bb.c { align-self: center; }
-.comic .bb-shout { padding: 22px 30px; font-weight: 900; text-align: center; }
+.comic .bb-shout { padding: 12px 16px; font-weight: 900; text-align: center; }
 .comic .bb-cloud { padding: 16px 22px; font-family: 'Huninn', var(--font-body); }
 .comic .bb-whisper { color: #4a5160; }
 .comic .bb-phone { font-size: .94em; }
@@ -66,13 +66,13 @@
 .comic .fx.sparkle { color: #137385; font-size: 18px; letter-spacing: 6px; right: 14px; top: 10px; }
 .comic .sfx {
   /* Hand-lettered sound effect: heavy white glyphs with a black outline and hard shadow. */
-  position: absolute; right: 12px; top: 8px; font-family: var(--font-body); font-weight: 900; font-size: 32px;
+  position: absolute; right: 12px; top: 8px; font-family: var(--font-body); font-weight: 900; font-size: 28px;
   line-height: 1; color: #fff; -webkit-text-stroke: 2.5px var(--line-ink); paint-order: stroke fill;
   text-shadow: 3px 3px 0 var(--line-ink); transform: rotate(-8deg); letter-spacing: .04em; z-index: 3;
   pointer-events: none;
 }
-.comic .sfx.ink { position: static; align-self: flex-start; font-size: 38px; color: var(--line-ink); -webkit-text-stroke: 3px #fff; text-shadow: 4px 4px 0 rgba(0, 0, 0, .25); transform: rotate(-6deg); }
-.comic .impact .sfx { left: 14px; right: auto; top: 14px; font-size: 56px; transform: rotate(-14deg); }
+.comic .sfx.ink { position: static; align-self: flex-start; font-size: 32px; color: var(--line-ink); -webkit-text-stroke: 3px #fff; text-shadow: 4px 4px 0 rgba(0, 0, 0, .25); transform: rotate(-6deg); }
+.comic .impact .sfx { left: 14px; right: auto; top: 14px; font-size: 48px; transform: rotate(-14deg); }
 .comic .cap {
   align-self: flex-start; background: var(--line-ink); color: var(--panel); padding: 4px 10px;
   font-family: var(--font-display); font-size: .95em; border-radius: 2px;
@@ -141,7 +141,7 @@
 .comic .fx-wash { background: rgba(255, 255, 255, .55); }
 .comic .reveal { min-height: 220px; justify-content: center; align-items: center; text-align: center; }
 .comic .bigtxt {
-  font-family: var(--font-display); font-weight: 700; font-size: clamp(30px, 10vw, 52px); line-height: 1.1;
+  font-family: var(--font-display); font-weight: 700; font-size: clamp(26px, 8.5vw, 44px); line-height: 1.1;
   letter-spacing: .04em; color: var(--c-ink); text-wrap: balance;
 }
 .comic .shout-wrap { align-self: stretch; display: flex; flex-direction: column; gap: 8px; align-items: center; }
@@ -174,7 +174,7 @@
 /* Below 672px the comic eats 6px of the 16px page gutter, leaving a 10px paper margin on each side. */
 .comic { margin-inline: -6px; }
 @media (min-width: 672px) { .comic { margin-inline: 0; } }
-.comic .credit { padding-inline: 16px; }
+.comic .credit { padding-inline: 16px 60px; } /* right side clears the floating menu button */
 .comic .trans { border-radius: 0; }
 .comic .pw {
   position: relative;

@@ -4,7 +4,6 @@ import { startApp } from '../src/app/router';
 import { loadEpisode, loadManifest } from '../src/app/load';
 import { viewReader } from '../src/app/views/reader';
 import { prefs } from '../src/app/storage';
-import { refitComics } from '../src/render/comic';
 import { parseScenario } from '../src/scenario/parse';
 import type { RawScenario } from '../src/scenario/types';
 import { loadStoryboard, resolveStoryboard } from '../src/storyboard';
@@ -19,22 +18,11 @@ const mount = (nodes: HTMLElement[]) => { document.body.replaceChildren(...nodes
 beforeEach(() => { window.scrollTo = (() => {}) as typeof window.scrollTo; localStorage.clear(); document.body.className = ''; history.replaceState(null, '', '/'); });
 afterEach(() => vi.unstubAllGlobals());
 
-test('漫畫模式 body 有 paper，對話模式沒有', () => {
-  prefs.set('mode', 'comic');
-  mount(viewReader(ep, syntheticBoard(), ctx()));
-  expect(document.body.classList.contains('paper')).toBe(true);
-  expect(document.querySelector('.comic')).not.toBeNull();
-  prefs.set('mode', 'chat');
-  mount(viewReader(ep, syntheticBoard(), ctx()));
-  expect(document.body.classList.contains('paper')).toBe(false);
-  expect(document.querySelector('.story')).not.toBeNull();
-});
 test('頁面不含 sekai.best', () => {
   mount(viewReader(ep, syntheticBoard(), ctx()));
   expect(document.documentElement.outerHTML).not.toContain('sekai.best');
 });
 test('背景沒有縮圖的格子退回網點，有縮圖的帶背景層', () => {
-  prefs.set('mode', 'comic');
   const root = mount(viewReader(ep, syntheticBoard(), ctx(['bg_test_a'])));
   const pnOf = (r: number) => root.querySelector(`[data-r="${r}"]`)!.closest('.pn')!;
   expect(pnOf(0).querySelector('.bgl')).not.toBeNull();
@@ -116,23 +104,9 @@ test('重開已讀完的話數不會把進度覆寫成 0', async () => {
   delete (document.documentElement as any).scrollHeight;
 });
 
-test('黑白開關只在漫畫模式，切換後記住', () => {
-  prefs.set('mode', 'comic');
-  mount(viewReader(ep, syntheticBoard(), ctx()));
-  const btn = document.querySelector('[aria-label="黑白"]') as HTMLButtonElement;
-  expect(btn).not.toBeNull();
-  btn.click();
-  expect(document.body.classList.contains('bw')).toBe(true);
-  expect(prefs.get('bw', false)).toBe(true);
-  expect(btn.getAttribute('aria-pressed')).toBe('true');
-  prefs.set('mode', 'chat');
-  mount(viewReader(ep, syntheticBoard(), ctx()));
-  expect(document.querySelector('[aria-label="黑白"]')).toBeNull();
-  expect(document.body.classList.contains('bw')).toBe(false);
-});
 test('prefs 接受 bw 鍵', () => { prefs.set('bw', true); expect(prefs.get('bw', false)).toBe(true); });
 test('重新載入時依偏好套上 bw', () => {
-  prefs.set('mode', 'comic'); prefs.set('bw', true);
+  prefs.set('bw', true);
   mount(viewReader(ep, syntheticBoard(), ctx()));
   expect(document.body.classList.contains('bw')).toBe(true);
   expect((document.querySelector('[aria-label="黑白"]') as HTMLElement).getAttribute('aria-pressed')).toBe('true');
@@ -145,23 +119,66 @@ test('離開閱讀頁時拿掉 bw', async () => {
   await startApp(document.createElement('div'));
   expect(document.body.classList.contains('bw')).toBe(false);
 });
-test('Aa 改字級後對白框依新尺寸重畫（舊外框被換掉）', () => {
-  prefs.set('mode', 'comic');
-  mount(viewReader(ep, syntheticBoard(), ctx()));
-  const bb = document.querySelector('.bb') as HTMLElement;
-  let rect = { width: 200, height: 60 };
-  bb.getBoundingClientRect = () => ({ ...rect, x: 0, y: 0, top: 0, left: 0, right: rect.width, bottom: rect.height, toJSON() {} }) as DOMRect;
-  refitComics(document);
-  const svg = bb.querySelector('svg.bo')!;
-  expect(svg.getAttribute('viewBox')).toBe('0 0 232 92');
-  const d1 = svg.querySelector('[data-role="body"]')!.getAttribute('d');
-  rect = { width: 300, height: 90 };
-  (document.querySelector('[aria-label="放大字級"]') as HTMLElement).click();
-  expect(svg.getAttribute('viewBox')).toBe('0 0 332 122');
-  expect(svg.querySelector('[data-role="body"]')!.getAttribute('d')).not.toBe(d1);
-});
 test('閱讀頁把活動團體傳給漫畫', () => {
-  prefs.set('mode', 'comic');
   mount(viewReader(ep, syntheticBoard(), { ...ctx(), unit: { accent: '#4455dd', glyph: '✦', roundRadius: 18, monoShape: 'cloud' } }));
   expect(document.querySelector('.comic.has-unit')).not.toBeNull();
+});
+
+const menu = () => document.querySelector('[aria-label="選單"]') as HTMLButtonElement;
+const drawer = () => document.querySelector('.drawer') as HTMLElement;
+
+test('閱讀頁一律是漫畫，body 有 paper', () => {
+  mount(viewReader(ep, syntheticBoard(), ctx()));
+  expect(document.body.classList.contains('paper')).toBe(true);
+  expect(document.querySelector('.comic')).not.toBeNull();
+  expect(document.querySelector('.story')).toBeNull();
+});
+test('頁面上方只有一個漢堡按鈕', () => {
+  mount(viewReader(ep, syntheticBoard(), ctx()));
+  const bar = document.querySelector('.rbar')!;
+  expect([...bar.querySelectorAll('button')]).toEqual([menu()]);
+  for (const label of ['漫畫', '對話', 'Aa', 'A−', 'A＋']) expect(bar.textContent).not.toContain(label);
+  expect(document.querySelector('[aria-label="閱讀設定"], [aria-label="放大字級"], [aria-label="縮小字級"]')).toBeNull();
+});
+test('漢堡按鈕開關側邊欄，側邊欄有標題、返回與黑白', () => {
+  mount(viewReader(ep, syntheticBoard(), ctx()));
+  expect(drawer().hidden).toBe(true);
+  menu().click();
+  expect(drawer().hidden).toBe(false);
+  expect(menu().getAttribute('aria-expanded')).toBe('true');
+  expect(drawer().textContent).toContain('第 1 話 測試');
+  expect(drawer().textContent).toContain('測試活動');
+  expect(drawer().querySelector('[aria-label="黑白"]')).not.toBeNull();
+  (drawer().querySelector('[data-go="event"]') as HTMLElement).click();
+  expect(location.hash).toBe('#event-1');
+  menu().click();
+  (drawer().querySelector('[data-go="library"]') as HTMLElement).click();
+  expect(location.hash).toBe('#library');
+});
+test('點遮罩或按 Esc 關閉側邊欄', () => {
+  mount(viewReader(ep, syntheticBoard(), ctx()));
+  menu().click();
+  (document.querySelector('.scrim') as HTMLElement).click();
+  expect(drawer().hidden).toBe(true);
+  menu().click();
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+  expect(drawer().hidden).toBe(true);
+  expect(menu().getAttribute('aria-expanded')).toBe('false');
+});
+test('側邊欄的黑白開關切換後記住', () => {
+  mount(viewReader(ep, syntheticBoard(), ctx()));
+  menu().click();
+  const btn = drawer().querySelector('[aria-label="黑白"]') as HTMLButtonElement;
+  btn.click();
+  expect(document.body.classList.contains('bw')).toBe(true);
+  expect(prefs.get('bw', false)).toBe(true);
+  expect(btn.getAttribute('aria-pressed')).toBe('true');
+});
+test('字級固定 14px，舊的字級設定不再生效', () => {
+  localStorage.setItem('sekai-reader:size', '22');
+  mount(viewReader(ep, syntheticBoard(), ctx()));
+  expect(document.documentElement.style.getPropertyValue('--reader-size')).toBe('14px');
+});
+test('偏好設定不再接受對話模式相關的鍵', () => {
+  for (const k of ['mode', 'mood', 'size']) expect(() => prefs.set(k as never, 1)).toThrow();
 });

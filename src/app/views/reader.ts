@@ -1,13 +1,12 @@
 import { StaticChibiArt } from '../../art/StaticChibiArt';
-import { renderChat } from '../../render/chat';
-import { refitComics, renderComic } from '../../render/comic';
+import { renderComic } from '../../render/comic';
 import type { UnitFlavor } from '../../render/comic/flavor';
 import { h } from '../../render/dom';
 import type { Episode } from '../../scenario/types';
 import type { Storyboard } from '../../storyboard/types';
 import type { Manifest } from '../load';
 import { prefs } from '../storage';
-import { go, rerender } from './common';
+import { go } from './common';
 
 export interface ReaderCtx {
   title: string;
@@ -20,51 +19,48 @@ export interface ReaderCtx {
   unit?: UnitFlavor | null;
 }
 
-const SIZE_MIN = 13, SIZE_MAX = 22, SIZE_DEFAULT = 16;
+// Fixed reading size (user, 2026-11-02: smaller text, no Aa control); older stored sizes are ignored.
+const READER_SIZE = 14;
 
 export function applyPrefs(): void {
-  document.documentElement.style.setProperty('--reader-size', `${prefs.get('size', SIZE_DEFAULT)}px`);
-  document.body.classList.toggle('nomood', !prefs.get('mood', true));
-  // Black-and-white only affects the comic's backgrounds and chibi art.
-  document.body.classList.toggle('bw', prefs.get('mode', 'comic') === 'comic' && prefs.get('bw', false));
+  document.documentElement.style.setProperty('--reader-size', `${READER_SIZE}px`);
+  document.body.classList.toggle('bw', prefs.get('bw', false));
 }
 
 export function viewReader(ep: Episode, board: Storyboard, ctx: ReaderCtx): HTMLElement[] {
-  const mode = prefs.get<'comic' | 'chat'>('mode', 'comic');
   applyPrefs();
-  document.body.classList.toggle('paper', mode === 'comic');
+  document.body.classList.add('paper');
   const bg = new Set(ctx.manifest.bg);
-  const body = mode === 'comic'
-    ? renderComic(ep, board, new StaticChibiArt('/sd', ctx.manifest.sd.length ? ctx.manifest.sd : undefined),
-      { bgUrl: id => (bg.has(id) ? `/bg/${id}.webp` : null), unit: ctx.unit ?? null })
-    : renderChat(ep);
+  const body = renderComic(ep, board, new StaticChibiArt('/sd', ctx.manifest.sd.length ? ctx.manifest.sd : undefined),
+    { bgUrl: id => (bg.has(id) ? `/bg/${id}.webp` : null), unit: ctx.unit ?? null });
 
-  const setSize = (d: number) => {
-    prefs.set('size', Math.min(SIZE_MAX, Math.max(SIZE_MIN, prefs.get('size', SIZE_DEFAULT) + d)));
-    applyPrefs();
-    refitComics(document);
+  const scrim = h('div', { class: 'scrim', hidden: true });
+  const menu = h('button', { class: 'iconbtn menu', 'aria-label': '選單', 'aria-expanded': 'false', 'aria-controls': 'reader-drawer' }, '☰');
+  const bwBtn = h('button', {
+    class: 'drawer-item toggle', 'aria-pressed': String(prefs.get('bw', false)), 'aria-label': '黑白',
+    onclick: () => {
+      const v = !prefs.get('bw', false);
+      prefs.set('bw', v);
+      bwBtn.setAttribute('aria-pressed', String(v));
+      applyPrefs();
+    },
+  }, h('span', {}, '黑白'), h('i', { class: 'switch', 'aria-hidden': 'true' }));
+  const drawer = h('nav', { class: 'drawer', id: 'reader-drawer', 'aria-label': '選單', hidden: true },
+    h('div', { class: 'drawer-head' }, h('b', {}, ctx.title), h('span', {}, ctx.sub)),
+    h('button', { class: 'drawer-item', 'data-go': 'event', onclick: () => { setOpen(false); go(ctx.back); } }, '這期的話數列表'),
+    h('button', { class: 'drawer-item', 'data-go': 'library', onclick: () => { setOpen(false); go('library'); } }, '活動目錄'),
+    bwBtn);
+  const setOpen = (open: boolean) => {
+    drawer.hidden = scrim.hidden = !open;
+    menu.setAttribute('aria-expanded', String(open));
   };
-  const tools = h('div', { class: 'tools', hidden: true },
-    h('button', { class: 'iconbtn', 'aria-label': '縮小字級', onclick: () => setSize(-1) }, 'A−'),
-    h('button', { class: 'iconbtn', 'aria-label': '放大字級', onclick: () => setSize(1) }, 'A＋'),
-    mode === 'chat' ? h('button', {
-      class: 'iconbtn', 'aria-pressed': String(prefs.get('mood', true)), 'aria-label': '顯示表情標記',
-      onclick: (ev: Event) => {
-        const v = !prefs.get('mood', true);
-        prefs.set('mood', v);
-        (ev.currentTarget as HTMLElement).setAttribute('aria-pressed', String(v));
-        applyPrefs();
-      },
-    }, '表情') : h('button', {
-      class: 'iconbtn', 'aria-pressed': String(prefs.get('bw', false)), 'aria-label': '黑白',
-      onclick: (ev: Event) => {
-        const v = !prefs.get('bw', false);
-        prefs.set('bw', v);
-        (ev.currentTarget as HTMLElement).setAttribute('aria-pressed', String(v));
-        applyPrefs();
-      },
-    }, '黑白'));
-  const setMode = (m: 'comic' | 'chat') => { prefs.set('mode', m); rerender(); };
+  menu.addEventListener('click', () => setOpen(drawer.hidden));
+  scrim.addEventListener('click', () => setOpen(false));
+  const onKey = (e: KeyboardEvent) => {
+    if (!drawer.isConnected) { document.removeEventListener('keydown', onKey); return; }
+    if (e.key === 'Escape') setOpen(false);
+  };
+  document.addEventListener('keydown', onKey);
 
   const end = h('div', { class: 'end' });
   if (ctx.next) {
@@ -75,15 +71,7 @@ export function viewReader(ep: Episode, board: Storyboard, ctx: ReaderCtx): HTML
   end.append(h('button', { class: 'ghost', onclick: () => go(ctx.back) }, '回到話數列表'));
 
   return [
-    h('header', { class: 'bar rbar' },
-      h('button', { class: 'iconbtn', onclick: () => go(ctx.back), 'aria-label': '返回' }, '←'),
-      h('div', { class: 'ttl' }, h('b', {}, ctx.title), h('span', {}, ctx.sub)),
-      h('div', { class: 'seg', role: 'group', 'aria-label': '閱讀方式' },
-        h('button', { 'aria-pressed': String(mode === 'comic'), onclick: () => setMode('comic') }, '漫畫'),
-        h('button', { 'aria-pressed': String(mode === 'chat'), onclick: () => setMode('chat') }, '對話')),
-      h('button', { class: 'iconbtn', 'aria-label': '閱讀設定', onclick: () => { tools.hidden = !tools.hidden; } }, 'Aa'),
-      h('div', { class: 'break' }), tools,
-      h('div', { class: 'progress', 'aria-hidden': 'true' }, h('i'))),
-    body, end,
+    h('header', { class: 'bar rbar' }, menu, h('div', { class: 'progress', 'aria-hidden': 'true' }, h('i'))),
+    scrim, drawer, body, end,
   ];
 }
