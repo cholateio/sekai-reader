@@ -90,7 +90,9 @@
   box-shadow: 5px 5px 0 var(--line-ink); padding: 16px 18px; font-family: var(--font-display); line-height: 1.8;
   display: grid; gap: 8px; white-space: pre-line;
 }
-.comic .insert small { font-family: var(--font-body); color: var(--c-muted); font-size: 12px; }
+/* The clipping card stays white on the black theme, so it sets its own dark text colours. */
+.comic .insert { color: var(--bubble-ink); }
+.comic .insert small { font-family: var(--font-body); color: #5f687b; font-size: 12px; }
 .comic .pop {
   min-height: 200px; justify-content: center;
   background: repeating-conic-gradient(from 0deg at 30% 85%, color-mix(in srgb, var(--hue) 26%, var(--panel)) 0deg 4deg, var(--panel) 4deg 9deg);

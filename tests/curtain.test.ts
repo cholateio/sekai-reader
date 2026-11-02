@@ -38,3 +38,15 @@ test('沒有簾幕元素時不丟例外', () => {
   document.body.innerHTML = '';
   expect(() => playCurtainOnce(document, sessionStorage)).not.toThrow();
 });
+test('storage 被封鎖時重新整理也不重播（備援旗標要撐過重載）', () => {
+  const blocked = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); } } as unknown as Storage;
+  window.name = '';
+  mount();
+  playCurtainOnce(document, blocked);
+  expect(document.querySelector('[data-curtain]')!.hasAttribute('data-play')).toBe(true);
+  delete (window as any).__curtainShown;   // a reload gets a fresh window global
+  mount();
+  playCurtainOnce(document, blocked);
+  expect(document.querySelector('[data-curtain]')).toBeNull();
+  window.name = '';
+});

@@ -196,6 +196,9 @@ async function mangaChecks(page: Page, check: Check): Promise<void> {
     return { bg: getComputedStyle(pn).backgroundColor, fill: body ? getComputedStyle(body).fill : null, focus: !!pn.querySelector('.fx-focus') };
   });
   const dark = (c: string) => (c.match(/\d+/g) ?? []).slice(0, 3).every(v => Number(v) < 32);
+  // Text on white cards (insert clipping) must stay dark on the black theme.
+  const ins = await page.evaluate(() => { const el = document.querySelector('.comic .insert'); return el ? [getComputedStyle(el).color, getComputedStyle(el.querySelector('small')!).color] : null; });
+  check(!!ins && ins.every(c => { const [r, g, b] = (c.match(/\d+/g) ?? []).map(Number); return (r + g + b) / 3 < 130; }), `insert card text is dark on its white card ${JSON.stringify(ins)}`);
   check(!!imp && dark(imp.bg) && imp.fill === 'rgb(255, 255, 255)' && imp.focus,
     `impact readable without background ${JSON.stringify(imp)}`);
   await page.reload({ waitUntil: 'networkidle' });
