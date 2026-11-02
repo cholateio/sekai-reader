@@ -6,7 +6,7 @@ import type { Episode } from '../../scenario/types';
 import type { Storyboard } from '../../storyboard/types';
 import type { Manifest } from '../load';
 import { prefs } from '../storage';
-import { go, pageSignal } from './common';
+import { go, siteHeader } from './common';
 
 export interface ReaderCtx {
   title: string;
@@ -34,8 +34,6 @@ export function viewReader(ep: Episode, board: Storyboard, ctx: ReaderCtx): HTML
   const body = renderComic(ep, board, new StaticChibiArt('/sd', ctx.manifest.sd.length ? ctx.manifest.sd : undefined),
     { bgUrl: id => (bg.has(id) ? `/bg/${id}.webp` : null), unit: ctx.unit ?? null });
 
-  const scrim = h('div', { class: 'scrim', hidden: true });
-  const menu = h('button', { class: 'iconbtn menu', 'aria-label': '選單', 'aria-expanded': 'false', 'aria-controls': 'reader-drawer' }, '☰');
   const bwBtn = h('button', {
     class: 'drawer-item toggle', 'aria-pressed': String(prefs.get('bw', false)), 'aria-label': '黑白',
     onclick: () => {
@@ -45,18 +43,11 @@ export function viewReader(ep: Episode, board: Storyboard, ctx: ReaderCtx): HTML
       applyPrefs();
     },
   }, h('span', {}, '黑白'), h('i', { class: 'switch', 'aria-hidden': 'true' }));
-  const drawer = h('nav', { class: 'drawer', id: 'reader-drawer', 'aria-label': '選單', hidden: true },
-    h('div', { class: 'drawer-head' }, h('b', {}, ctx.title), h('span', {}, ctx.sub)),
-    h('button', { class: 'drawer-item', 'data-go': 'event', onclick: () => { setOpen(false); go(ctx.back); } }, '這期的話數列表'),
-    h('button', { class: 'drawer-item', 'data-go': 'library', onclick: () => { setOpen(false); go('library'); } }, '活動目錄'),
-    bwBtn);
-  const setOpen = (open: boolean) => {
-    drawer.hidden = scrim.hidden = !open;
-    menu.setAttribute('aria-expanded', String(open));
-  };
-  menu.addEventListener('click', () => setOpen(drawer.hidden));
-  scrim.addEventListener('click', () => setOpen(false));
-  document.addEventListener('keydown', (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); }, { signal: pageSignal() });
+  const header = siteHeader({
+    title: ctx.title, sub: ctx.sub, progress: true,
+    items: [h('button', { class: 'drawer-item', 'data-go': 'event', onclick: () => go(ctx.back) }, '這期的話數列表')],
+    settings: [bwBtn],
+  });
 
   const end = h('div', { class: 'end' });
   if (ctx.next) {
@@ -66,8 +57,5 @@ export function viewReader(ep: Episode, board: Storyboard, ctx: ReaderCtx): HTML
   } else end.append(h('b', {}, '這期活動讀完了'));
   end.append(h('button', { class: 'ghost', onclick: () => go(ctx.back) }, '回到話數列表'));
 
-  return [
-    h('header', { class: 'bar rbar' }, menu, h('div', { class: 'progress', 'aria-hidden': 'true' }, h('i'))),
-    scrim, drawer, body, end,
-  ];
+  return [...header, body, end];
 }

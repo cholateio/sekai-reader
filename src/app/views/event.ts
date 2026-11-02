@@ -2,7 +2,7 @@ import { h } from '../../render/dom';
 import { eventById, TYPES } from '../catalog';
 import type { Manifest } from '../load';
 import { prefs } from '../storage';
-import { backButton, go, unitChip, viewMissing } from './common';
+import { go, siteHeader, unitChip, viewMissing } from './common';
 
 export function viewEvent(id: number, manifest: Manifest): HTMLElement[] {
   const e = eventById.get(id);
@@ -19,7 +19,7 @@ export function viewEvent(id: number, manifest: Manifest): HTMLElement[] {
         : h('span', { class: 'na' }, '尚未提供')));
   }));
   return [
-    h('header', { class: 'bar' }, backButton('library', '回活動列表'), h('div', { class: 'ttl sub' }, `第 ${e.id} 期 · ${TYPES[e.type] ?? e.type}`)),
+    ...siteHeader({ title: `第 ${e.id} 期 · ${TYPES[e.type] ?? e.type}` }),
     h('div', { class: 'evhead' }, h('h2', {}, e.name), h('div', { class: 'evmeta' }, unitChip(e.unit), `${e.date} 開始`)),
     eps,
   ];

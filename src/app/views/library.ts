@@ -1,7 +1,7 @@
 import { h } from '../../render/dom';
 import { BUILT, EVENTS, UNITS, unitOf } from '../catalog';
 import type { Manifest } from '../load';
-import { go } from './common';
+import { go, siteHeader } from './common';
 
 const filter = { q: '', unit: 'all' };
 
@@ -34,8 +34,8 @@ export function viewLibrary(manifest: Manifest): HTMLElement[] {
   });
   draw();
   return [
-    h('header', { class: 'bar' }, h('div', { class: 'ttl' }, h('h1', { class: 'brand' }, 'SEKAI 劇情閱讀器'),
-      h('div', { class: 'sub' }, `台服活動劇情 · ${EVENTS.length} 期 · 目錄更新於 ${BUILT}`))),
+    ...siteHeader(),
+    h('p', { class: 'sub lib-sub' }, `台服活動劇情 · ${EVENTS.length} 期 · 目錄更新於 ${BUILT}`),
     search, chips, list,
   ];
 }

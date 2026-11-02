@@ -31,26 +31,41 @@ body {
   margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 14px; line-height: 1.6;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
-body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
-.wrap { max-width: 640px; margin: 0 auto; padding-block: 0 96px; }
+:root { --header-h: 48px; }
+/* Content starts below the fixed site header. */
+.wrap { max-width: 640px; margin: 0 auto; padding-block: calc(var(--header-h) + env(safe-area-inset-top, 0px)) 96px; }
 button, input { font: inherit; color: inherit; }
 button { cursor: pointer; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 a { color: var(--accent); }
 
-.bar {
-  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
-  background: color-mix(in srgb, var(--bg) 92%, transparent);
+/* One site-wide header, fixed at the top on every page; its inner row lines up with the 640px content column. */
+.site-header {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 20; padding-top: env(safe-area-inset-top, 0px);
+  background: color-mix(in srgb, var(--bg) 94%, transparent); border-bottom: 1px solid var(--line);
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-  display: flex; align-items: center; gap: 8px; padding-block: 10px; margin-inline: -4px; padding-inline: 4px;
 }
-.bar h1, .bar .ttl { min-width: 0; flex: 1; }
+.site-header-in {
+  max-width: 640px; height: var(--header-h); margin: 0 auto; display: flex; align-items: center; gap: 12px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(10px, env(safe-area-inset-right, 0px));
+}
+@media (min-width: 672px) { .site-header-in { padding-inline: 0; } }
+.site-header .brand {
+  flex: none; font-family: var(--font-display); font-size: 16px; font-weight: 700; letter-spacing: .02em;
+  color: var(--ink); text-decoration: none;
+}
+.site-header .page-title {
+  flex: 1; min-width: 0; font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.site-header .menu { width: 36px; min-width: 36px; height: 36px; padding: 0; border: 0; background: none; font-size: 20px; }
+.site-header .menu:hover, .site-header .menu[aria-expanded="true"] { background: var(--sunk); }
+.site-header .progress { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; }
+.lib-sub { margin: 10px 0 0; }
 .iconbtn {
   border: 1px solid var(--line); background: var(--surface); border-radius: 10px; flex: none;
   min-width: 40px; height: 40px; padding: 0 10px; display: inline-flex; align-items: center; justify-content: center;
 }
 .iconbtn[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-.brand { font-family: var(--font-display); font-size: 24px; font-weight: 700; margin: 0; letter-spacing: .02em; }
 .sub { color: var(--muted); font-size: 13px; }
 .empty { color: var(--muted); padding: 24px 0; text-align: center; }
 
@@ -93,15 +108,7 @@ a { color: var(--accent); }
 .ep .na { color: var(--muted); }
 .prog { color: var(--muted); font-variant-numeric: tabular-nums; }
 
-/* reader: the page chrome is a single floating menu button plus a hairline progress bar */
-.rbar { position: sticky; top: 0; height: 0; z-index: 20; }
-.rbar .progress { position: fixed; left: 0; right: 0; top: env(safe-area-inset-top, 0px); height: 3px; background: transparent; }
 .progress i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .15s; }
-.rbar .menu {
-  position: fixed; top: calc(env(safe-area-inset-top, 0px) + 10px); right: max(14px, env(safe-area-inset-right, 0px));
-  width: 38px; min-width: 38px; height: 38px; padding: 0; border-radius: 50%; font-size: 18px;
-  background: color-mix(in srgb, var(--surface) 92%, transparent); box-shadow: 0 2px 8px rgba(0, 0, 0, .18);
-}
 .scrim { position: fixed; inset: 0; z-index: 30; background: rgba(0, 0, 0, .35); }
 .drawer {
   position: fixed; top: 0; right: 0; bottom: 0; z-index: 31; width: min(280px, 82vw); overflow-y: auto;
@@ -118,6 +125,7 @@ a { color: var(--accent); }
   border: 0; background: none; padding: 11px 4px; border-radius: 8px; font-size: 14px;
 }
 .drawer-item:hover { background: var(--sunk); }
+.drawer-sep { border: 0; border-top: 1px solid var(--line); margin: 8px 0; width: 100%; }
 .drawer-item .switch { width: 34px; height: 20px; border-radius: 999px; background: var(--line); position: relative; flex: none; transition: background .15s; }
 .drawer-item .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .15s; }
 .drawer-item[aria-pressed="true"] .switch { background: var(--accent); }

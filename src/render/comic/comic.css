@@ -174,7 +174,7 @@
 /* Below 672px the comic eats 6px of the 16px page gutter, leaving a 10px paper margin on each side. */
 .comic { margin-inline: -6px; }
 @media (min-width: 672px) { .comic { margin-inline: 0; } }
-.comic .credit { padding-inline: 16px 60px; } /* right side clears the floating menu button */
+.comic .credit { padding-inline: 16px; }
 .comic .trans { border-radius: 0; }
 .comic .pw {
   position: relative;

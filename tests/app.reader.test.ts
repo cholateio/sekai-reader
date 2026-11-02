@@ -135,7 +135,7 @@ test('閱讀頁一律是漫畫，body 有 paper', () => {
 });
 test('頁面上方只有一個漢堡按鈕', () => {
   mount(viewReader(ep, syntheticBoard(), ctx()));
-  const bar = document.querySelector('.rbar')!;
+  const bar = document.querySelector('.site-header')!;
   expect([...bar.querySelectorAll('button')]).toEqual([menu()]);
   for (const label of ['漫畫', '對話', 'Aa', 'A−', 'A＋']) expect(bar.textContent).not.toContain(label);
   expect(document.querySelector('[aria-label="閱讀設定"], [aria-label="放大字級"], [aria-label="縮小字級"]')).toBeNull();
@@ -194,10 +194,51 @@ test('離開閱讀頁時移除側邊欄的鍵盤監聽器（不必等下一次�
   });
   history.replaceState(null, '', '#read-173-1');
   await startApp(document.createElement('div'));
-  expect(signals.length).toBeGreaterThan(0);
+  const readerSignals = [...signals];
+  expect(readerSignals.length).toBeGreaterThan(0);
   history.replaceState(null, '', '#library');
   window.dispatchEvent(new HashChangeEvent('hashchange'));
   await new Promise(r => setTimeout(r, 0));
-  expect(signals.every(s => s?.aborted)).toBe(true);
+  expect(readerSignals.every(s => s?.aborted)).toBe(true);  // the library page registers its own, still-live listener
   spy.mockRestore();
+});
+
+const headerOf = (root: ParentNode) => root.querySelector('header.site-header') as HTMLElement;
+test('閱讀頁頁首：站名、本話標題、唯一的漢堡按鈕、進度線', () => {
+  mount(viewReader(ep, syntheticBoard(), ctx()));
+  const hd = headerOf(document);
+  expect(hd.querySelector('.brand')!.textContent).toBe('SEKAI 劇情閱讀器');
+  expect(hd.querySelector('.page-title')!.textContent).toBe('第 1 話 測試');
+  expect(hd.querySelectorAll('button').length).toBe(1);
+  expect(hd.querySelector('button[aria-label="選單"]')).not.toBeNull();
+  expect(hd.querySelector('.progress')).not.toBeNull();
+  expect(document.querySelectorAll('header').length).toBe(1);
+});
+describe('其他頁面也用同一個頁首', () => {
+  const routes: [string, string][] = [['#library', ''], ['#event-173', '第 173 期'], ['#nope', '']];
+  test.each(routes)('%s', async (hash, title) => {
+    vi.stubGlobal('fetch', vi.fn(async (u: string) => u === '/manifest.json' ? Response.json({ bg: [], sd: [], episodes: ['event_173_01'] }) : new Response('', { status: 404 })));
+    history.replaceState(null, '', hash);
+    const app = document.createElement('div');
+    document.body.replaceChildren(app);
+    await startApp(app);
+    const hd = headerOf(app);
+    expect(hd).not.toBeNull();
+    expect(app.querySelectorAll('header').length).toBe(1);
+    expect(hd.querySelectorAll('button').length).toBe(1);
+    expect(hd.querySelector('.brand')!.textContent).toBe('SEKAI 劇情閱讀器');
+    if (title) expect(hd.querySelector('.page-title')!.textContent).toContain(title);
+    expect(app.querySelector('.iconbtn:not(.menu)')).toBeNull();
+    (hd.querySelector('button') as HTMLElement).click();
+    expect((app.querySelector('.drawer') as HTMLElement).hidden).toBe(false);
+    expect(app.querySelector('.drawer [data-go="library"]')).not.toBeNull();
+  });
+});
+test('側邊欄導覽在上、黑白在分隔線之後', () => {
+  mount(viewReader(ep, syntheticBoard(), ctx()));
+  const kids = [...drawer().children];
+  const at = (sel: string) => kids.findIndex(k => k.matches(sel));
+  expect(at('[data-go="event"]')).toBeLessThan(at('[data-go="library"]'));
+  expect(at('[data-go="library"]')).toBeLessThan(at('hr.drawer-sep'));
+  expect(at('hr.drawer-sep')).toBeLessThan(at('[aria-label="黑白"]'));
 });

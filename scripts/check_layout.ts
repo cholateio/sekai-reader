@@ -192,10 +192,16 @@ async function mangaChecks(page: Page, check: Check): Promise<void> {
   await page.waitForSelector('.comic .pw');
 
   const chrome = await page.evaluate(() => ({
-    buttons: document.querySelectorAll('.rbar button').length,
-    menuInside: (() => { const r = document.querySelector('.rbar .menu')!.getBoundingClientRect(); return r.right <= innerWidth && r.top >= 0; })(),
+    headers: document.querySelectorAll('header').length,
+    buttons: document.querySelectorAll('.site-header button').length,
+    fixed: getComputedStyle(document.querySelector('.site-header')!).position,
+    menuInside: (() => { const r = document.querySelector('.site-header .menu')!.getBoundingClientRect(); return r.right <= innerWidth && r.top >= 0; })(),
+    // The first comic row must start below the fixed header, not under it.
+    clear: (() => { scrollTo(0, 0); return document.querySelector('.comic .pw')!.getBoundingClientRect().top >= document.querySelector('.site-header')!.getBoundingClientRect().bottom; })(),
+    stays: (() => { scrollTo(0, 3000); const t = document.querySelector('.site-header')!.getBoundingClientRect().top; scrollTo(0, 0); return t === 0; })(),
   }));
-  check(chrome.buttons === 1 && chrome.menuInside, `page chrome is one menu button ${JSON.stringify(chrome)}`);
+  check(chrome.headers === 1 && chrome.buttons === 1 && chrome.fixed === 'fixed' && chrome.menuInside && chrome.clear && chrome.stays,
+    `one fixed site header with only the menu button ${JSON.stringify(chrome)}`);
   await page.click('button[aria-label="選單"]');
   await page.click('[aria-label="黑白"]');
   await page.waitForTimeout(200);
