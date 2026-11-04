@@ -96,6 +96,8 @@
 - 每日上限的入帳時點：送出時用估算入帳（輸入用 token 計數端點算，輸出用 3,000 token 估），收取時用實際用量校正。手動觸發的期數超過當日剩餘額度時，截到額度內送出，剩下的不送並在執行摘要寫明，不整次拒絕。
 - 費用估算（量過 173-1：提示 5 KB ＋ 劇本 11 KB 進、分鏡 5 KB 出）：一話約 US$0.09（batch 價），一期約 US$0.7，舊活動全部約 US$125。第一次正式執行後以實際用量更新 `PROJECT.toml [[paid]]`。
 
+- 實測（2026-11-05，173 期 7 話）：成功批次每話約 US$0.05（輸入約 4,400 token、輸出含思考約 3,500 token）；連同兩個全數被拒絕的批次，整期合計 US$0.84。結構化輸出的文法會讓模型只吐一格就結束（實測 147 秒對 35 秒），所以請求不帶 `output_config.format`，解析前剝掉 Markdown 圍欄；空的選填陣列、寫成單一整數的 `l`／`caps`／`cut`、不在 `l` 內的 `cut` 在驗證前正規化，不為裝飾欄位整話重送。
+
 ### 4.8 秘密與設定
 - GitHub secrets：`ANTHROPIC_API_KEY`、`CLOUDFLARE_API_TOKEN`（Pages 編輯權限）、`CLOUDFLARE_ACCOUNT_ID`、`R2_ACCESS_KEY_ID`、`R2_SECRET_ACCESS_KEY`。
 - GitHub variables：`R2_BUCKET`、`DIRECT_DAILY_USD`（預設 20）。
