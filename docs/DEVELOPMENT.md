@@ -21,7 +21,7 @@ npm run dev                          # -> http://localhost:5173 (opens #read-173
 | `npm test` | Vitest (jsdom) + Python unittest. Real-data tests skip when `assets/raw/event_173_01.asset` is absent |
 | `npm run build:episode <sid>` | `.asset` → episode JSON, backgrounds resized to 1280 px WebP q82, chibi copied, manifest rebuilt; non-zero exit if a needed background is missing |
 | `npm run check:layout` | Build + preview + headless Chromium at 390×844: scroll width, panel count, 49 lines, no broken images, no `sekai.best`; screenshots in `scratch/` |
-| `python3 scripts/fetch_episode.py <sid>` | One-off download of one episode's assets into `assets/raw/` (max 20 requests, 1 s apart). Only when files are lost |
+| `python3 scripts/fetch_episode.py --event <id>` | Download one event's assets into `assets/raw/` (max 40 requests, 5 s apart, stops at the budget and reports `partial`; a Japanese first episode reports `jp` and keeps nothing). `<sid>` instead of `--event` fetches one episode. The hourly pipeline runs this; by hand only when files are lost |
 
 ## Environment variables
 
@@ -40,7 +40,7 @@ None. `check:layout` looks for Chromium in `~/.cache/ms-playwright/chromium-*`; 
 - Storyboards hold line numbers only. The validator rejects any CJK text outside `sfx`/`cast`, unknown fields, missing or repeated lines; a rejected board silently falls back to the rule-based board (see the console warning).
 - Cloudflare Pages free plan: 20,000 files per site and 25 MiB per file. Voice files for all episodes would not fit.
 - The Spine runtime needs a Spine Editor license before chibi animation can ship; `src/art/CharacterArt.ts` is the only seam to swap.
-- Never point `fetch_episode.py` at more than one episode per run, and never loop it.
+- `fetch_episode.py` fetches one event per run; never loop it over events.
 - Bubble outlines are SVG drawn after layout (`fitBubbles`): they need the comic mounted, and redraw on font load and width change. The reading size is fixed at 14px (no Aa control). Measure with `offsetWidth`/`offsetHeight`, never `getBoundingClientRect` (the impact entry animation scales bubbles).
 - Bubble shape comes from `src/render/comic/shape.ts` rules; a storyboard `shape` override is for when the rule is wrong, not for decoration.
 - Seams stay 10px of visible paper because `applyEdges` pulls each row up by the slant (22px) plus one ink width per side without ink (est). A scene change without a trans card keeps a 20px pacing gap on purpose.

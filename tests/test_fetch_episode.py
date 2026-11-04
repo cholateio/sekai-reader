@@ -58,12 +58,14 @@ class FetcherTest(unittest.TestCase):
         with open(dest, 'rb') as f:
             self.assertEqual(f.read(), b'data')
 
-    def test_budget_of_20_requests(self):
+    def test_budget_of_40_then_exhausted_without_raise(self):
         f = self.fetcher(FakeOpener())
-        for i in range(20):
-            f.get('https://example.test/%d' % i, os.path.join(self.dir, str(i)))
-        with self.assertRaisesRegex(RuntimeError, 'request budget exceeded'):
-            f.get('https://example.test/21', os.path.join(self.dir, '21'))
+        for i in range(40):
+            self.assertTrue(f.get('https://example.test/%d' % i, os.path.join(self.dir, str(i))))
+        self.assertFalse(f.exhausted)
+        self.assertFalse(f.get('https://example.test/41', os.path.join(self.dir, '41')))
+        self.assertTrue(f.exhausted)
+        self.assertFalse(os.path.exists(os.path.join(self.dir, '41')))
 
     def test_headers_have_user_agent_and_no_referer(self):
         opener = FakeOpener()
@@ -74,12 +76,18 @@ class FetcherTest(unittest.TestCase):
         self.assertIn('sekai-reader', headers['user-agent'])
         self.assertIn('github.com', headers['user-agent'])
 
-    def test_sleeps_between_requests(self):
+    def test_sleeps_five_seconds_between_requests(self):
         f = self.fetcher(FakeOpener())
         f.get('https://example.test/a', os.path.join(self.dir, 'a'))
         self.assertEqual(self.sleeps, [])
         f.get('https://example.test/b', os.path.join(self.dir, 'b'))
-        self.assertEqual(self.sleeps, [1.0])
+        self.assertEqual(self.sleeps, [5.0])
+
+    def test_kana_ratio(self):
+        self.assertEqual(fe.kana_ratio({'TalkData': [{'Body': '今天天氣真好'}]}), 0.0)
+        self.assertGreater(fe.kana_ratio({'TalkData': [{'Body': 'きょうはいい天気ですね'}]}), 0.5)
+        self.assertEqual(fe.kana_ratio({'TalkData': []}), 0.0)
+        self.assertEqual(fe.kana_ratio({}), 0.0)
 
 
 class PlanTest(unittest.TestCase):
@@ -127,6 +135,104 @@ class PlanTest(unittest.TestCase):
     def test_rejects_bad_sid(self):
         with self.assertRaises(ValueError):
             fe.run('../etc', {'events': [], 'chars': []}, '/nonexistent', fe.Fetcher(FakeOpener()))
+
+
+def talk(name, body):
+    return {'WindowDisplayName': name, 'Body': body}
+
+
+class EventTest(unittest.TestCase):
+    CHARS = PlanTest.CHARS
+    EP1 = {'FirstBackground': 'bg_a', 'TalkData': [talk('一歌', '今天一起練習吧。')]}
+    EP2 = {'FirstBackground': 'bg_a', 'TalkData': [talk('咲希', '好啊，放學後見。')]}
+    JP = {'FirstBackground': 'bg_a', 'TalkData': [talk('一歌', 'きょうはいっしょにれんしゅうしよう')]}
+    EVENT = {'id': 9, 'bundle': 'b', 'eps': [[1, 't1', 'event_9_01'], [2, 't2', 'event_9_02']]}
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.out = self.tmp.name
+        self.index = {'events': [self.EVENT], 'chars': self.CHARS}
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def opener(self, ep1=None):
+        return FakeOpener({fe.scenario_url('b', 'event_9_01'): json.dumps(ep1 or self.EP1).encode(),
+                           fe.scenario_url('b', 'event_9_02'): json.dumps(self.EP2).encode()})
+
+    def fetcher(self, opener, **kw):
+        return fe.Fetcher(opener, sleep=lambda s: None, log=lambda *a: None, **kw)
+
+    def assets(self):
+        found = []
+        for root, _, files in os.walk(self.out):
+            found += [f for f in files if f.endswith('.asset')]
+        return found
+
+    def test_run_event_japanese_episode_leaves_no_file(self):
+        opener = self.opener(self.JP)
+        r = fe.run_event(self.EVENT, self.index, self.out, self.fetcher(opener))
+        self.assertEqual(r, {'status': 'jp', 'requests': 1, 'sids': []})
+        self.assertEqual(self.assets(), [])
+        self.assertEqual(os.listdir(os.path.join(self.out, '.tmp')), [])
+
+    def test_run_event_fetches_whole_event_and_reports_done(self):
+        opener = self.opener()
+        r = fe.run_event(self.EVENT, self.index, self.out, self.fetcher(opener))
+        self.assertEqual(r, {'status': 'done', 'requests': 2 + 1 + 2, 'sids': ['event_9_01', 'event_9_02']})
+        for rel in ['event_9_01.asset', 'event_9_02.asset', 'bg/bg_a.webp', 'sd/chr_sd_01_01.webp', 'sd/chr_sd_02_01.webp']:
+            self.assertTrue(os.path.exists(os.path.join(self.out, rel)), rel)
+        self.assertEqual(os.listdir(os.path.join(self.out, '.tmp')), [])
+
+    def test_run_event_reuses_existing_files(self):
+        fe.run_event(self.EVENT, self.index, self.out, self.fetcher(self.opener()))
+        opener = self.opener()
+        r = fe.run_event(self.EVENT, self.index, self.out, self.fetcher(opener))
+        self.assertEqual(r['status'], 'done')
+        self.assertEqual(r['requests'], 0)
+
+    def test_run_event_stops_at_budget_and_reports_partial(self):
+        f = self.fetcher(self.opener(), max_requests=3)
+        r = fe.run_event(self.EVENT, self.index, self.out, f)
+        self.assertEqual(r, {'status': 'partial', 'requests': 3, 'sids': ['event_9_01']})
+        self.assertTrue(f.exhausted)
+        r2 = fe.run_event(self.EVENT, self.index, self.out, self.fetcher(self.opener()))
+        self.assertEqual(r2, {'status': 'done', 'requests': 2, 'sids': ['event_9_01', 'event_9_02']})
+
+    def test_jp_recheck_turning_chinese_moves_script_into_place(self):
+        fe.run_event(self.EVENT, self.index, self.out, self.fetcher(self.opener(self.JP)))
+        r = fe.run_event(self.EVENT, self.index, self.out, self.fetcher(self.opener()))
+        self.assertEqual(r['status'], 'done')
+        self.assertTrue(os.path.exists(os.path.join(self.out, 'event_9_01.asset')))
+
+    def cli(self, ep1=None, **kw):
+        idx = os.path.join(self.out, 'index.json')
+        with open(idx, 'w', encoding='utf-8') as f:
+            json.dump(self.index, f)
+        lines = []
+        code = fe.main(['--event', '9', '--index', idx, '--out', os.path.join(self.out, 'raw')],
+                       opener=self.opener(ep1), sleep=lambda s: None, log=lambda *a: lines.append(a), **kw)
+        return code, lines
+
+    def test_cli_event_exit_codes(self):
+        import io
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            self.assertEqual(self.cli(self.JP)[0], 3)
+            self.assertEqual(self.cli(max_requests=3)[0], 4)
+            self.assertEqual(self.cli()[0], 0)
+        last = json.loads(buf.getvalue().strip().splitlines()[-1])
+        self.assertEqual(last['status'], 'done')
+
+    def test_cli_unknown_event_is_error(self):
+        idx = os.path.join(self.out, 'index.json')
+        with open(idx, 'w', encoding='utf-8') as f:
+            json.dump(self.index, f)
+        import io
+        from contextlib import redirect_stdout
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(fe.main(['--event', '99', '--index', idx], opener=FakeOpener(), sleep=lambda s: None), 1)
 
 
 if __name__ == '__main__':

@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""One-off fetcher for a single episode's assets into assets/raw/ (git-ignored).
+"""Fetcher for one event's (or one episode's) assets into assets/raw/ (git-ignored).
 
-Usage: python3 scripts/fetch_episode.py <sid> [--index data/tc-event-index.json] [--out assets/raw]
+Usage: python3 scripts/fetch_episode.py --event <id> | <sid> [--index data/tc-event-index.json] [--out assets/raw]
 
-Constraints (spec 2026-11-01): at most 20 requests per run, >= 1 s between requests, no Referer header,
-User-Agent names this project, existing files are never re-fetched. Never loop this over many episodes.
+Constraints (spec 2026-11-04): one event per run, at most 40 requests, >= 5 s between requests, no Referer
+header, User-Agent names this project, existing files are never re-fetched. Started only by the hourly
+pipeline or by a person; never loop this over many events.
+--event prints a JSON result as its last line; exit codes: done 0, jp 3, partial 4, error 1.
 """
 import argparse
 import json
@@ -22,8 +24,9 @@ PHONE_SUFFIX = '的訊息'
 
 
 class Fetcher:
-    def __init__(self, opener, max_requests=20, delay=1.0, sleep=time.sleep, log=print):
+    def __init__(self, opener, max_requests=40, delay=5.0, sleep=time.sleep, log=print):
         self.opener = opener
+        self.exhausted = False
         self.max_requests = max_requests
         self.delay = delay
         self.sleep = sleep
@@ -34,7 +37,8 @@ class Fetcher:
         if os.path.exists(dest):
             return False
         if self.count >= self.max_requests:
-            raise RuntimeError('request budget exceeded')
+            self.exhausted = True
+            return False
         if self.count:
             self.sleep(self.delay)
         self.count += 1
@@ -97,31 +101,94 @@ def character_ids(asset, chars):
     return sorted(ids)
 
 
+JP_KANA_RATIO = 0.05
+EXIT = {'done': 0, 'jp': 3, 'partial': 4}
+
+
+def kana_ratio(asset):
+    kana = han = 0
+    for t in asset.get('TalkData') or []:
+        for ch in t.get('Body') or '':
+            if '\u3040' <= ch <= '\u30ff':
+                kana += 1
+            elif '\u4e00' <= ch <= '\u9fff':
+                han += 1
+    return kana / (kana + han) if kana + han else 0.0
+
+
+def _load(path):
+    with open(path, encoding='utf-8') as f:
+        return json.load(f)
+
+
+def _episode_assets(asset, index, out, fetcher):
+    for bg in backgrounds(asset):
+        fetcher.get(background_url(bg), os.path.join(out, 'bg', bg + '.webp'))
+    for cid in character_ids(asset, index['chars']):
+        fetcher.get(sd_url(cid), os.path.join(out, 'sd', 'chr_sd_%02d_01.webp' % cid))
+    return not fetcher.exhausted
+
+
+def run_event(event, index, out, fetcher):
+    sids = [ep[2] for ep in sorted(event['eps'])]
+    for sid in sids:
+        if not SID_RE.match(sid):
+            raise ValueError('invalid sid: %r' % sid)
+    start = fetcher.count
+    result = lambda status, done: {'status': status, 'requests': fetcher.count - start, 'sids': done}
+    first = os.path.join(out, sids[0] + '.asset')
+    if not os.path.exists(first):
+        # The first script lands in .tmp so a Japanese (not yet translated) event never leaves a file behind.
+        tmp = os.path.join(out, '.tmp', sids[0] + '.asset')
+        fetcher.get(scenario_url(event['bundle'], sids[0]), tmp)
+        if fetcher.exhausted:
+            return result('partial', [])
+        if kana_ratio(_load(tmp)) > JP_KANA_RATIO:
+            os.remove(tmp)
+            return result('jp', [])
+        os.replace(tmp, first)
+    done = []
+    for sid in sids:
+        path = os.path.join(out, sid + '.asset')
+        fetcher.get(scenario_url(event['bundle'], sid), path)
+        if fetcher.exhausted or not _episode_assets(_load(path), index, out, fetcher):
+            return result('partial', done)
+        done.append(sid)
+    return result('done', done)
+
+
 def run(sid, index, out, fetcher):
     if not SID_RE.match(sid):
         raise ValueError('invalid sid: %r' % sid)
     asset_path = os.path.join(out, sid + '.asset')
     fetcher.get(scenario_url(find_bundle(index, sid), sid), asset_path)
-    with open(asset_path, encoding='utf-8') as f:
-        asset = json.load(f)
-    for bg in backgrounds(asset):
-        fetcher.get(background_url(bg), os.path.join(out, 'bg', bg + '.webp'))
-    for cid in character_ids(asset, index['chars']):
-        fetcher.get(sd_url(cid), os.path.join(out, 'sd', 'chr_sd_%02d_01.webp' % cid))
+    if fetcher.exhausted:
+        return
+    _episode_assets(_load(asset_path), index, out, fetcher)
 
 
-def main(argv=None):
+def main(argv=None, opener=None, sleep=time.sleep, log=print, max_requests=40):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument('sid')
+    target = ap.add_mutually_exclusive_group(required=True)
+    target.add_argument('sid', nargs='?')
+    target.add_argument('--event', type=int)
     ap.add_argument('--index', default='data/tc-event-index.json')
     ap.add_argument('--out', default='assets/raw')
     args = ap.parse_args(argv)
-    with open(args.index, encoding='utf-8') as f:
-        index = json.load(f)
-    fetcher = Fetcher(urllib.request.urlopen)
-    run(args.sid, index, args.out, fetcher)
-    print('requests made:', fetcher.count)
-    return 0
+    index = _load(args.index)
+    fetcher = Fetcher(opener or urllib.request.urlopen, max_requests=max_requests, sleep=sleep, log=log)
+    if args.event is None:
+        run(args.sid, index, args.out, fetcher)
+        print('requests made:', fetcher.count)
+        return EXIT['partial'] if fetcher.exhausted else 0
+    try:
+        event = next(e for e in index['events'] if e['id'] == args.event)
+        r = run_event(event, index, args.out, fetcher)
+    except Exception as e:  # noqa: BLE001 - reported to the pipeline as a JSON line
+        print(json.dumps({'status': 'error', 'requests': fetcher.count, 'sids': [], 'error': '%s: %s' % (type(e).__name__, e)}))
+        return 1
+    print(json.dumps(r))
+    return EXIT[r['status']]
 
 
 if __name__ == '__main__':

@@ -30,7 +30,7 @@ A static web reader that turns Project SEKAI Traditional Chinese event stories i
 
 - Game assets (`.asset` scripts, backgrounds, character images, and `dist/` which contains them) are never committed; they live only under the git-ignored `assets/`.
 - The reader never contacts Sekai-World at runtime, and no page may contain a `sekai.best` URL or a file picker for downloaded scripts.
-- Requests to storage.sekai.best go only through `scripts/fetch_episode.py`, one episode per run, within its 20-request budget; never write code that scans many episodes or events.
+- Requests to storage.sekai.best go only through `scripts/fetch_episode.py`. One run fetches at most one event (its scripts, backgrounds and character images) within a 40-request budget, with at least 5 s between requests; runs are started only by the hourly pipeline (or a person, by hand), never in a loop; never write code that scans or enumerates Sekai-World.
 - Storyboards contain structure only (line numbers, framing); dialogue text must never be written into a storyboard.
 - No full-panel halftone and no animated SVG filters in the comic (user-rejected noise; iOS performance).
 - Path-type constraints are mirrored in `kit.toml [protected]`; keep the two in sync (one glob per line).
