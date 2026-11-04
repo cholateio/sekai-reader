@@ -37,7 +37,7 @@ function setup(o: { fetch?: (id: number) => FetchResult; build?: (sid: string) =
     },
   };
   const deps: RunDeps = {
-    statePath: path.join(dir, 'pipeline-state.json'), indexPath, boardsDir,
+    statePath: path.join(dir, 'pipeline-state.json'), indexPath, boardsDir, r2DeletePath: path.join(dir, 'r2-delete.txt'),
     fetchEvent: async id => { fetched.push(id); return o.fetch ? o.fetch(id) : { status: 'done', requests: 5, sids: (JSON.parse(fs.readFileSync(indexPath, 'utf8')) as IndexFile).events.find(e => e.id === id)!.eps.map(e => e[2]) }; },
     buildEpisode: async sid => { built.push(sid); return o.build ? o.build(sid) : true; },
     director: o.withDirector ? {
@@ -211,4 +211,17 @@ test('direct 失敗時 summary 仍帶 deploy，讓已抓好的素材照常部署
   (t.deps.director!.client.messages.batches as unknown as { list: () => never }).list = () => { throw new Error('api down'); };
   const err = await runOnce(t.deps, { phase: 'direct' }).then(() => null, (e: unknown) => e as Error & { summary?: { deploy: boolean } });
   expect(err!.summary?.deploy).toBe(true);
+});
+
+test('jp 且刪掉了既有劇本 → 寫入 R2 刪除清單，只收合法路徑', async () => {
+  const t = setup({ fetch: () => ({ status: 'jp', requests: 0, sids: [], removed: ['event_174_01.asset', '../x'] }) });
+  await runOnce(t.deps, { phase: 'fetch' });
+  t.addNew();
+  await runOnce(t.deps, { phase: 'fetch' });
+  expect(fs.readFileSync(t.deps.r2DeletePath!, 'utf8')).toBe('raw/event_174_01.asset\n');
+});
+
+test('fetchResultFromChild 帶出 removed', () => {
+  const r = fetchResultFromChild(3, JSON.stringify({ status: 'jp', requests: 0, sids: [], removed: ['event_9_01.asset'] }));
+  expect(r.removed).toEqual(['event_9_01.asset']);
 });

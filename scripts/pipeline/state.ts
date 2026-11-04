@@ -6,6 +6,8 @@ export type EpStatus = 'none' | 'manual' | 'batch' | 'done' | 'fallback';
 export interface EpState { s: EpStatus; tries: number }
 export interface EventState {
   kind: 'old' | 'new'; assets: AssetStatus; assetsAt?: string; failures: number; lastError?: string; jpCheckedAt?: string;
+  /** Set when a fetch ran out of budget; the queue resumes it next hour whatever BACKFILL says. */
+  partialAt?: string;
   eps: Record<string, EpState>;
 }
 /** adopted = found by reconcile on the Anthropic account; sids stay empty until its results are readable. */
@@ -67,7 +69,7 @@ const byNewest = (index: IndexFile) =>
 
 export function pickEvent(
   s: PipelineState, index: IndexFile, o: { backfill: boolean; today: string; forced?: number },
-): { id: number; reason: 'forced' | 'new' | 'jp-recheck' | 'backfill' } | null {
+): { id: number; reason: 'forced' | 'new' | 'resume' | 'jp-recheck' | 'backfill' } | null {
   if (o.forced !== undefined) {
     const e = s.events[String(o.forced)];
     return e && e.assets !== 'done' ? { id: o.forced, reason: 'forced' } : null;
@@ -76,6 +78,8 @@ export function pickEvent(
   const fresh = (st: EventState) => st.assets === 'pending' && st.failures < MAX_FAILURES;
   const pick = ordered.find(x => x.st.kind === 'new' && fresh(x.st));
   if (pick) return { id: pick.id, reason: 'new' };
+  const resume = ordered.find(x => x.st.partialAt && fresh(x.st));
+  if (resume) return { id: resume.id, reason: 'resume' };
   const jp = ordered.find(x => x.st.assets === 'jp' && (x.st.jpCheckedAt ?? '').slice(0, 10) !== o.today);
   if (jp) return { id: jp.id, reason: 'jp-recheck' };
   if (!o.backfill) return null;
@@ -93,11 +97,13 @@ export function recordFetch(s: PipelineState, id: number, r: { status: FetchStat
       e.assetsAt = now.toISOString();
       e.failures = 0;
       delete e.lastError;
+      delete e.partialAt;
       if (e.kind === 'new') for (const ep of Object.values(e.eps)) if (ep.s === 'manual') ep.s = 'none';
       s.pendingDeploy = true;
       break;
     case 'partial':
       if (e.assets === 'jp') e.assets = 'pending';
+      e.partialAt = now.toISOString();
       s.pendingDeploy = true;
       break;
     case 'jp':

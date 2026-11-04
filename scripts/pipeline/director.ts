@@ -114,7 +114,8 @@ export async function submitDue(
     for (const sid of sids) {
       if (capped) { out.skipped.push(sid); continue; }
       const req = buildRequest(sid, await d.compact(sid), d.prompt);
-      const { input_tokens } = await d.client.messages.countTokens({ model: MODEL, system: d.prompt, messages: req.params.messages });
+      const { model, system, messages, output_config } = req.params;
+      const { input_tokens } = await d.client.messages.countTokens({ model, system, messages, output_config: output_config ?? undefined });
       const r = reserveUsd(input_tokens);
       if (spentToday(s, today) + reserved + r > o.dailyCapUsd) {
         capped = true;

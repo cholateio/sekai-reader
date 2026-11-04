@@ -12,9 +12,12 @@ import {
   type FetchStatus, type IndexFile, type PipelineState,
 } from './state';
 
-export interface FetchResult { status: FetchStatus; requests: number; sids: string[]; error?: string }
+/** removed: script files fetch_episode deleted because they were Japanese; they must also leave R2. */
+export interface FetchResult { status: FetchStatus; requests: number; sids: string[]; error?: string; removed?: string[] }
 export interface RunDeps {
   statePath: string; indexPath: string; boardsDir: string;
+  /** Bucket-relative paths the workflow's sync-up step deletes from R2 (rclone copy never deletes). */
+  r2DeletePath?: string;
   fetchEvent(id: number): Promise<FetchResult>;
   buildEpisode(sid: string): Promise<boolean>;
   /** null without ANTHROPIC_API_KEY: the direct phase makes no API calls. runOnce supplies persist. */
@@ -38,7 +41,8 @@ export function fetchResultFromChild(code: number, lastLine: string): FetchResul
   try {
     const r = JSON.parse(lastLine) as FetchResult;
     if (r.status !== status || !Array.isArray(r.sids)) throw new Error('mismatch');
-    return { status, requests: Number(r.requests) || 0, sids: r.sids };
+    const removed = Array.isArray(r.removed) ? r.removed.filter((x): x is string => typeof x === 'string') : [];
+    return { status, requests: Number(r.requests) || 0, sids: r.sids, ...(removed.length ? { removed } : {}) };
   } catch {
     return { status: 'error', requests: 0, sids: [], error: `exit ${code} without a result line` };
   }
@@ -87,6 +91,11 @@ async function fetchPhase(d: RunDeps, o: RunOptions, s: PipelineState, index: In
       }
     }
     recordFetch(s, picked.id, result, now);
+    const gone = (r.removed ?? []).filter(f => /^[a-z0-9_]+\.asset$/.test(f)).map(f => `raw/${f}`);
+    if (gone.length && d.r2DeletePath) {
+      fs.appendFileSync(d.r2DeletePath, gone.map(g => `${g}\n`).join(''));
+      d.log(`Japanese scripts to remove from R2: ${gone.join(', ')}`);
+    }
   }
   if (o.event !== undefined) sum.authorized.push(...authorizeDirect(s, index, { eventIds: [o.event] }));
   if (o.direct && o.direct > 0) sum.authorized.push(...authorizeDirect(s, index, { newest: o.direct }));
@@ -142,6 +151,7 @@ function realDeps(): RunDeps {
   const cap = Number(process.env.DIRECT_DAILY_USD);
   return {
     statePath: 'data/pipeline-state.json', indexPath: 'data/tc-event-index.json', boardsDir: 'storyboards',
+    r2DeletePath: 'assets/r2-delete.txt',
     fetchEvent: spawnFetch('scripts/fetch_episode.py', log),
     buildEpisode: async sid => {
       const r = await run('npx', ['tsx', 'scripts/build_episode.ts', sid], 10 * 60e3);

@@ -147,7 +147,10 @@ def run_event(event, index, out, fetcher):
             return result('partial', [])
     if kana_ratio(_load(probe)) > JP_KANA_RATIO:
         os.remove(probe)
-        return result('jp', [])
+        r = result('jp', [])
+        if probe == first:
+            r['removed'] = [sids[0] + '.asset']
+        return r
     if probe != first:
         os.replace(probe, first)
     done = []

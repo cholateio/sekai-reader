@@ -209,3 +209,24 @@ test('saveState 寫暫存檔時失敗 → 原檔內容不變且仍可解析', ()
   expect(fs.readFileSync(p, 'utf8')).toBe(before);
   expect(loadState(p)!.pendingDeploy).toBe(false);
 });
+
+test('partial 的舊活動在 backfill 關閉時下一小時仍續抓（resume 排在 new 之後）', () => {
+  const s = seeded();
+  recordFetch(s, 172, { status: 'partial' }, NOW);
+  expect(s.events['172'].partialAt).toBe(NOW.toISOString());
+  expect(pickEvent(s, base, { backfill: false, today: '2026-11-04' })).toEqual({ id: 172, reason: 'resume' });
+  const idx = index(ev(174, '2026-10-20'), ...base.events);
+  syncIndex(s, idx, NOW);
+  expect(pickEvent(s, idx, { backfill: false, today: '2026-11-04' })).toEqual({ id: 174, reason: 'new' });
+  recordFetch(s, 172, { status: 'done' }, NOW);
+  expect(s.events['172'].partialAt).toBeUndefined();
+  s.events['174'].assets = 'done';
+  expect(pickEvent(s, idx, { backfill: false, today: '2026-11-04' })).toBeNull();
+});
+
+test('resume 也跳過 failures>=3', () => {
+  const s = seeded();
+  recordFetch(s, 172, { status: 'partial' }, NOW);
+  s.events['172'].failures = 3;
+  expect(pickEvent(s, base, { backfill: false, today: '2026-11-04' })).toBeNull();
+});

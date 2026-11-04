@@ -210,7 +210,7 @@ class EventTest(unittest.TestCase):
             json.dump(self.JP, f)
         opener = self.opener()
         r = fe.run_event(self.EVENT, self.index, self.out, self.fetcher(opener))
-        self.assertEqual(r, {'status': 'jp', 'requests': 0, 'sids': []})
+        self.assertEqual(r, {'status': 'jp', 'requests': 0, 'sids': [], 'removed': ['event_9_01.asset']})
         self.assertEqual(self.assets(), [])
 
     def test_cli_bad_index_still_prints_json_error(self):

@@ -310,3 +310,13 @@ test('writeBoard 內容通過 validateStoryboard 的 CJK 規則', async () => {
   for (const b of t.boards.values()) expect(validateStoryboard(b, syntheticEpisode()).ok).toBe(true);
   expect(validateStoryboard(wrapBoard([{ t: 'talk', l: [0], bg: '教室' }], DAY1), syntheticEpisode()).ok).toBe(false);
 });
+
+test('countTokens 收到與送出請求相同的 output_config（結構化輸出 schema 也算進預留）', async () => {
+  const t = setup();
+  const seen: Record<string, unknown>[] = [];
+  const orig = t.fake.client.messages.countTokens;
+  t.fake.client.messages.countTokens = (async (p: Record<string, unknown>) => { seen.push(p); return orig(); }) as typeof orig;
+  await submitDue(t.deps, t.state.s, INDEX, { dailyCapUsd: t.cap });
+  const sent = t.fake.created[0][0].params;
+  expect(seen[0]).toEqual({ model: sent.model, system: sent.system, messages: sent.messages, output_config: sent.output_config });
+});

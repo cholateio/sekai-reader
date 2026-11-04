@@ -101,6 +101,14 @@ jobs:
           set -euo pipefail
           rclone copy assets/raw "r2:$R2_BUCKET/raw" --transfers 16 --quiet --exclude '.tmp/**'
           rclone copy assets/public "r2:$R2_BUCKET/public" --transfers 16 --quiet
+          # rclone copy never deletes; run.ts lists the Japanese scripts it removed this run.
+          if [ -f assets/r2-delete.txt ]; then
+            while IFS= read -r p; do
+              [[ "$p" =~ ^raw/[a-z0-9_]+\.asset$ ]] || continue
+              rclone deletefile "r2:$R2_BUCKET/$p" || true
+            done < assets/r2-delete.txt
+            rm -f assets/r2-delete.txt
+          fi
 
       - name: direct phase
         id: direct

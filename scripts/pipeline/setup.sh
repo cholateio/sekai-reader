@@ -26,6 +26,13 @@ val() { grep -E "^$1=" "$ENV_FILE" | tail -n 1 | cut -d= -f2-; }
 for k in "${KEYS[@]}"; do
   [ -n "$(val "$k")" ] || { echo "$k 還沒填，檔案保留在 .env.pipeline，填好再執行一次"; exit 1; }
 done
+# From here the file holds five real secrets: delete it however the script ends.
+cleanup() {
+  local code=$?
+  shred -u "$ENV_FILE" 2>/dev/null || rm -f "$ENV_FILE"
+  [ "$code" -eq 0 ] || echo '中途失敗：.env.pipeline 已刪除，修正原因後重新執行（會再開記事本）'
+}
+trap cleanup EXIT
 
 echo '上傳 GitHub secrets（5 個）…'
 gh secret set -f "$ENV_FILE"
@@ -58,5 +65,4 @@ else
   exit 1
 fi
 
-shred -u "$ENV_FILE" 2>/dev/null || rm -f "$ENV_FILE"
-echo '完成：.env.pipeline 已刪除。下一步：gh workflow run pipeline.yml -f event=173'
+echo '完成：.env.pipeline 會在結束時刪除。下一步：gh workflow run pipeline.yml -f event=173'
