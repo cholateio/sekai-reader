@@ -7275,43 +7275,44 @@
   },
   "184": {
    "kind": "new",
-   "assets": "error",
-   "failures": 3,
+   "assets": "missing",
+   "failures": 0,
    "eps": {
     "event_184_01": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_184_02": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_184_03": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_184_04": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_184_05": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_184_06": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_184_07": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_184_08": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     }
    },
-   "lastError": "exit 1"
+   "lastError": "exit 1",
+   "jpCheckedAt": "2026-11-04T19:29:37.366Z"
   }
  },
  "batches": [],
@@ -7321,5 +7322,5 @@
   "msgbatch_01CSmBJDcevvDVS3WpXVREa3": "2026-11-04",
   "msgbatch_01FEqjsHRw7F85hpiJrM1U9G": "2026-11-04"
  },
- "pendingDeploy": false
+ "pendingDeploy": true
 }
