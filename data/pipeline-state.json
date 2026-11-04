@@ -1,7 +1,9 @@
 {
  "version": 1,
  "seededAt": "2026-11-04T11:59:10.133Z",
- "spend": {},
+ "spend": {
+  "2026-11-04": 1.20347
+ },
  "events": {
   "1": {
    "kind": "old",
@@ -6826,7 +6828,7 @@
   },
   "173": {
    "kind": "old",
-   "assets": "pending",
+   "assets": "done",
    "failures": 0,
    "eps": {
     "event_173_01": {
@@ -6834,34 +6836,35 @@
      "tries": 0
     },
     "event_173_02": {
-     "s": "manual",
-     "tries": 0
+     "s": "batch",
+     "tries": 1
     },
     "event_173_03": {
-     "s": "manual",
-     "tries": 0
+     "s": "batch",
+     "tries": 1
     },
     "event_173_04": {
-     "s": "manual",
-     "tries": 0
+     "s": "batch",
+     "tries": 1
     },
     "event_173_05": {
-     "s": "manual",
-     "tries": 0
+     "s": "batch",
+     "tries": 1
     },
     "event_173_06": {
-     "s": "manual",
-     "tries": 0
+     "s": "batch",
+     "tries": 1
     },
     "event_173_07": {
-     "s": "manual",
-     "tries": 0
+     "s": "batch",
+     "tries": 1
     },
     "event_173_08": {
-     "s": "manual",
-     "tries": 0
+     "s": "batch",
+     "tries": 1
     }
-   }
+   },
+   "assetsAt": "2026-11-04T14:49:33.605Z"
   },
   "174": {
    "kind": "old",
@@ -7268,9 +7271,66 @@
      "tries": 0
     }
    }
+  },
+  "184": {
+   "kind": "new",
+   "assets": "pending",
+   "failures": 0,
+   "eps": {
+    "event_184_01": {
+     "s": "manual",
+     "tries": 0
+    },
+    "event_184_02": {
+     "s": "manual",
+     "tries": 0
+    },
+    "event_184_03": {
+     "s": "manual",
+     "tries": 0
+    },
+    "event_184_04": {
+     "s": "manual",
+     "tries": 0
+    },
+    "event_184_05": {
+     "s": "manual",
+     "tries": 0
+    },
+    "event_184_06": {
+     "s": "manual",
+     "tries": 0
+    },
+    "event_184_07": {
+     "s": "manual",
+     "tries": 0
+    },
+    "event_184_08": {
+     "s": "manual",
+     "tries": 0
+    }
+   }
   }
  },
- "batches": [],
- "knownBatches": {},
- "pendingDeploy": false
+ "batches": [
+  {
+   "id": "msgbatch_019NZj12dSfVNmjjvNRg3HzJ",
+   "day": "2026-11-04",
+   "eventId": 173,
+   "sids": [
+    "event_173_02",
+    "event_173_03",
+    "event_173_04",
+    "event_173_05",
+    "event_173_06",
+    "event_173_07",
+    "event_173_08"
+   ],
+   "estUsd": 1.20347
+  }
+ ],
+ "knownBatches": {
+  "msgbatch_019NZj12dSfVNmjjvNRg3HzJ": "2026-11-04"
+ },
+ "pendingDeploy": true
 }
