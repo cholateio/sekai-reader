@@ -2,7 +2,7 @@
  "version": 1,
  "seededAt": "2026-11-04T11:59:10.133Z",
  "spend": {
-  "2026-11-04": 1.431152
+  "2026-11-04": 1.061078
  },
  "events": {
   "1": {
@@ -6837,10 +6837,10 @@
     },
     "event_173_02": {
      "s": "batch",
-     "tries": 1
+     "tries": 2
     },
     "event_173_03": {
-     "s": "batch",
+     "s": "done",
      "tries": 1
     },
     "event_173_04": {
@@ -6848,20 +6848,20 @@
      "tries": 2
     },
     "event_173_05": {
-     "s": "batch",
+     "s": "done",
      "tries": 1
     },
     "event_173_06": {
-     "s": "batch",
+     "s": "done",
      "tries": 1
     },
     "event_173_07": {
-     "s": "batch",
+     "s": "done",
      "tries": 1
     },
     "event_173_08": {
      "s": "batch",
-     "tries": 1
+     "tries": 2
     }
    },
    "assetsAt": "2026-11-04T14:49:33.605Z"
@@ -7274,8 +7274,8 @@
   },
   "184": {
    "kind": "new",
-   "assets": "pending",
-   "failures": 2,
+   "assets": "error",
+   "failures": 3,
    "eps": {
     "event_184_01": {
      "s": "manual",
@@ -7315,24 +7315,21 @@
  },
  "batches": [
   {
-   "id": "msgbatch_01CSmBJDcevvDVS3WpXVREa3",
+   "id": "msgbatch_01FEqjsHRw7F85hpiJrM1U9G",
    "day": "2026-11-04",
    "eventId": 173,
    "sids": [
     "event_173_02",
-    "event_173_03",
-    "event_173_05",
-    "event_173_06",
-    "event_173_07",
     "event_173_08"
    ],
-   "estUsd": 1.019592
+   "estUsd": 0.341096
   }
  ],
  "knownBatches": {
   "msgbatch_019NZj12dSfVNmjjvNRg3HzJ": "2026-11-04",
   "msgbatch_01JbfNt2acE6QhAYYXQBWzED": "2026-11-04",
-  "msgbatch_01CSmBJDcevvDVS3WpXVREa3": "2026-11-04"
+  "msgbatch_01CSmBJDcevvDVS3WpXVREa3": "2026-11-04",
+  "msgbatch_01FEqjsHRw7F85hpiJrM1U9G": "2026-11-04"
  },
- "pendingDeploy": false
+ "pendingDeploy": true
 }
