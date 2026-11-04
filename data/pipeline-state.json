@@ -7235,7 +7235,7 @@
   },
   "183": {
    "kind": "old",
-   "assets": "pending",
+   "assets": "jp",
    "failures": 0,
    "eps": {
     "event_183_01": {
@@ -7270,7 +7270,8 @@
      "s": "manual",
      "tries": 0
     }
-   }
+   },
+   "jpCheckedAt": "2026-11-04T18:25:18.018Z"
   },
   "184": {
    "kind": "new",
