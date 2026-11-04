@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import {
-  BATCH_USD_PER_MTOK, MAX_TOKENS, MODEL, PanelsSchema, actualUsd, buildRequest, collectBatches, normalizePanels, reconcile, reserveUsd, submitDue,
+  BATCH_USD_PER_MTOK, MAX_TOKENS, MODEL, actualUsd, buildRequest, collectBatches, normalizePanels, parseBoardText, reconcile, reserveUsd, submitDue,
   wrapBoard, type DirectorDeps,
 } from '../scripts/pipeline/director';
 import { seedState, recordFetch, authorizeDirect, type IndexEvent, type IndexFile, type PipelineState } from '../scripts/pipeline/state';
@@ -94,22 +94,34 @@ function setup(o: { cap?: number } = {}) {
 }
 const eps = (s: PipelineState, id: number) => Object.fromEntries(Object.entries(s.events[String(id)].eps).map(([k, v]) => [k, v.s]));
 
-test('buildRequest 固定模型、max_tokens 16000、effort medium 與 json_schema 格式', () => {
+test('buildRequest 固定模型、max_tokens 16000、effort medium，不帶結構化輸出文法', () => {
+  // Measured 2026-11-05 on event_173_01: with output_config.format the model closed the array after one
+  // panel (147 s); without it the full board came back in 35 s inside a ```json fence.
   const r = buildRequest('event_173_02', 'BG:x', 'SYS');
   expect(r.custom_id).toBe('event_173_02');
   expect(r.params).toMatchObject({ model: 'claude-opus-5-5', max_tokens: 16000, system: 'SYS', messages: [{ role: 'user', content: 'BG:x' }] });
-  expect(r.params.output_config?.effort).toBe('medium');
-  expect(r.params.output_config?.format?.type).toBe('json_schema');
-  expect(JSON.parse(JSON.stringify(r.params.output_config?.format)).schema.required).toEqual(['panels']);
+  expect(r.params.output_config).toEqual({ effort: 'medium' });
   expect(MODEL).toBe('claude-opus-5-5');
   expect(MAX_TOKENS).toBe(16000);
 });
 
-test('PanelsSchema 接受 fixture 分鏡的 panels，拒絕未知欄位與未知 t', () => {
-  expect(PanelsSchema.safeParse({ panels: syntheticBoard().panels }).success).toBe(true);
-  expect(PanelsSchema.safeParse({ panels: [{ t: 'talk', l: [0], words: 'x' }] }).success).toBe(false);
-  expect(PanelsSchema.safeParse({ panels: [{ t: 'nope' }] }).success).toBe(false);
-  expect(PanelsSchema.safeParse({ panels: [{ l: [0] }] }).success).toBe(false);
+test('parseBoardText 剝掉 Markdown 圍欄與前後文字，取出 panels', () => {
+  const panels = [{ t: 'talk', l: [0] }];
+  const json = JSON.stringify({ panels });
+  expect(parseBoardText(json)).toEqual(panels);
+  expect(parseBoardText('```json\n' + json + '\n```')).toEqual(panels);
+  expect(parseBoardText('以下是分鏡：\n```\n' + json + '\n```\n完成。')).toEqual(panels);
+  expect(() => parseBoardText('not json')).toThrow();
+  expect(() => parseBoardText('{"nope":1}')).toThrow();
+});
+
+test('collectBatches 接受包在 ```json 圍欄裡的輸出', async () => {
+  const t = setup();
+  await submitDue(t.deps, t.state.s, INDEX, { dailyCapUsd: t.cap });
+  const fenced = (sid: string): Result => ({ custom_id: sid, result: { type: 'succeeded', message: { stop_reason: 'end_turn', usage: { input_tokens: 4000, output_tokens: 3000 }, content: [{ type: 'text', text: '```json\n' + JSON.stringify({ panels: syntheticBoard().panels }) + '\n```' }] } } });
+  t.fake.finish('msgbatch_1', [fenced('event_174_01'), fenced('event_174_02')]);
+  const c = await collectBatches(t.deps, t.state.s);
+  expect(c.done.length).toBe(2);
 });
 
 test('reserveUsd 用最壞輸出、actualUsd 用實際用量', () => {
@@ -326,6 +338,12 @@ test('normalizePanels 丟掉空的選填陣列與未定義欄位，保留有內�
     .toEqual([{ t: 'talk', l: [0] }]);
   expect(normalizePanels([{ t: 'talk', l: [0], shape: ['round'] }])).toEqual([{ t: 'talk', l: [0], shape: ['round'] }]);
   expect(normalizePanels('nope')).toBe('nope');
+});
+
+test('normalizePanels 把不在 l 裡的 cut 丟掉（裝飾記號不值得整話重送）', () => {
+  expect(normalizePanels([{ t: 'talk', l: [3, 4], cut: [4, 9] }])).toEqual([{ t: 'talk', l: [3, 4], cut: [4] }]);
+  expect(normalizePanels([{ t: 'talk', l: [3], cut: [9] }])).toEqual([{ t: 'talk', l: [3] }]);
+  expect(normalizePanels([{ t: 'trans', cut: [1] }])).toEqual([{ t: 'trans' }]);
 });
 
 test('collectBatches 對 shape: [] 的輸出照常通過並寫檔', async () => {

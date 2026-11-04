@@ -1,9 +1,6 @@
 import type Anthropic from '@anthropic-ai/sdk';
-import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
-import { z } from 'zod/v4';
 import type { Episode } from '../../src/scenario/types';
 import { validateStoryboard } from '../../src/storyboard/validate';
-import { BUBBLE_SHAPES, PANEL_TYPES } from '../../src/storyboard/types';
 import {
   addSpend, dayOf, dueEpisodes, rememberBatch, spentToday, KEEP_BATCH_DAYS,
   type BatchState, type EpState, type IndexFile, type PipelineState,
@@ -14,25 +11,6 @@ export const PROMPT_VERSION = 'v3-manga';
 export const MAX_TOKENS = 16000;
 export const BATCH_USD_PER_MTOK = { input: 2, output: 10 };
 export const MAX_TRIES = 2;
-
-const ints = z.array(z.number().int());
-// Mirrors Panel in src/storyboard/types.ts. Tuples and number literals are avoided because the SDK's
-// schema transform rejects them; validateStoryboard remains the authority on ranges and line coverage.
-const PanelSchema = z.object({
-  t: z.enum(PANEL_TYPES as unknown as [string, ...string[]]),
-  l: ints.optional(), caps: ints.optional(), cut: ints.optional(),
-  fx: z.enum(['blush', 'sparkle']).optional(),
-  tone: z.enum(['day', 'office', 'serious']).optional(),
-  big: z.enum(['quote', 'num']).optional(),
-  cast: z.array(z.string()).optional(),
-  sfx: z.string().optional(),
-  wide: z.boolean().optional(),
-  cam: z.object({ focus: z.array(z.number()), zoom: z.number(), blur: z.number().optional() }).strict().optional(),
-  edge: z.number().int().optional(),
-  bg: z.string().optional(),
-  shape: z.array(z.enum(BUBBLE_SHAPES as unknown as [string, ...string[]])).optional(),
-}).strict();
-export const PanelsSchema = z.object({ panels: z.array(PanelSchema) }).strict();
 
 export interface DirectorDeps {
   client: { messages: Pick<Anthropic['messages'], 'countTokens' | 'batches'> };
@@ -48,16 +26,31 @@ export interface DirectorDeps {
 
 type BatchRequest = Anthropic.Messages.BatchCreateParams['requests'][number];
 
+/**
+ * No output_config.format: measured 2026-11-05, the grammar made Opus close the panels array after one
+ * panel (and took 4x longer); plain JSON in a fence came back complete. validateStoryboard is the gate.
+ */
 export function buildRequest(sid: string, compactText: string, prompt: string): BatchRequest {
-  const { type, schema } = zodOutputFormat(PanelsSchema);
   return {
     custom_id: sid,
     params: {
       model: MODEL, max_tokens: MAX_TOKENS, system: prompt,
       messages: [{ role: 'user', content: compactText }],
-      output_config: { effort: 'medium', format: { type, schema } },
+      output_config: { effort: 'medium' },
     },
   };
+}
+
+/** Takes the JSON object out of the model's text, tolerating ```json fences and prose around it. */
+export function parseBoardText(text: string): unknown {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  let body = fenced ? fenced[1] : text;
+  const a = body.indexOf('{'), b = body.lastIndexOf('}');
+  if (a < 0 || b < a) throw new Error('no JSON object');
+  body = body.slice(a, b + 1);
+  const parsed = JSON.parse(body) as { panels?: unknown };
+  if (!parsed || typeof parsed !== 'object' || !('panels' in parsed)) throw new Error('no panels');
+  return parsed.panels;
 }
 
 export const reserveUsd = (inputTokens: number) =>
@@ -72,10 +65,14 @@ export function normalizePanels(panels: unknown): unknown {
   return panels.map(p => {
     if (typeof p !== 'object' || p === null || Array.isArray(p)) return p;
     const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(p as Record<string, unknown>)) {
-      if (v === undefined || v === null) continue;
-      if (OPTIONAL_LISTS.includes(k) && Array.isArray(v) && v.length === 0) continue;
-      out[k] = v;
+    const rec = p as Record<string, unknown>;
+    const lines = Array.isArray(rec.l) ? rec.l : [];
+    for (const [k, v] of Object.entries(rec)) {
+      let val = v;
+      if (k === 'cut' && Array.isArray(val)) val = val.filter(r => lines.includes(r));
+      if (val === undefined || val === null) continue;
+      if (OPTIONAL_LISTS.includes(k) && Array.isArray(val) && val.length === 0) continue;
+      out[k] = val;
     }
     return out;
   });
@@ -175,9 +172,9 @@ function judge(s: PipelineState, b: BatchState, r: Anthropic.Messages.MessageBat
   if (m.stop_reason !== 'end_turn') return failed(`stop_reason ${m.stop_reason}`);
   const text = m.content.find(c => c.type === 'text');
   if (!text || text.type !== 'text') return failed('no text block');
-  let parsed: unknown;
-  try { parsed = JSON.parse(text.text); } catch { return failed('bad json'); }
-  const panels = normalizePanels((parsed as { panels?: unknown })?.panels);
+  let raw: unknown;
+  try { raw = parseBoardText(text.text); } catch { return failed('bad json'); }
+  const panels = normalizePanels(raw);
   const board = wrapBoard(panels, d.now());
   const v = validateStoryboard(board, d.readEpisode(sid));
   if (!v.ok) {
