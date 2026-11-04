@@ -2,7 +2,7 @@
  "version": 1,
  "seededAt": "2026-11-04T11:59:10.133Z",
  "spend": {
-  "2026-11-04": 1.061078
+  "2026-11-04": 0.835148
  },
  "events": {
   "1": {
@@ -6836,7 +6836,7 @@
      "tries": 0
     },
     "event_173_02": {
-     "s": "batch",
+     "s": "done",
      "tries": 2
     },
     "event_173_03": {
@@ -6860,7 +6860,7 @@
      "tries": 1
     },
     "event_173_08": {
-     "s": "batch",
+     "s": "done",
      "tries": 2
     }
    },
@@ -7313,23 +7313,12 @@
    "lastError": "exit 1"
   }
  },
- "batches": [
-  {
-   "id": "msgbatch_01FEqjsHRw7F85hpiJrM1U9G",
-   "day": "2026-11-04",
-   "eventId": 173,
-   "sids": [
-    "event_173_02",
-    "event_173_08"
-   ],
-   "estUsd": 0.341096
-  }
- ],
+ "batches": [],
  "knownBatches": {
   "msgbatch_019NZj12dSfVNmjjvNRg3HzJ": "2026-11-04",
   "msgbatch_01JbfNt2acE6QhAYYXQBWzED": "2026-11-04",
   "msgbatch_01CSmBJDcevvDVS3WpXVREa3": "2026-11-04",
   "msgbatch_01FEqjsHRw7F85hpiJrM1U9G": "2026-11-04"
  },
- "pendingDeploy": false
+ "pendingDeploy": true
 }
