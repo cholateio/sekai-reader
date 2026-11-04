@@ -1,7 +1,7 @@
 import { h } from '../../render/dom';
 import { BUILT, EVENTS, UNITS, unitOf } from '../catalog';
 import type { Manifest } from '../load';
-import { go, siteHeader } from './common';
+import { go, siteFooter, siteHeader } from './common';
 
 const filter = { q: '', unit: 'all' };
 
@@ -36,6 +36,6 @@ export function viewLibrary(manifest: Manifest): HTMLElement[] {
   return [
     ...siteHeader(),
     h('p', { class: 'sub lib-sub' }, `台服活動劇情 · ${EVENTS.length} 期 · 目錄更新於 ${BUILT}`),
-    search, chips, list,
+    search, chips, list, siteFooter(),
   ];
 }
