@@ -204,3 +204,11 @@ test('真實 fetchEvent 介面：spawn fake_fetch.py 取得 jp 與 partial 而�
   expect((await f(9)).status).toBe('done');
   expect(await f(1)).toMatchObject({ status: 'error', error: 'exit 1' });
 });
+
+test('direct 失敗時 summary 仍帶 deploy，讓已抓好的素材照常部署', async () => {
+  const t = setup({ withDirector: true });
+  await runOnce(t.deps, { phase: 'fetch', event: 173 });
+  (t.deps.director!.client.messages.batches as unknown as { list: () => never }).list = () => { throw new Error('api down'); };
+  const err = await runOnce(t.deps, { phase: 'direct' }).then(() => null, (e: unknown) => e as Error & { summary?: { deploy: boolean } });
+  expect(err!.summary?.deploy).toBe(true);
+});

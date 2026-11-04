@@ -1,0 +1,128 @@
+# Hourly pipeline: refresh the event index, fetch at most one event into the private R2 store,
+# request AI storyboards in batches, then deploy dist/ to Cloudflare Pages. State and storyboards
+# are committed back to main. Each secret is scoped to the only step that needs it.
+name: pipeline
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+    inputs:
+      event:
+        description: '指名處理的活動 id（留空＝照佇列；指名舊活動＝同時授權它的分鏡）'
+        required: false
+        default: ''
+      direct:
+        description: '這次最多授權幾期舊活動的分鏡'
+        required: false
+        default: '0'
+
+permissions:
+  contents: read
+
+# GitHub keeps one pending run per group; an older pending run is cancelled (re-trigger it by hand).
+concurrency:
+  group: pipeline
+  cancel-in-progress: false
+
+env:
+  R2_BUCKET: ${{ vars.R2_BUCKET }}
+  BACKFILL: ${{ vars.BACKFILL }}
+  DIRECT_DAILY_USD: ${{ vars.DIRECT_DAILY_USD }}
+  RCLONE_CONFIG_R2_TYPE: s3
+  RCLONE_CONFIG_R2_PROVIDER: Cloudflare
+  RCLONE_CONFIG_R2_REGION: auto
+  RCLONE_CONFIG_R2_ACL: private
+  RCLONE_CONFIG_R2_NO_CHECK_BUCKET: 'true'
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          cache: npm
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+
+      # sharp 0.34 ships prebuilt binaries as optional dependencies, so install scripts are not needed.
+      - run: npm ci --ignore-scripts
+
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq rclone && rclone version
+
+      - name: sync assets down
+        env:
+          RCLONE_CONFIG_R2_ENDPOINT: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          set -euo pipefail
+          rclone copy "r2:$R2_BUCKET/raw" assets/raw --transfers 16 --quiet
+          rclone copy "r2:$R2_BUCKET/public" assets/public --transfers 16 --quiet
+
+      - name: refresh event index
+        run: python3 scripts/build_index.py data/tc-event-index.json --state data/pipeline-state.json
+
+      - name: fetch phase
+        env:
+          IN_EVENT: ${{ inputs.event }}
+          IN_DIRECT: ${{ inputs.direct }}
+        run: |
+          set -euo pipefail
+          args=()
+          if [ -n "${IN_EVENT:-}" ]; then
+            [[ "$IN_EVENT" =~ ^[0-9]{1,5}$ ]] || { echo '::error::event 必須是整數'; exit 1; }
+            args+=(--event "$IN_EVENT")
+          fi
+          if [ -n "${IN_DIRECT:-}" ] && [ "$IN_DIRECT" != "0" ]; then
+            [[ "$IN_DIRECT" =~ ^[0-9]{1,3}$ ]] || { echo '::error::direct 必須是整數'; exit 1; }
+            args+=(--direct "$IN_DIRECT")
+          fi
+          npx tsx scripts/pipeline/run.ts fetch "${args[@]}"
+
+      - name: sync assets up
+        id: syncup
+        if: always()
+        env:
+          RCLONE_CONFIG_R2_ENDPOINT: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          set -euo pipefail
+          rclone copy assets/raw "r2:$R2_BUCKET/raw" --transfers 16 --quiet --exclude '.tmp/**'
+          rclone copy assets/public "r2:$R2_BUCKET/public" --transfers 16 --quiet
+
+      - name: direct phase
+        id: direct
+        if: steps.syncup.outcome == 'success'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: npx tsx scripts/pipeline/run.ts direct
+
+      - name: commit state and storyboards
+        id: commit1
+        if: always() && steps.syncup.outcome == 'success'
+        run: 'bash scripts/pipeline/commit.sh "chore(pipeline): 更新狀態、目錄與分鏡"'
+
+      # Runs even when the direct phase failed (e.g. an Anthropic outage) so fetched assets still ship.
+      - name: build and deploy
+        if: ${{ !cancelled() && steps.commit1.outcome == 'success' && steps.direct.outputs.deploy == 'true' }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          npm run build
+          npx --yes wrangler@4.157.0 pages deploy dist --project-name=sekai-reader --branch=main --commit-dirty=true
+          npx tsx scripts/pipeline/run.ts mark-deployed
+          bash scripts/pipeline/commit.sh "chore(pipeline): 已部署"

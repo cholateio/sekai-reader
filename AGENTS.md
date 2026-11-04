@@ -8,7 +8,7 @@ A static web reader that turns Project SEKAI Traditional Chinese event stories i
 ## Stack
 
 - Language / framework: TypeScript, Vite 6, no UI framework (own `h()` helper); Python 3 for the one-off fetch script
-- Services: none (static site; planned host Cloudflare Pages, not deployed)
+- Services: GitHub Actions hourly pipeline, Cloudflare Pages (direct upload) + private R2 bucket, Anthropic API (storyboards)
 - Test: `npm test`
 
 ## File layout
@@ -18,10 +18,11 @@ A static web reader that turns Project SEKAI Traditional Chinese event stories i
 - `src/render/` — comic renderer (`comic/`: panels, bubble shape rules `shape.ts`, SVG outlines `bubbleSvg.ts`, backgrounds and effect layers, slanted layout)
 - `src/art/` — `CharacterArt` seam (static chibi now, Spine later) and fallback name circles
 - `src/app/` — hash router, data loading, prefs, unit easter eggs (`units.ts`), library / event / reader views
-- `data/` — event index and character table (`tc-event-index.json`)
+- `data/` — event index and character table (`tc-event-index.json`), pipeline state (`pipeline-state.json`, edited only by the pipeline)
 - `storyboards/` — AI-director storyboards, line numbers only (committed)
 - `prompts/` — storyboard director prompt
-- `scripts/` — `build_episode.ts`, `fetch_episode.py`, `check_layout.ts`
+- `scripts/` — `build_episode.ts`, `fetch_episode.py`, `check_layout.ts`, `build_index.py`, `compact_script.py`
+- `scripts/pipeline/` — hourly pipeline: `state.ts` (queue, spend), `director.ts` (storyboard batches), `run.ts` (phases), `commit.sh`, `setup.sh`
 - `assets/` — git-ignored game assets: `raw/` inputs, `public/` reader files (Vite publicDir)
 - `tests/` — Vitest + unittest; `fixtures/` holds an original synthetic script; `real/` skips without assets
 - `docs/specs/` — requirement specs; the authority for what to build

@@ -58,6 +58,7 @@ export async function runOnce(d: RunDeps, o: RunOptions): Promise<RunSummary> {
     else s.pendingDeploy = false;
   } catch (e) {
     sum.failed = e instanceof Error ? e.message : String(e);
+    sum.deploy = s.pendingDeploy;
     saveState(d.statePath, s);
     throw Object.assign(e instanceof Error ? e : new Error(sum.failed), { summary: sum });
   }

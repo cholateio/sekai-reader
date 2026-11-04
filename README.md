@@ -37,11 +37,15 @@ You need Node.js 22 or newer and Python 3, plus the episode's assets (one `.asse
 3. `npm run build:episode event_173_01`
 4. `npm run dev` and open the printed URL; it lands directly on episode 173-1.
 
+## Deploy
+
+An hourly GitHub Actions workflow keeps the site current: it checks the Taiwan-server event list, fetches at most one event's assets into a private Cloudflare R2 bucket, asks Claude (Message Batches) to direct new episodes, and uploads the build to Cloudflare Pages. One-time setup is `bash scripts/pipeline/setup.sh`; details are in `docs/DEVELOPMENT.md`.
+
 ## Privacy & security
 
 - The reader stores only your reading preferences (black-and-white mode, scroll position) in your browser's localStorage.
 - At runtime the page loads its own files and Google Fonts; it never contacts Sekai-World or any game server.
-- No accounts, keys or secrets are involved.
+- The site has no accounts. The pipeline's keys live only in GitHub Actions secrets and are passed to the single step that needs each one.
 
 ## License
 
