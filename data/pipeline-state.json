@@ -2,7 +2,7 @@
  "version": 1,
  "seededAt": "2026-11-04T11:59:10.133Z",
  "spend": {
-  "2026-11-04": 0.41156
+  "2026-11-04": 1.431152
  },
  "events": {
   "1": {
@@ -6836,32 +6836,32 @@
      "tries": 0
     },
     "event_173_02": {
-     "s": "fallback",
-     "tries": 2
+     "s": "batch",
+     "tries": 1
     },
     "event_173_03": {
-     "s": "fallback",
-     "tries": 2
+     "s": "batch",
+     "tries": 1
     },
     "event_173_04": {
      "s": "done",
      "tries": 2
     },
     "event_173_05": {
-     "s": "fallback",
-     "tries": 2
+     "s": "batch",
+     "tries": 1
     },
     "event_173_06": {
-     "s": "fallback",
-     "tries": 2
+     "s": "batch",
+     "tries": 1
     },
     "event_173_07": {
-     "s": "fallback",
-     "tries": 2
+     "s": "batch",
+     "tries": 1
     },
     "event_173_08": {
-     "s": "fallback",
-     "tries": 2
+     "s": "batch",
+     "tries": 1
     }
    },
    "assetsAt": "2026-11-04T14:49:33.605Z"
@@ -7313,10 +7313,26 @@
    "lastError": "exit 1"
   }
  },
- "batches": [],
+ "batches": [
+  {
+   "id": "msgbatch_01CSmBJDcevvDVS3WpXVREa3",
+   "day": "2026-11-04",
+   "eventId": 173,
+   "sids": [
+    "event_173_02",
+    "event_173_03",
+    "event_173_05",
+    "event_173_06",
+    "event_173_07",
+    "event_173_08"
+   ],
+   "estUsd": 1.019592
+  }
+ ],
  "knownBatches": {
   "msgbatch_019NZj12dSfVNmjjvNRg3HzJ": "2026-11-04",
-  "msgbatch_01JbfNt2acE6QhAYYXQBWzED": "2026-11-04"
+  "msgbatch_01JbfNt2acE6QhAYYXQBWzED": "2026-11-04",
+  "msgbatch_01CSmBJDcevvDVS3WpXVREa3": "2026-11-04"
  },
  "pendingDeploy": false
 }
