@@ -230,3 +230,18 @@ test('resume 也跳過 failures>=3', () => {
   s.events['172'].failures = 3;
   expect(pickEvent(s, base, { backfill: false, today: '2026-11-04' })).toBeNull();
 });
+
+test('authorizeDirect 指名的期把 fallback 的話重新排隊並歸零 tries；newest 不碰 fallback', () => {
+  const s = seeded();
+  s.events['173'].assets = 'done';
+  s.events['173'].eps['event_173_02'] = { s: 'fallback', tries: 2 };
+  s.events['173'].eps['event_173_03'] = { s: 'done', tries: 1 };
+  expect(authorizeDirect(s, base, { eventIds: [173] })).toEqual([173]);
+  expect(s.events['173'].eps['event_173_02']).toEqual({ s: 'none', tries: 0 });
+  expect(s.events['173'].eps['event_173_03']).toEqual({ s: 'done', tries: 1 });
+  s.events['172'].assets = 'done';
+  s.events['172'].eps['event_172_01'] = { s: 'fallback', tries: 2 };
+  s.events['172'].eps['event_172_02'] = { s: 'done', tries: 1 };
+  expect(authorizeDirect(s, base, { newest: 5 })).toEqual([]);
+  expect(s.events['172'].eps['event_172_01'].s).toBe('fallback');
+});

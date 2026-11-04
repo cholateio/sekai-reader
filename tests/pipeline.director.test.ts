@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import {
-  BATCH_USD_PER_MTOK, MAX_TOKENS, MODEL, PanelsSchema, actualUsd, buildRequest, collectBatches, reconcile, reserveUsd, submitDue,
+  BATCH_USD_PER_MTOK, MAX_TOKENS, MODEL, PanelsSchema, actualUsd, buildRequest, collectBatches, normalizePanels, reconcile, reserveUsd, submitDue,
   wrapBoard, type DirectorDeps,
 } from '../scripts/pipeline/director';
 import { seedState, recordFetch, authorizeDirect, type IndexEvent, type IndexFile, type PipelineState } from '../scripts/pipeline/state';
@@ -319,4 +319,34 @@ test('countTokens 收到與送出請求相同的 output_config（結構化輸出
   await submitDue(t.deps, t.state.s, INDEX, { dailyCapUsd: t.cap });
   const sent = t.fake.created[0][0].params;
   expect(seen[0]).toEqual({ model: sent.model, system: sent.system, messages: sent.messages, output_config: sent.output_config });
+});
+
+test('normalizePanels 丟掉空的選填陣列與未定義欄位，保留有內容的', () => {
+  expect(normalizePanels([{ t: 'talk', l: [0], shape: [], cast: [], caps: [], cut: [], bg: undefined }]))
+    .toEqual([{ t: 'talk', l: [0] }]);
+  expect(normalizePanels([{ t: 'talk', l: [0], shape: ['round'] }])).toEqual([{ t: 'talk', l: [0], shape: ['round'] }]);
+  expect(normalizePanels('nope')).toBe('nope');
+});
+
+test('collectBatches 對 shape: [] 的輸出照常通過並寫檔', async () => {
+  const t = setup();
+  await submitDue(t.deps, t.state.s, INDEX, { dailyCapUsd: t.cap });
+  const panels = syntheticBoard().panels.map(p => ({ ...p, shape: [], cast: [] }));
+  t.fake.finish('msgbatch_1', [ok('event_174_01', panels), ok('event_174_02', panels)]);
+  const c = await collectBatches(t.deps, t.state.s);
+  expect(c.done.length).toBe(2);
+  const b = t.boards.get('event_174_01') as { panels: Record<string, unknown>[] };
+  expect(b.panels.every(p => !('shape' in p) && !('cast' in p))).toBe(true);
+});
+
+test('collectBatches 拒絕的分鏡整份印進 log（只含結構，便於診斷）', async () => {
+  const t = setup();
+  const lines: string[] = [];
+  t.deps.log = l => lines.push(l);
+  await submitDue(t.deps, t.state.s, INDEX, { dailyCapUsd: t.cap });
+  t.fake.finish('msgbatch_1', [ok('event_174_01'), failure('event_174_02', 'invalid-board')]);
+  await collectBatches(t.deps, t.state.s);
+  const rejected = lines.find(l => l.startsWith('rejected event_174_02: '));
+  expect(rejected).toBeDefined();
+  expect(JSON.parse(rejected!.slice('rejected event_174_02: '.length))).toEqual({ panels: [{ t: 'talk', l: [0], bg: '教室' }] });
 });

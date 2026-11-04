@@ -65,6 +65,22 @@ export const reserveUsd = (inputTokens: number) =>
 export const actualUsd = (u: { input_tokens: number; output_tokens: number }) =>
   (u.input_tokens * BATCH_USD_PER_MTOK.input + u.output_tokens * BATCH_USD_PER_MTOK.output) / 1e6;
 
+const OPTIONAL_LISTS = ['shape', 'cast', 'caps', 'cut'];
+/** Structured output tends to fill optional fields with [] or undefined; an empty override list means none. */
+export function normalizePanels(panels: unknown): unknown {
+  if (!Array.isArray(panels)) return panels;
+  return panels.map(p => {
+    if (typeof p !== 'object' || p === null || Array.isArray(p)) return p;
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(p as Record<string, unknown>)) {
+      if (v === undefined || v === null) continue;
+      if (OPTIONAL_LISTS.includes(k) && Array.isArray(v) && v.length === 0) continue;
+      out[k] = v;
+    }
+    return out;
+  });
+}
+
 export function wrapBoard(panels: unknown, now: Date): unknown {
   return { meta: { director: 'ai', promptVersion: PROMPT_VERSION, model: MODEL, generatedAt: dayOf(now) }, panels };
 }
@@ -161,10 +177,13 @@ function judge(s: PipelineState, b: BatchState, r: Anthropic.Messages.MessageBat
   if (!text || text.type !== 'text') return failed('no text block');
   let parsed: unknown;
   try { parsed = JSON.parse(text.text); } catch { return failed('bad json'); }
-  const panels = (parsed as { panels?: unknown })?.panels;
+  const panels = normalizePanels((parsed as { panels?: unknown })?.panels);
   const board = wrapBoard(panels, d.now());
   const v = validateStoryboard(board, d.readEpisode(sid));
-  if (!v.ok) return failed(`invalid board: ${v.errors.slice(0, 3).join('; ')}`);
+  if (!v.ok) {
+    d.log(`rejected ${sid}: ${JSON.stringify({ panels })}`);
+    return failed(`invalid board: ${v.errors.slice(0, 5).join('; ')}`);
+  }
   return { sid, verdict: 'done', tries, board };
 }
 

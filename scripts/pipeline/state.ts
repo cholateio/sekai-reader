@@ -118,11 +118,21 @@ export function recordFetch(s: PipelineState, id: number, r: { status: FetchStat
   }
 }
 
-/** Named events are authorized whatever their asset state; newest only takes old events whose assets are done. */
+/**
+ * Named events are authorized whatever their asset state, and their fallback episodes are re-queued with a
+ * fresh try count (naming an event by hand is the way to redo it after a fix); newest only takes old events
+ * whose assets are done and never touches fallbacks.
+ */
 export function authorizeDirect(s: PipelineState, index: IndexFile, o: { eventIds?: number[]; newest?: number }): number[] {
   const hasManual = (e: EventState) => Object.values(e.eps).some(ep => ep.s === 'manual');
   const targets = new Set<number>();
-  for (const id of o.eventIds ?? []) if (s.events[String(id)] && hasManual(s.events[String(id)])) targets.add(id);
+  for (const id of o.eventIds ?? []) {
+    const e = s.events[String(id)];
+    if (!e) continue;
+    let touched = false;
+    for (const ep of Object.values(e.eps)) if (ep.s === 'fallback') { ep.s = 'none'; ep.tries = 0; touched = true; }
+    if (touched || hasManual(e)) targets.add(id);
+  }
   if (o.newest && o.newest > 0) {
     const old = byNewest(index).filter(e => {
       const st = s.events[String(e.id)];
