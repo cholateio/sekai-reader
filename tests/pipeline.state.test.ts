@@ -121,6 +121,26 @@ test('recordFetch jp 記錄查核時間', () => {
   expect(s.pendingDeploy).toBe(false);
 });
 
+test('recordFetch missing：assets missing、記查核時間、failures 歸零、要求部署', () => {
+  const s = seeded();
+  s.events['172'].failures = 2;
+  recordFetch(s, 172, { status: 'missing' }, NOW);
+  expect(s.events['172']).toMatchObject({ assets: 'missing', failures: 0, jpCheckedAt: NOW.toISOString() });
+  expect(s.pendingDeploy).toBe(true);
+});
+
+test('pickEvent 把 missing 和 jp 一樣每天重查一次，失敗三次的期可用 forced 救回', () => {
+  const s = seeded();
+  recordFetch(s, 172, { status: 'missing' }, NOW);
+  expect(pickEvent(s, base, { backfill: false, today: '2026-11-04' })).toBeNull();
+  expect(pickEvent(s, base, { backfill: false, today: '2026-11-05' })).toEqual({ id: 172, reason: 'jp-recheck' });
+  for (let i = 0; i < 3; i++) recordFetch(s, 171, { status: 'error', error: 'x' }, NOW);
+  expect(s.events['171'].assets).toBe('error');
+  expect(pickEvent(s, base, { backfill: true, today: '2026-11-05', forced: 171 })).toEqual({ id: 171, reason: 'forced' });
+  recordFetch(s, 171, { status: 'jp' }, NOW);
+  expect(s.events['171']).toMatchObject({ assets: 'jp', failures: 0 });
+});
+
 test('recordFetch error 三次後標 error', () => {
   const s = seeded();
   for (let i = 0; i < 2; i++) recordFetch(s, 172, { status: 'error', error: 'exit 1' }, NOW);

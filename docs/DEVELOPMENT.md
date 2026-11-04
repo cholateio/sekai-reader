@@ -22,7 +22,7 @@ npm run dev                          # -> http://localhost:5173 (opens #read-173
 | `npm run build:episode <sid>` | `.asset` → episode JSON, backgrounds resized to 1280 px WebP q82, chibi copied, manifest rebuilt; non-zero exit if a needed background is missing |
 | `npm run check:layout` | Build + preview + headless Chromium at 390×844: scroll width, panel count, 49 lines, no broken images, no `sekai.best`; screenshots in `scratch/` |
 | `npm run pipeline -- <fetch\|direct\|mark-deployed> [--event N] [--direct N]` | One pipeline phase locally (state in `data/pipeline-state.json`). `fetch --event N` hits storage.sekai.best; `direct` needs `ANTHROPIC_API_KEY` in the environment and spends money. Without either it is a safe offline dry run |
-| `python3 scripts/fetch_episode.py --event <id>` | Download one event's assets into `assets/raw/` (max 40 requests, 5 s apart, stops at the budget and reports `partial`; a Japanese first episode reports `jp` and keeps nothing). `<sid>` instead of `--event` fetches one episode. The hourly pipeline runs this; by hand only when files are lost |
+| `python3 scripts/fetch_episode.py --event <id>` | Download one event's assets into `assets/raw/` (max 40 requests, 5 s apart, stops at the budget and reports `partial`; a Japanese first episode reports `jp` and keeps nothing; a script the mirror does not have yet reports `missing`, exit 5). `<sid>` instead of `--event` fetches one episode. The hourly pipeline runs this; by hand only when files are lost |
 
 ## Environment variables
 
@@ -43,7 +43,7 @@ The pipeline workflow reads these (set once with `bash scripts/pipeline/setup.sh
 ## Deploy
 
 - Hosting: Cloudflare Pages project `sekai-reader` on `sekai-reader.pages.dev`, deployed by direct upload (`wrangler pages deploy dist`), never by Git integration.
-- Pipeline: `.github/workflows/pipeline.yml` runs hourly at :23 and on manual dispatch (the minute was moved from :17 on 2026-11-05 to re-register the schedule after it never fired). Order: sync R2 down → refresh the index → `fetch` phase (at most one event: forced > new > resume a partial fetch > Japanese recheck > backfill) → sync R2 up → `direct` phase (reconcile with the Anthropic account, collect ended batches, submit due episodes) → commit state/index/storyboards to main → build and deploy if `pendingDeploy` → `mark-deployed` and a second commit.
+- Pipeline: `.github/workflows/pipeline.yml` runs hourly at :23 and on manual dispatch (the minute was moved from :17 on 2026-11-05 to re-register the schedule after it never fired). Order: sync R2 down → refresh the index → `fetch` phase (at most one event: forced > new > resume a partial fetch > daily recheck of Japanese or not-yet-mirrored events > backfill) → sync R2 up → `direct` phase (reconcile with the Anthropic account, collect ended batches, submit due episodes) → commit state/index/storyboards to main → build and deploy if `pendingDeploy` → `mark-deployed` and a second commit.
 - Manual run: `gh workflow run pipeline.yml -f event=<id>` processes that event first; naming an old event also authorizes its storyboards. `-f direct=<n>` authorizes the newest n old events whose assets are done. Old events never get storyboards without one of these.
 - Queueing: GitHub keeps only one pending run per concurrency group and cancels the older pending one. If a manual run shows cancelled, trigger it again.
 - Assets: the private R2 bucket holds `raw/` and `public/` (mirrors of `assets/`); it has no public URL. `dist/` contains the assets after a build, so never commit `dist/`.

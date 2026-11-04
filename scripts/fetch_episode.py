@@ -6,7 +6,8 @@ Usage: python3 scripts/fetch_episode.py --event <id> | <sid> [--index data/tc-ev
 Constraints (spec 2026-11-04): one event per run, at most 40 requests, >= 5 s between requests, no Referer
 header, User-Agent names this project, existing files are never re-fetched. Started only by the hourly
 pipeline or by a person; never loop this over many events.
---event prints a JSON result as its last line; exit codes: done 0, jp 3, partial 4, error 1.
+--event prints a JSON result as its last line; exit codes: done 0, jp 3, partial 4, missing 5, error 1.
+missing = a script is not on the mirror yet (HTTP 404); the pipeline rechecks it daily.
 A Japanese first episode (kana ratio > 0.05) reports jp and keeps no script.
 """
 import argparse
@@ -15,6 +16,7 @@ import os
 import re
 import sys
 import time
+import urllib.error
 import urllib.request
 
 BASE = 'https://storage.sekai.best'
@@ -103,7 +105,7 @@ def character_ids(asset, chars):
 
 
 JP_KANA_RATIO = 0.05
-EXIT = {'done': 0, 'jp': 3, 'partial': 4}
+EXIT = {'done': 0, 'jp': 3, 'partial': 4, 'missing': 5}
 
 
 def kana_ratio(asset):
@@ -130,6 +132,17 @@ def _episode_assets(asset, index, out, fetcher):
     return not fetcher.exhausted
 
 
+def _get_script(fetcher, url, dest):
+    """Returns False when the mirror has no such script yet (404), which is not an error for a new event."""
+    try:
+        fetcher.get(url, dest)
+        return True
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return False
+        raise
+
+
 def run_event(event, index, out, fetcher):
     sids = [ep[2] for ep in sorted(event['eps'])]
     for sid in sids:
@@ -142,7 +155,8 @@ def run_event(event, index, out, fetcher):
     # an existing first script (e.g. from <sid> mode) is classified too and removed if Japanese.
     probe = first if os.path.exists(first) else os.path.join(out, '.tmp', sids[0] + '.asset')
     if probe != first:
-        fetcher.get(scenario_url(event['bundle'], sids[0]), probe)
+        if not _get_script(fetcher, scenario_url(event['bundle'], sids[0]), probe):
+            return result('missing', [])
         if fetcher.exhausted:
             return result('partial', [])
     if kana_ratio(_load(probe)) > JP_KANA_RATIO:
@@ -156,7 +170,8 @@ def run_event(event, index, out, fetcher):
     done = []
     for sid in sids:
         path = os.path.join(out, sid + '.asset')
-        fetcher.get(scenario_url(event['bundle'], sid), path)
+        if not _get_script(fetcher, scenario_url(event['bundle'], sid), path):
+            return result('missing', done)
         if fetcher.exhausted or not _episode_assets(_load(path), index, out, fetcher):
             return result('partial', done)
         done.append(sid)

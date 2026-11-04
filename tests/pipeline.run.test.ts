@@ -191,6 +191,32 @@ test.each([[0, 'done'], [3, 'jp'], [4, 'partial'], [1, 'error']] as const)('fetc
   else expect(r.error).toBe('exit 1');
 });
 
+test('fetchResultFromChild 對 exit 1 保留腳本回報的錯誤訊息', () => {
+  const r = fetchResultFromChild(1, JSON.stringify({ status: 'error', requests: 1, sids: [], error: 'HTTPError: HTTP Error 404: Not Found' }));
+  expect(r).toMatchObject({ status: 'error', requests: 1, error: 'HTTPError: HTTP Error 404: Not Found' });
+  expect(fetchResultFromChild(5, JSON.stringify({ status: 'missing', requests: 3, sids: ['a'] }))).toEqual({ status: 'missing', requests: 3, sids: ['a'] });
+});
+
+test('真實 fetchEvent：exit 1 時最後一行也進 log，missing 走 exit 5', async () => {
+  const lines: string[] = [];
+  const f = spawnFetch('tests/fixtures/fake_fetch.py', l => lines.push(l));
+  expect(await f(1)).toMatchObject({ status: 'error', error: 'HTTPError: HTTP Error 500: boom' });
+  expect(lines.some(l => l.includes('HTTP Error 500'))).toBe(true);
+  expect(await f(2)).toMatchObject({ status: 'error', error: 'exit 1 without a result line' });
+  expect(lines.some(l => l.includes('Traceback: boom'))).toBe(true);
+  expect(await f(5)).toEqual({ status: 'missing', requests: 7, sids: [] });
+});
+
+test('fetch：missing 的新活動：記 missing、不計失敗、已抓到的話照 build', async () => {
+  const t = setup({ fetch: () => ({ status: 'missing', requests: 3, sids: ['event_174_01'] }) });
+  await runOnce(t.deps, { phase: 'fetch' });
+  t.addNew();
+  await runOnce(t.deps, { phase: 'fetch' });
+  expect(t.built).toEqual(['event_174_01']);
+  expect(t.state().events['174']).toMatchObject({ assets: 'missing', failures: 0 });
+  expect(t.state().events['174'].jpCheckedAt).toBe(NOW.toISOString());
+});
+
 test('fetchResultFromChild 對亂碼的最後一行回 error', () => {
   expect(fetchResultFromChild(0, 'Traceback').status).toBe('error');
   expect(fetchResultFromChild(0, JSON.stringify({ status: 'jp', requests: 1, sids: [] })).status).toBe('error');
@@ -202,7 +228,7 @@ test('真實 fetchEvent 介面：spawn fake_fetch.py 取得 jp 與 partial 而�
   const p = await f(4);
   expect(p).toEqual({ status: 'partial', requests: 7, sids: ['event_4_01'] });
   expect((await f(9)).status).toBe('done');
-  expect(await f(1)).toMatchObject({ status: 'error', error: 'exit 1' });
+  expect(await f(1)).toMatchObject({ status: 'error', error: 'HTTPError: HTTP Error 500: boom' });
 });
 
 test('direct 失敗時 summary 仍帶 deploy，讓已抓好的素材照常部署', async () => {

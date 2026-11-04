@@ -1,11 +1,14 @@
 import fs from 'node:fs';
 
-export type AssetStatus = 'pending' | 'jp' | 'done' | 'error';
+/** missing = the mirror has no script for it yet (404); rechecked daily like jp. */
+export type AssetStatus = 'pending' | 'jp' | 'missing' | 'done' | 'error';
 /** none = waiting to be sent (new event, authorized old event, or retry). */
 export type EpStatus = 'none' | 'manual' | 'batch' | 'done' | 'fallback';
 export interface EpState { s: EpStatus; tries: number }
 export interface EventState {
-  kind: 'old' | 'new'; assets: AssetStatus; assetsAt?: string; failures: number; lastError?: string; jpCheckedAt?: string;
+  kind: 'old' | 'new'; assets: AssetStatus; assetsAt?: string; failures: number; lastError?: string;
+  /** Last daily recheck of a jp or missing event. */
+  jpCheckedAt?: string;
   /** Set when a fetch ran out of budget; the queue resumes it next hour whatever BACKFILL says. */
   partialAt?: string;
   eps: Record<string, EpState>;
@@ -21,7 +24,7 @@ export interface PipelineState {
 }
 export interface IndexEvent { id: number; name: string; date: string; bundle: string; eps: [number, string, string][] }
 export interface IndexFile { events: IndexEvent[]; built: string }
-export type FetchStatus = 'done' | 'partial' | 'jp' | 'error';
+export type FetchStatus = 'done' | 'partial' | 'jp' | 'missing' | 'error';
 
 export const MAX_FAILURES = 3;
 export const KEEP_BATCH_DAYS = 35;
@@ -80,7 +83,7 @@ export function pickEvent(
   if (pick) return { id: pick.id, reason: 'new' };
   const resume = ordered.find(x => x.st.partialAt && fresh(x.st));
   if (resume) return { id: resume.id, reason: 'resume' };
-  const jp = ordered.find(x => x.st.assets === 'jp' && (x.st.jpCheckedAt ?? '').slice(0, 10) !== o.today);
+  const jp = ordered.find(x => (x.st.assets === 'jp' || x.st.assets === 'missing') && (x.st.jpCheckedAt ?? '').slice(0, 10) !== o.today);
   if (jp) return { id: jp.id, reason: 'jp-recheck' };
   if (!o.backfill) return null;
   const old = ordered.find(x => x.st.kind === 'old' && fresh(x.st));
@@ -102,13 +105,20 @@ export function recordFetch(s: PipelineState, id: number, r: { status: FetchStat
       s.pendingDeploy = true;
       break;
     case 'partial':
-      if (e.assets === 'jp') e.assets = 'pending';
+      if (e.assets === 'jp' || e.assets === 'missing') e.assets = 'pending';
       e.partialAt = now.toISOString();
       s.pendingDeploy = true;
       break;
     case 'jp':
       e.assets = 'jp';
       e.jpCheckedAt = now.toISOString();
+      e.failures = 0;
+      break;
+    case 'missing':
+      e.assets = 'missing';
+      e.jpCheckedAt = now.toISOString();
+      e.failures = 0;
+      s.pendingDeploy = true;
       break;
     case 'error':
       e.failures += 1;

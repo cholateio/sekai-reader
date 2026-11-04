@@ -23,12 +23,16 @@ class FakeResponse:
 
 
 class FakeOpener:
-    def __init__(self, bodies=None):
+    def __init__(self, bodies=None, missing=()):
         self.requests = []
         self.bodies = bodies or {}
+        self.missing = set(missing)
 
     def __call__(self, req, timeout=None):
         self.requests.append(req)
+        if req.full_url in self.missing:
+            import urllib.error
+            raise urllib.error.HTTPError(req.full_url, 404, 'Not Found', {}, None)
         return FakeResponse(self.bodies.get(req.full_url, b'x'))
 
 
@@ -243,6 +247,39 @@ class EventTest(unittest.TestCase):
         code = fe.main(['--event', '9', '--index', idx, '--out', os.path.join(self.out, 'raw')],
                        opener=self.opener(ep1), sleep=lambda s: None, log=lambda *a: lines.append(a), **kw)
         return code, lines
+
+    def test_first_script_404_reports_missing_without_file(self):
+        opener = self.opener()
+        opener.missing.add(fe.scenario_url('b', 'event_9_01'))
+        r = fe.run_event(self.EVENT, self.index, self.out, self.fetcher(opener))
+        self.assertEqual(r, {'status': 'missing', 'requests': 1, 'sids': []})
+        self.assertEqual(self.assets(), [])
+
+    def test_later_script_404_reports_missing_with_fetched_sids(self):
+        opener = self.opener()
+        opener.missing.add(fe.scenario_url('b', 'event_9_02'))
+        r = fe.run_event(self.EVENT, self.index, self.out, self.fetcher(opener))
+        self.assertEqual(r, {'status': 'missing', 'requests': 4, 'sids': ['event_9_01']})
+
+    def test_background_404_is_still_an_error(self):
+        opener = self.opener()
+        opener.missing.add(fe.background_url('bg_a'))
+        with self.assertRaises(Exception):
+            fe.run_event(self.EVENT, self.index, self.out, self.fetcher(opener))
+
+    def test_cli_missing_exit_code_5(self):
+        import io
+        from contextlib import redirect_stdout
+        idx = os.path.join(self.out, 'index.json')
+        with open(idx, 'w', encoding='utf-8') as f:
+            json.dump(self.index, f)
+        opener = self.opener()
+        opener.missing.add(fe.scenario_url('b', 'event_9_01'))
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = fe.main(['--event', '9', '--index', idx, '--out', os.path.join(self.out, 'raw')], opener=opener, sleep=lambda s: None, log=lambda *a: None)
+        self.assertEqual(code, 5)
+        self.assertEqual(json.loads(buf.getvalue().strip().splitlines()[-1])['status'], 'missing')
 
     def test_cli_event_exit_codes(self):
         import io

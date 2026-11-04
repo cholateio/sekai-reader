@@ -33,11 +33,18 @@ export interface RunSummary {
   submitted: string[]; skipped: string[]; deploy: boolean; spentToday?: number; failed?: string;
 }
 
-const EXIT_STATUS: Record<number, FetchStatus> = { 0: 'done', 3: 'jp', 4: 'partial' };
+const EXIT_STATUS: Record<number, FetchStatus> = { 0: 'done', 3: 'jp', 4: 'partial', 5: 'missing' };
 
 export function fetchResultFromChild(code: number, lastLine: string): FetchResult {
   const status = EXIT_STATUS[code];
-  if (!status) return { status: 'error', requests: 0, sids: [], error: `exit ${code}` };
+  if (!status) {
+    try {
+      const r = JSON.parse(lastLine) as { requests?: number; error?: string };
+      return { status: 'error', requests: Number(r.requests) || 0, sids: [], error: String(r.error ?? `exit ${code}`) };
+    } catch {
+      return { status: 'error', requests: 0, sids: [], error: `exit ${code} without a result line` };
+    }
+  }
   try {
     const r = JSON.parse(lastLine) as FetchResult;
     if (r.status !== status || !Array.isArray(r.sids)) throw new Error('mismatch');
@@ -84,7 +91,7 @@ async function fetchPhase(d: RunDeps, o: RunOptions, s: PipelineState, index: In
     sum.fetch = r;
     d.log(`fetch ${picked.id}: ${r.status}, ${r.requests} requests`);
     let result: { status: FetchStatus; error?: string } = r;
-    if (r.status === 'done' || r.status === 'partial') {
+    if (r.status === 'done' || r.status === 'partial' || r.status === 'missing') {
       for (const sid of r.sids) {
         if (!(await d.buildEpisode(sid))) { result = { status: 'error', error: `build ${sid}` }; break; }
         sum.built.push(sid);
@@ -129,7 +136,9 @@ export function spawnFetch(script: string, log: (line: string) => void): (id: nu
     const lines = r.stdout.split('\n').map(l => l.trim()).filter(Boolean);
     for (const l of lines.slice(0, -1)) log(l);
     if (r.stderr.trim()) log(r.stderr.trim().split('\n').slice(-5).join('\n'));
-    return fetchResultFromChild(r.code, lines.at(-1) ?? '');
+    const res = fetchResultFromChild(r.code, lines.at(-1) ?? '');
+    if (res.status === 'error') log(`fetch_episode exit ${r.code}: ${lines.at(-1) ?? ''}`);
+    return res;
   };
 }
 
