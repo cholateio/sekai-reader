@@ -7,6 +7,7 @@ Constraints (spec 2026-11-04): one event per run, at most 40 requests, >= 5 s be
 header, User-Agent names this project, existing files are never re-fetched. Started only by the hourly
 pipeline or by a person; never loop this over many events.
 --event prints a JSON result as its last line; exit codes: done 0, jp 3, partial 4, error 1.
+A Japanese first episode (kana ratio > 0.05) reports jp and keeps no script.
 """
 import argparse
 import json
@@ -137,16 +138,18 @@ def run_event(event, index, out, fetcher):
     start = fetcher.count
     result = lambda status, done: {'status': status, 'requests': fetcher.count - start, 'sids': done}
     first = os.path.join(out, sids[0] + '.asset')
-    if not os.path.exists(first):
-        # The first script lands in .tmp so a Japanese (not yet translated) event never leaves a file behind.
-        tmp = os.path.join(out, '.tmp', sids[0] + '.asset')
-        fetcher.get(scenario_url(event['bundle'], sids[0]), tmp)
+    # The first script lands in .tmp so a Japanese (not yet translated) event never leaves a file behind;
+    # an existing first script (e.g. from <sid> mode) is classified too and removed if Japanese.
+    probe = first if os.path.exists(first) else os.path.join(out, '.tmp', sids[0] + '.asset')
+    if probe != first:
+        fetcher.get(scenario_url(event['bundle'], sids[0]), probe)
         if fetcher.exhausted:
             return result('partial', [])
-        if kana_ratio(_load(tmp)) > JP_KANA_RATIO:
-            os.remove(tmp)
-            return result('jp', [])
-        os.replace(tmp, first)
+    if kana_ratio(_load(probe)) > JP_KANA_RATIO:
+        os.remove(probe)
+        return result('jp', [])
+    if probe != first:
+        os.replace(probe, first)
     done = []
     for sid in sids:
         path = os.path.join(out, sid + '.asset')
@@ -168,20 +171,27 @@ def run(sid, index, out, fetcher):
 
 
 def main(argv=None, opener=None, sleep=time.sleep, log=print, max_requests=40):
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter,
+                                 usage='%(prog)s (--event ID | SID) [--index PATH] [--out DIR]')
     target = ap.add_mutually_exclusive_group(required=True)
-    target.add_argument('sid', nargs='?')
-    target.add_argument('--event', type=int)
+    target.add_argument('sid', nargs='?', metavar='SID', help='fetch one episode (e.g. event_173_02)')
+    target.add_argument('--event', type=int, metavar='ID', help='fetch one whole event; prints a JSON result line')
     ap.add_argument('--index', default='data/tc-event-index.json')
     ap.add_argument('--out', default='assets/raw')
     args = ap.parse_args(argv)
+    if args.event is not None:
+        return _main_event(args, opener, sleep, log, max_requests)
     index = _load(args.index)
     fetcher = Fetcher(opener or urllib.request.urlopen, max_requests=max_requests, sleep=sleep, log=log)
-    if args.event is None:
-        run(args.sid, index, args.out, fetcher)
-        print('requests made:', fetcher.count)
-        return EXIT['partial'] if fetcher.exhausted else 0
+    run(args.sid, index, args.out, fetcher)
+    print('requests made:', fetcher.count)
+    return EXIT['partial'] if fetcher.exhausted else 0
+
+
+def _main_event(args, opener, sleep, log, max_requests):
+    fetcher = Fetcher(opener or urllib.request.urlopen, max_requests=max_requests, sleep=sleep, log=log)
     try:
+        index = _load(args.index)
         event = next(e for e in index['events'] if e['id'] == args.event)
         r = run_event(event, index, args.out, fetcher)
     except Exception as e:  # noqa: BLE001 - reported to the pipeline as a JSON line

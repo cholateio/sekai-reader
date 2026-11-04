@@ -205,6 +205,36 @@ class EventTest(unittest.TestCase):
         self.assertEqual(r['status'], 'done')
         self.assertTrue(os.path.exists(os.path.join(self.out, 'event_9_01.asset')))
 
+    def test_existing_japanese_first_episode_is_still_classified_and_removed(self):
+        with open(os.path.join(self.out, 'event_9_01.asset'), 'w', encoding='utf-8') as f:
+            json.dump(self.JP, f)
+        opener = self.opener()
+        r = fe.run_event(self.EVENT, self.index, self.out, self.fetcher(opener))
+        self.assertEqual(r, {'status': 'jp', 'requests': 0, 'sids': []})
+        self.assertEqual(self.assets(), [])
+
+    def test_cli_bad_index_still_prints_json_error(self):
+        import io
+        from contextlib import redirect_stdout
+        bad = os.path.join(self.out, 'bad.json')
+        with open(bad, 'w') as f:
+            f.write('{not json')
+        for idx in [bad, os.path.join(self.out, 'missing.json')]:
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                self.assertEqual(fe.main(['--event', '9', '--index', idx], opener=FakeOpener(), sleep=lambda s: None), 1)
+            self.assertEqual(json.loads(buf.getvalue().strip().splitlines()[-1])['status'], 'error')
+
+    def test_help_documents_limits_and_exit_codes(self):
+        import io
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with redirect_stdout(buf), self.assertRaises(SystemExit):
+            fe.main(['--help'])
+        text = buf.getvalue()
+        for needle in ['40', '5 s', 'jp 3', 'partial 4', '--event']:
+            self.assertIn(needle, text)
+
     def cli(self, ep1=None, **kw):
         idx = os.path.join(self.out, 'index.json')
         with open(idx, 'w', encoding='utf-8') as f:
