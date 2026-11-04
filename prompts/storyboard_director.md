@@ -27,7 +27,7 @@ event_173_01 分鏡採用的做法整理成的提示詞，尚未對其他話數�
 - `shape`：選填，和 `l` 等長的陣列，覆寫每句的對白框形狀。值只能是 `round`、`shout`、`cloud`、`whisper`、`wobble`、`cut`、`phone`、`box`。程式已依台詞自動判斷形狀（旁白→`box`、手機訊息→`phone`、括號心聲→`cloud`、被打斷→`cut`、`shout`／`impact`／`pop` 格→`shout`、驚訝或震動→`wobble`、短句刪節號或低落表情→`whisper`、其餘→`round`），**只在自動判斷不對時才覆寫**。
 - `edge`：這格底邊的斜切方向，`-1`（左低右高）、`0`（水平）、`1`（左高右低）。下一格頂邊自動平行。`est`、`trans` 與它們的前一格一律 `0`；其餘格子交錯使用，建議循環 `1, -1, 1, 0, -1, 1, -1, 0`。
 - `cam`：背景取景，`{"focus":[x,y],"zoom":z,"blur":px}`。x、y 為 0 到 1，是背景裁切中心；`zoom` ≥ 1（1 是鋪滿不放大）；`blur` 選填。`trans` 不需要；其餘每格都給（`impact` 的背景會壓暗，仍要取景）。預設起點：`est` 為 `[0.5,0.5]`、1；`close` zoom 1.8–2.0、blur 3；`mono` zoom 1.6、blur 4；`pop` zoom 1.5、blur 1.5；`insert` zoom 1.4、blur 5；`reveal` `[0.5,0.4]`、1.15、blur 2；一般格 zoom 1.2–1.45。
-- 選填：`sfx`（原創狀聲詞，最多 6 字）、`fx`（`blush` 或 `sparkle`）、`tone`（`day`、`office`、`serious`）、`cut`（被打斷的台詞編號，必須在這格的 `l` 內）、`big`（`quote` 或 `num`）、`cast`（`shout` 的出場角色名）、`wide`（安靜的寬格）、`bg`（覆寫這格背景 id，通常不需要）。
+- 選填：`sfx`（原創狀聲詞，最多 6 字）、`fx`（`blush` 或 `sparkle`）、`tone`（`day`、`office`、`serious`）、`cut`（被打斷的台詞編號陣列，必須在這格的 `l` 內）、`big`（`quote` 或 `num`）、`cast`（`shout` 的出場角色名）、`wide`（安靜的寬格）、`bg`（覆寫這格背景 id，通常不需要）。
 
 | 類型 | 何時用 |
 | --- | --- |

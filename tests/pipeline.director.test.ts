@@ -346,6 +346,12 @@ test('normalizePanels 把不在 l 裡的 cut 丟掉（裝飾記號不值得整�
   expect(normalizePanels([{ t: 'trans', cut: [1] }])).toEqual([{ t: 'trans' }]);
 });
 
+test('normalizePanels 把寫成單一整數的 l / caps / cut 包成陣列（實際看過 cut: 63）', () => {
+  expect(normalizePanels([{ t: 'talk', l: [63], cut: 63 }])).toEqual([{ t: 'talk', l: [63], cut: [63] }]);
+  expect(normalizePanels([{ t: 'talk', l: 5, caps: 0 }])).toEqual([{ t: 'talk', l: [5], caps: [0] }]);
+  expect(normalizePanels([{ t: 'talk', l: 5, cut: 7 }])).toEqual([{ t: 'talk', l: [5] }]);
+});
+
 test('collectBatches 對 shape: [] 的輸出照常通過並寫檔', async () => {
   const t = setup();
   await submitDue(t.deps, t.state.s, INDEX, { dailyCapUsd: t.cap });

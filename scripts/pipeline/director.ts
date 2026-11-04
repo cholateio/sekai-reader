@@ -59,13 +59,16 @@ export const actualUsd = (u: { input_tokens: number; output_tokens: number }) =>
   (u.input_tokens * BATCH_USD_PER_MTOK.input + u.output_tokens * BATCH_USD_PER_MTOK.output) / 1e6;
 
 const OPTIONAL_LISTS = ['shape', 'cast', 'caps', 'cut'];
+const INT_LISTS = ['l', 'caps', 'cut'];
 /** Structured output tends to fill optional fields with [] or undefined; an empty override list means none. */
 export function normalizePanels(panels: unknown): unknown {
   if (!Array.isArray(panels)) return panels;
   return panels.map(p => {
     if (typeof p !== 'object' || p === null || Array.isArray(p)) return p;
     const out: Record<string, unknown> = {};
-    const rec = p as Record<string, unknown>;
+    const rec = { ...(p as Record<string, unknown>) };
+    // Seen in practice: `cut: 63` for a single line; the same slip is plausible for l and caps.
+    for (const k of INT_LISTS) if (Number.isInteger(rec[k])) rec[k] = [rec[k]];
     const lines = Array.isArray(rec.l) ? rec.l : [];
     for (const [k, v] of Object.entries(rec)) {
       let val = v;
