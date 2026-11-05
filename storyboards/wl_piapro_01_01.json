@@ -1,0 +1,344 @@
+{
+ "meta": {
+  "director": "ai",
+  "promptVersion": "v3-manga",
+  "model": "claude-opus-5-5",
+  "generatedAt": "2026-11-05"
+ },
+ "panels": [
+  {
+   "t": "est",
+   "l": [
+    0
+   ],
+   "caps": [
+    0
+   ],
+   "edge": 0,
+   "cam": {
+    "focus": [
+     0.5,
+     0.5
+    ],
+    "zoom": 1
+   }
+  },
+  {
+   "t": "talk",
+   "l": [
+    1,
+    2
+   ],
+   "edge": 1,
+   "cam": {
+    "focus": [
+     0.35,
+     0.5
+    ],
+    "zoom": 1.3
+   }
+  },
+  {
+   "t": "pop",
+   "l": [
+    3
+   ],
+   "edge": -1,
+   "fx": "sparkle",
+   "cam": {
+    "focus": [
+     0.62,
+     0.45
+    ],
+    "zoom": 1.5,
+    "blur": 1.5
+   }
+  },
+  {
+   "t": "pair",
+   "l": [
+    4,
+    5
+   ],
+   "edge": 1,
+   "cam": {
+    "focus": [
+     0.4,
+     0.55
+    ],
+    "zoom": 1.25
+   }
+  },
+  {
+   "t": "talk",
+   "l": [
+    6,
+    7
+   ],
+   "edge": 0,
+   "cam": {
+    "focus": [
+     0.66,
+     0.5
+    ],
+    "zoom": 1.3
+   }
+  },
+  {
+   "t": "inset",
+   "l": [
+    8,
+    9
+   ],
+   "edge": -1,
+   "cam": {
+    "focus": [
+     0.5,
+     0.45
+    ],
+    "zoom": 1.35
+   }
+  },
+  {
+   "t": "talk",
+   "l": [
+    10
+   ],
+   "wide": true,
+   "shape": [
+    "box"
+   ],
+   "edge": 1,
+   "cam": {
+    "focus": [
+     0.5,
+     0.5
+    ],
+    "zoom": 1.2
+   }
+  },
+  {
+   "t": "talk",
+   "l": [
+    11
+   ],
+   "wide": true,
+   "shape": [
+    "box"
+   ],
+   "edge": -1,
+   "cam": {
+    "focus": [
+     0.5,
+     0.45
+    ],
+    "zoom": 1.2
+   }
+  },
+  {
+   "t": "close",
+   "l": [
+    12
+   ],
+   "shape": [
+    "box"
+   ],
+   "edge": 0,
+   "cam": {
+    "focus": [
+     0.5,
+     0.4
+    ],
+    "zoom": 1.8,
+    "blur": 3
+   }
+  },
+  {
+   "t": "talk",
+   "l": [
+    13
+   ],
+   "wide": true,
+   "shape": [
+    "box"
+   ],
+   "edge": -1,
+   "cam": {
+    "focus": [
+     0.5,
+     0.5
+    ],
+    "zoom": 1.2
+   }
+  },
+  {
+   "t": "close",
+   "l": [
+    14
+   ],
+   "shape": [
+    "box"
+   ],
+   "edge": 1,
+   "cam": {
+    "focus": [
+     0.45,
+     0.45
+    ],
+    "zoom": 1.8,
+    "blur": 3
+   }
+  },
+  {
+   "t": "talk",
+   "l": [
+    15
+   ],
+   "edge": -1,
+   "cam": {
+    "focus": [
+     0.4,
+     0.5
+    ],
+    "zoom": 1.3
+   }
+  },
+  {
+   "t": "impact",
+   "l": [
+    16
+   ],
+   "shape": [
+    "round"
+   ],
+   "edge": 0,
+   "cam": {
+    "focus": [
+     0.5,
+     0.45
+    ],
+    "zoom": 1.2
+   }
+  },
+  {
+   "t": "beat",
+   "l": [
+    17
+   ],
+   "edge": -1,
+   "cam": {
+    "focus": [
+     0.7,
+     0.4
+    ],
+    "zoom": 1.4
+   }
+  },
+  {
+   "t": "inset",
+   "l": [
+    18,
+    19
+   ],
+   "edge": 1,
+   "cam": {
+    "focus": [
+     0.6,
+     0.45
+    ],
+    "zoom": 1.35
+   }
+  },
+  {
+   "t": "close",
+   "l": [
+    20
+   ],
+   "fx": "sparkle",
+   "edge": -1,
+   "cam": {
+    "focus": [
+     0.5,
+     0.45
+    ],
+    "zoom": 1.9,
+    "blur": 3
+   }
+  },
+  {
+   "t": "talk",
+   "l": [
+    21,
+    22
+   ],
+   "edge": 1,
+   "cam": {
+    "focus": [
+     0.35,
+     0.5
+    ],
+    "zoom": 1.25
+   }
+  },
+  {
+   "t": "pair",
+   "l": [
+    23,
+    24
+   ],
+   "edge": -1,
+   "cam": {
+    "focus": [
+     0.6,
+     0.55
+    ],
+    "zoom": 1.3
+   }
+  },
+  {
+   "t": "close",
+   "l": [
+    25
+   ],
+   "edge": 1,
+   "cam": {
+    "focus": [
+     0.5,
+     0.45
+    ],
+    "zoom": 1.8,
+    "blur": 3
+   }
+  },
+  {
+   "t": "beat",
+   "l": [
+    26
+   ],
+   "edge": 0,
+   "cam": {
+    "focus": [
+     0.45,
+     0.5
+    ],
+    "zoom": 1.35
+   }
+  },
+  {
+   "t": "pop",
+   "l": [
+    27
+   ],
+   "fx": "sparkle",
+   "edge": 0,
+   "cam": {
+    "focus": [
+     0.5,
+     0.4
+    ],
+    "zoom": 1.5,
+    "blur": 1.5
+   }
+  }
+ ]
+}
