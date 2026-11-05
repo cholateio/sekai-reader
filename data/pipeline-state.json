@@ -7142,7 +7142,7 @@
   },
   "180": {
    "kind": "old",
-   "assets": "pending",
+   "assets": "done",
    "failures": 0,
    "eps": {
     "wl_finale_01": {
@@ -7153,7 +7153,8 @@
      "s": "manual",
      "tries": 0
     }
-   }
+   },
+   "assetsAt": "2026-11-05T15:24:15.175Z"
   },
   "181": {
    "kind": "old",
@@ -7324,5 +7325,5 @@
   "msgbatch_01CSmBJDcevvDVS3WpXVREa3": "2026-11-04",
   "msgbatch_01FEqjsHRw7F85hpiJrM1U9G": "2026-11-04"
  },
- "pendingDeploy": false
+ "pendingDeploy": true
 }
