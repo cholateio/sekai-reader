@@ -38,6 +38,7 @@ The pipeline workflow reads these (set once with `bash scripts/pipeline/setup.sh
 | `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | secret | the two rclone steps only (Object Read & Write on the bucket) |
 | `R2_BUCKET` | variable | bucket name, default `sekai-reader-assets` |
 | `BACKFILL` | variable | `on` lets the queue fetch old events (one per hour); default `off` |
+| `SCRIPTS_FIRST` | variable | `on` swaps image backfill for the scripts-only lane (80 requests, 20 s apart, several old events per run) and authorizes their storyboards; turn off when the lane is empty. Added 2026-11-05 to spend expiring API credit |
 | `DIRECT_DAILY_USD` | variable | daily storyboard spend cap in US$, default `20` |
 
 ## Deploy
@@ -47,6 +48,7 @@ The pipeline workflow reads these (set once with `bash scripts/pipeline/setup.sh
 - Manual run: `gh workflow run pipeline.yml -f event=<id>` processes that event first; naming an old event also authorizes its storyboards. `-f direct=<n>` authorizes the newest n old events whose assets are done. Old events never get storyboards without one of these.
 - Queueing: GitHub keeps only one pending run per concurrency group and cancels the older pending one. If a manual run shows cancelled, trigger it again.
 - Assets: the private R2 bucket holds `raw/` and `public/` (mirrors of `assets/`); it has no public URL. `dist/` contains the assets after a build, so never commit `dist/`.
+- Scripts-first: storyboards need only the `.asset` script, so `SCRIPTS_FIRST=on` fetches all old scripts first and directs them; images follow at the normal hourly backfill pace, and an episode appears on the site once its images are built. The director parses the raw script, not the built episode JSON.
 - Costs: set a monthly spend limit in the Anthropic Console as the hard stop; `DIRECT_DAILY_USD` reserves the worst case (input plus 16,000 output tokens) per episode at submission.
 - Database: none. `data/pipeline-state.json` is the pipeline's only state and only the pipeline edits it.
 

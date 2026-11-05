@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, expect, test, vi } from 'vitest';
 import {
-  addSpend, authorizeDirect, dayOf, dueEpisodes, loadState, pickEvent, recordFetch, rememberBatch, saveState, seedState,
+  addSpend, authorizeDirect, dayOf, dueEpisodes, loadState, pickEvent, recordFetch, recordScripts, rememberBatch, saveState, scriptsLane, seedState,
   spentToday, syncIndex, type IndexEvent, type IndexFile,
 } from '../scripts/pipeline/state';
 
@@ -264,4 +264,37 @@ test('authorizeDirect 指名的期把 fallback 的話重新排隊並歸零 tries
   s.events['172'].eps['event_172_02'] = { s: 'done', tries: 1 };
   expect(authorizeDirect(s, base, { newest: 5 })).toEqual([]);
   expect(s.events['172'].eps['event_172_01'].s).toBe('fallback');
+});
+
+test('scriptsLane：舊活動、素材 pending、劇本未齊、失敗 <3，新到舊；jp/missing/done 與已有劇本的期不列', () => {
+  const s = seeded();
+  expect(scriptsLane(s, base)).toEqual([173, 172, 171]);
+  s.events['173'].assets = 'done';
+  s.events['172'].scriptsAt = NOW.toISOString();
+  s.events['171'].failures = 3;
+  expect(scriptsLane(s, base)).toEqual([]);
+  s.events['171'].failures = 0;
+  s.events['171'].assets = 'jp';
+  expect(scriptsLane(s, base)).toEqual([]);
+});
+
+test('recordScripts done 標 scriptsAt；partial 不變；jp / missing 走 recordFetch', () => {
+  const s = seeded();
+  recordScripts(s, 172, 'done', NOW);
+  expect(s.events['172'].scriptsAt).toBe(NOW.toISOString());
+  expect(s.events['172'].assets).toBe('pending');
+  recordScripts(s, 171, 'partial', NOW);
+  expect(s.events['171'].scriptsAt).toBeUndefined();
+  recordScripts(s, 171, 'jp', NOW);
+  expect(s.events['171'].assets).toBe('jp');
+  recordScripts(s, 173, 'missing', NOW);
+  expect(s.events['173'].assets).toBe('missing');
+});
+
+test('dueEpisodes 把只有劇本的期也算進來；authorizeDirect newest 也包含它們', () => {
+  const s = seeded();
+  recordScripts(s, 172, 'done', NOW);
+  expect(dueEpisodes(s, base)).toEqual([]);
+  expect(authorizeDirect(s, base, { newest: 5 })).toEqual([172]);
+  expect(dueEpisodes(s, base).map(d => d.sid)).toEqual(['event_172_01', 'event_172_02']);
 });

@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { expect, test } from 'vitest';
-import { fetchResultFromChild, runOnce, spawnFetch, type FetchResult, type RunDeps } from '../scripts/pipeline/run';
+import { fetchResultFromChild, runOnce, spawnFetch, spawnScripts, type FetchResult, type RunDeps, type ScriptsResult } from '../scripts/pipeline/run';
 import { loadState, type IndexEvent, type IndexFile, type PipelineState } from '../scripts/pipeline/state';
 import { syntheticEpisode } from './helpers';
 
@@ -12,7 +12,7 @@ const ev = (id: number, date: string, n = 2): IndexEvent => ({
 });
 const NOW = new Date('2026-11-04T10:00:00Z');
 
-function setup(o: { fetch?: (id: number) => FetchResult; build?: (sid: string) => boolean; withDirector?: boolean; backfill?: boolean; cap?: number } = {}) {
+function setup(o: { fetch?: (id: number) => FetchResult; build?: (sid: string) => boolean; withDirector?: boolean; backfill?: boolean; cap?: number; scriptsFirst?: boolean; scripts?: (ids: number[]) => ScriptsResult } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'run-'));
   const index: IndexFile = { events: [ev(173, '2026-10-01', 3), ev(172, '2026-09-20'), ev(171, '2026-09-10')], built: '2026-11-04' };
   const indexPath = path.join(dir, 'index.json');
@@ -22,6 +22,8 @@ function setup(o: { fetch?: (id: number) => FetchResult; build?: (sid: string) =
   fs.writeFileSync(path.join(boardsDir, 'event_173_01.json'), '{}');
   const calls: string[] = [];
   const fetched: number[] = [];
+  const scriptCalls: number[][] = [];
+  const sleeps: number[] = [];
   const built: string[] = [];
   let n = 0;
   const ended = new Set<string>();
@@ -40,12 +42,19 @@ function setup(o: { fetch?: (id: number) => FetchResult; build?: (sid: string) =
     statePath: path.join(dir, 'pipeline-state.json'), indexPath, boardsDir, r2DeletePath: path.join(dir, 'r2-delete.txt'),
     fetchEvent: async id => { fetched.push(id); return o.fetch ? o.fetch(id) : { status: 'done', requests: 5, sids: (JSON.parse(fs.readFileSync(indexPath, 'utf8')) as IndexFile).events.find(e => e.id === id)!.eps.map(e => e[2]) }; },
     buildEpisode: async sid => { built.push(sid); return o.build ? o.build(sid) : true; },
+    fetchScripts: async ids => {
+      scriptCalls.push(ids);
+      if (o.scripts) return o.scripts(ids);
+      const idx = JSON.parse(fs.readFileSync(indexPath, 'utf8')) as IndexFile;
+      return { status: 'done', requests: 9, events: ids.map(id => ({ id, status: 'done' as const, sids: idx.events.find(e => e.id === id)!.eps.map(e => e[2]) })) };
+    },
     director: o.withDirector ? {
       client: client as never, compact: async () => 'BG:x', readEpisode: () => syntheticEpisode(),
       writeBoard: () => {}, prompt: 'P', now: () => NOW, log: () => {},
     } : null,
-    env: { backfill: o.backfill ?? false, dailyCapUsd: o.cap ?? 20 },
+    env: { backfill: o.backfill ?? false, dailyCapUsd: o.cap ?? 20, scriptsFirst: o.scriptsFirst ?? false },
     now: () => NOW, log: () => {},
+    sleep: async ms => { sleeps.push(ms); },
   };
   const addNew = () => {
     const idx = JSON.parse(fs.readFileSync(indexPath, 'utf8')) as IndexFile;
@@ -53,7 +62,7 @@ function setup(o: { fetch?: (id: number) => FetchResult; build?: (sid: string) =
     fs.writeFileSync(indexPath, JSON.stringify(idx));
   };
   const state = () => loadState(deps.statePath) as PipelineState;
-  return { deps, calls, fetched, built, addNew, state, ended, index };
+  return { deps, calls, fetched, built, addNew, state, ended, index, scriptCalls, sleeps };
 }
 const epStates = (s: PipelineState, id: number) => Object.values(s.events[String(id)].eps).map(e => e.s);
 
@@ -197,6 +206,18 @@ test('fetchResultFromChild 對 exit 1 保留腳本回報的錯誤訊息', () => 
   expect(fetchResultFromChild(5, JSON.stringify({ status: 'missing', requests: 3, sids: ['a'] }))).toEqual({ status: 'missing', requests: 3, sids: ['a'] });
 });
 
+test('fetchResultFromChild 對 exit 1 保留合法的 removed，丟掉可疑路徑', () => {
+  const r = fetchResultFromChild(1, JSON.stringify({ status: 'error', requests: 0, sids: [], error: 'invalid script', removed: ['event_7_01.asset', '../x', 3] }));
+  expect(r).toMatchObject({ status: 'error', removed: ['event_7_01.asset'] });
+});
+
+test('fetch：整期抓到壞劇本 → 記錯誤並把 removed 排進 R2 刪除清單', async () => {
+  const t = setup({ fetch: () => ({ status: 'error', requests: 0, sids: [], error: 'invalid script', removed: ['event_173_02.asset'] }) });
+  await runOnce(t.deps, { phase: 'fetch', event: 173 });
+  expect(t.state().events['173']).toMatchObject({ failures: 1, lastError: 'invalid script' });
+  expect(fs.readFileSync(t.deps.r2DeletePath!, 'utf8')).toBe('raw/event_173_02.asset\n');
+});
+
 test('真實 fetchEvent：exit 1 時最後一行也進 log，missing 走 exit 5', async () => {
   const lines: string[] = [];
   const f = spawnFetch('tests/fixtures/fake_fetch.py', l => lines.push(l));
@@ -250,4 +271,97 @@ test('jp 且刪掉了既有劇本 → 寫入 R2 刪除清單，只收合法路�
 test('fetchResultFromChild 帶出 removed', () => {
   const r = fetchResultFromChild(3, JSON.stringify({ status: 'jp', requests: 0, sids: [], removed: ['event_9_01.asset'] }));
   expect(r.removed).toEqual(['event_9_01.asset']);
+});
+
+test('scripts-first：不做圖片補舊，改抓全部舊活動的劇本並授權分鏡；不 build、不部署', async () => {
+  const t = setup({ backfill: true, scriptsFirst: true });
+  const r = await runOnce(t.deps, { phase: 'fetch' });
+  expect(t.fetched).toEqual([]);
+  expect(t.scriptCalls).toEqual([[173, 172, 171]]);
+  expect(t.built).toEqual([]);
+  const s = t.state();
+  expect(s.events['172'].scriptsAt).toBe(NOW.toISOString());
+  expect(s.events['172'].assets).toBe('pending');
+  expect(Object.values(s.events['172'].eps).map(e => e.s)).toEqual(['none', 'none']);
+  expect(r.authorized.sort()).toEqual([171, 172, 173]);
+  expect(r.deploy).toBe(false);
+  expect(r.scripts?.requests).toBe(9);
+});
+
+test('scripts-first：jp / missing / partial 照實記錄，partial 的期下次再排', async () => {
+  const t = setup({ backfill: true, scriptsFirst: true, scripts: () => ({ status: 'partial', requests: 80, events: [
+    { id: 173, status: 'jp', sids: [] }, { id: 172, status: 'missing', sids: [] }, { id: 171, status: 'partial', sids: ['event_171_01'] }] }) });
+  await runOnce(t.deps, { phase: 'fetch' });
+  const s = t.state();
+  expect([s.events['173'].assets, s.events['172'].assets, s.events['171'].assets]).toEqual(['jp', 'missing', 'pending']);
+  expect(s.events['171'].scriptsAt).toBeUndefined();
+  await runOnce(t.deps, { phase: 'fetch' });
+  expect(t.scriptCalls.at(-1)).toEqual([171]);
+});
+
+test('scripts-first：新活動整期抓時這小時不跑劇本線（每小時請求量不疊加）', async () => {
+  const t = setup({ backfill: true, scriptsFirst: false });
+  t.deps.env.backfill = false;
+  await runOnce(t.deps, { phase: 'fetch' });
+  t.deps.env.backfill = true;
+  t.deps.env.scriptsFirst = true;
+  t.addNew();
+  const r = await runOnce(t.deps, { phase: 'fetch' });
+  expect(r.picked).toEqual({ id: 174, reason: 'new' });
+  expect(t.scriptCalls).toEqual([]);
+  await runOnce(t.deps, { phase: 'fetch' });
+  expect(t.scriptCalls).toEqual([[173, 172, 171]]);
+});
+
+test('scripts-first 關閉時不呼叫劇本線', async () => {
+  const t = setup({ backfill: true });
+  await runOnce(t.deps, { phase: 'fetch' });
+  expect(t.scriptCalls).toEqual([]);
+  expect(t.fetched).toEqual([173]);
+});
+
+test('真實 fetchScripts：spawn 帶 --scripts-for 與逗號分隔的 id', async () => {
+  const f = spawnScripts('tests/fixtures/fake_fetch.py', () => {});
+  expect(await f([9, 8])).toEqual({ status: 'done', requests: 2, events: [{ id: 9, status: 'done', sids: ['event_9_01'] }, { id: 8, status: 'done', sids: ['event_8_01'] }] });
+});
+
+test('scripts-first：recheck 只花 1 個請求且仍是 jp/missing 才接劇本線，並先等 20 秒', async () => {
+  const t = setup({ backfill: true, scriptsFirst: true, fetch: () => ({ status: 'jp', requests: 1, sids: [] }) });
+  await runOnce(t.deps, { phase: 'fetch' });
+  const s0 = t.state();
+  for (const id of ['173', '172', '171']) delete s0.events[id].scriptsAt;
+  s0.events['173'].assets = 'jp';
+  s0.events['173'].jpCheckedAt = '2026-11-03T00:00:00Z';
+  fs.writeFileSync(t.deps.statePath, JSON.stringify(s0));
+  t.scriptCalls.length = 0;
+  t.sleeps.length = 0;
+  const r = await runOnce(t.deps, { phase: 'fetch' });
+  expect(r.picked).toEqual({ id: 173, reason: 'jp-recheck' });
+  expect(t.scriptCalls).toEqual([[172, 171]]);
+  expect(t.sleeps).toEqual([20000]);
+});
+
+test('scripts-first：recheck 變成繁中並整期抓（多個請求）時，這小時不跑劇本線', async () => {
+  const t = setup({ backfill: true, scriptsFirst: true });
+  await runOnce(t.deps, { phase: 'fetch' });
+  const s0 = t.state();
+  for (const id of ['172', '171']) delete s0.events[id].scriptsAt;
+  s0.events['173'].assets = 'jp';
+  s0.events['173'].jpCheckedAt = '2026-11-03T00:00:00Z';
+  fs.writeFileSync(t.deps.statePath, JSON.stringify(s0));
+  t.scriptCalls.length = 0;
+  const r = await runOnce(t.deps, { phase: 'fetch' });
+  expect(r.picked).toEqual({ id: 173, reason: 'jp-recheck' });
+  expect(r.fetch?.status).toBe('done');
+  expect(t.scriptCalls).toEqual([]);
+});
+
+test('scripts-first：壞掉的劇本記為錯誤並排進 R2 刪除清單', async () => {
+  const t = setup({ backfill: true, scriptsFirst: true, scripts: () => ({ status: 'done', requests: 3, events: [
+    { id: 173, status: 'error', sids: [], removed: ['event_173_01.asset'] }, { id: 172, status: 'done', sids: ['event_172_01', 'event_172_02'] }] }) });
+  await runOnce(t.deps, { phase: 'fetch' });
+  const s = t.state();
+  expect(s.events['173']).toMatchObject({ failures: 1, assets: 'pending' });
+  expect(s.events['173'].scriptsAt).toBeUndefined();
+  expect(fs.readFileSync(t.deps.r2DeletePath!, 'utf8')).toBe('raw/event_173_01.asset\n');
 });

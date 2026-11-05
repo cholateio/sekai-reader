@@ -105,7 +105,10 @@ def character_ids(asset, chars):
 
 
 JP_KANA_RATIO = 0.05
-EXIT = {'done': 0, 'jp': 3, 'partial': 4, 'missing': 5}
+# Scripts-first lane (owner-approved 2026-11-05): same hourly volume as before, spread out instead of bursts.
+SCRIPTS_BUDGET = 80
+SCRIPTS_DELAY = 20
+EXIT = {'done': 0, 'jp': 3, 'partial': 4, 'missing': 5, 'error': 1}
 
 
 def kana_ratio(asset):
@@ -143,39 +146,133 @@ def _get_script(fetcher, url, dest):
         raise
 
 
-def run_event(event, index, out, fetcher):
+def _sids(event):
     sids = [ep[2] for ep in sorted(event['eps'])]
     for sid in sids:
         if not SID_RE.match(sid):
             raise ValueError('invalid sid: %r' % sid)
+    return sids
+
+
+def _is_int(v):
+    return isinstance(v, int) and not isinstance(v, bool)
+
+
+def _valid_talk(t):
+    if not isinstance(t, dict):
+        return False
+    if not isinstance(t.get('Body', ''), (str, type(None))) or not isinstance(t.get('WindowDisplayName', ''), (str, type(None))):
+        return False
+    motions = t.get('Motions')
+    return motions is None or (isinstance(motions, list) and all(isinstance(m, dict) for m in motions))
+
+
+def _valid_script(asset):
+    """Mirrors the field types src/scenario/parse.ts reads; must yield at least one line."""
+    if not isinstance(asset, dict):
+        return False
+    talk, snippets = asset.get('TalkData'), asset.get('Snippets')
+    if not isinstance(talk, list) or not isinstance(snippets, list) or not snippets:
+        return False
+    if not all(_valid_talk(t) for t in talk) or not all(isinstance(x, dict) for x in snippets):
+        return False
+    for x in snippets:
+        i, action = x.get('ReferenceIndex'), x.get('Action')
+        if not (_is_int(i) and _is_int(action)):
+            return False
+    return any(x['Action'] == 1 and 0 <= x['ReferenceIndex'] < len(talk) and (talk[x['ReferenceIndex']].get('Body') or '').strip()
+               for x in snippets)
+
+
+def _checked_script(fetcher, url, out, sid):
+    """Fetch (or reuse) one script and promote it only if it parses and is not Japanese.
+
+    Returns 'ok', 'missing' (404), 'partial' (budget), 'jp' or 'invalid'; nothing rejected stays on disk.
+    """
+    final = os.path.join(out, sid + '.asset')
+    path = final
+    if not os.path.exists(final):
+        # Staged in .tmp so a rejected script never sits at its final path (or reaches R2).
+        path = os.path.join(out, '.tmp', sid + '.asset')
+        if not _get_script(fetcher, url, path):
+            return 'missing'
+        if fetcher.exhausted:
+            return 'partial'
+    try:
+        asset = _load(path)
+        verdict = 'invalid' if not _valid_script(asset) else 'jp' if kana_ratio(asset) > JP_KANA_RATIO else 'ok'
+    except Exception:  # noqa: BLE001 - anything unclassifiable is treated as an invalid script
+        verdict = 'invalid'
+    if verdict != 'ok':
+        os.remove(path)
+    elif path != final:
+        os.replace(path, final)
+    return verdict
+
+
+def _purge(out, sids):
+    removed = []
+    for sid in sids:
+        f = os.path.join(out, sid + '.asset')
+        if os.path.exists(f):
+            os.remove(f)
+            removed.append(sid + '.asset')
+    return removed
+
+
+def run_event(event, index, out, fetcher):
+    sids = _sids(event)
     start = fetcher.count
     result = lambda status, done: {'status': status, 'requests': fetcher.count - start, 'sids': done}
-    first = os.path.join(out, sids[0] + '.asset')
-    # The first script lands in .tmp so a Japanese (not yet translated) event never leaves a file behind;
-    # an existing first script (e.g. from <sid> mode) is classified too and removed if Japanese.
-    probe = first if os.path.exists(first) else os.path.join(out, '.tmp', sids[0] + '.asset')
-    if probe != first:
-        if not _get_script(fetcher, scenario_url(event['bundle'], sids[0]), probe):
-            return result('missing', [])
-        if fetcher.exhausted:
-            return result('partial', [])
-    if kana_ratio(_load(probe)) > JP_KANA_RATIO:
-        os.remove(probe)
-        r = result('jp', [])
-        if probe == first:
-            r['removed'] = [sids[0] + '.asset']
-        return r
-    if probe != first:
-        os.replace(probe, first)
+    existed = {sid for sid in sids if os.path.exists(os.path.join(out, sid + '.asset'))}
     done = []
     for sid in sids:
-        path = os.path.join(out, sid + '.asset')
-        if not _get_script(fetcher, scenario_url(event['bundle'], sid), path):
-            return result('missing', done)
-        if fetcher.exhausted or not _episode_assets(_load(path), index, out, fetcher):
+        v = _checked_script(fetcher, scenario_url(event['bundle'], sid), out, sid)
+        if v in ('jp', 'invalid'):
+            removed = sorted(set(_purge(out, sids)) | ({sid + '.asset'} if sid in existed else set()))
+            r = result('jp' if v == 'jp' else 'error', [])
+            if v == 'invalid':
+                r['error'] = 'invalid script %s' % sid
+            if removed:
+                r['removed'] = removed
+            return r
+        if v != 'ok':
+            return result(v, done)
+        if not _episode_assets(_load(os.path.join(out, sid + '.asset')), index, out, fetcher):
             return result('partial', done)
         done.append(sid)
     return result('done', done)
+
+
+def _scripts_of(event, out, fetcher):
+    sids = _sids(event)
+    existed = {sid for sid in sids if os.path.exists(os.path.join(out, sid + '.asset'))}
+    done = []
+    for sid in sids:
+        v = _checked_script(fetcher, scenario_url(event['bundle'], sid), out, sid)
+        if v in ('jp', 'invalid'):
+            removed = sorted(set(_purge(out, sids)) | ({sid + '.asset'} if sid in existed else set()))
+            r = {'id': event['id'], 'status': 'jp' if v == 'jp' else 'error', 'sids': []}
+            if removed:
+                r['removed'] = removed
+            return r
+        if v != 'ok':
+            return {'id': event['id'], 'status': v, 'sids': done}
+        done.append(sid)
+    return {'id': event['id'], 'status': 'done', 'sids': done}
+
+
+def run_scripts(events, out, fetcher):
+    """Scripts only (no images) for several events in order, until the shared budget runs out."""
+    start = fetcher.count
+    results = []
+    for event in events:
+        r = _scripts_of(event, out, fetcher)
+        results.append(r)
+        if r['status'] == 'partial':
+            break
+    status = 'partial' if fetcher.exhausted else 'done'
+    return {'status': status, 'requests': fetcher.count - start, 'events': results}
 
 
 def run(sid, index, out, fetcher):
@@ -190,13 +287,17 @@ def run(sid, index, out, fetcher):
 
 def main(argv=None, opener=None, sleep=time.sleep, log=print, max_requests=40):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter,
-                                 usage='%(prog)s (--event ID | SID) [--index PATH] [--out DIR]')
+                                 usage='%(prog)s (--event ID | --scripts-for ID,ID | SID) [--index PATH] [--out DIR]')
     target = ap.add_mutually_exclusive_group(required=True)
     target.add_argument('sid', nargs='?', metavar='SID', help='fetch one episode (e.g. event_173_02)')
     target.add_argument('--event', type=int, metavar='ID', help='fetch one whole event; prints a JSON result line')
+    target.add_argument('--scripts-for', metavar='ID,ID,...',
+                        help='scripts only (no images) for these events, newest first; budget %d, %d s apart' % (SCRIPTS_BUDGET, SCRIPTS_DELAY))
     ap.add_argument('--index', default='data/tc-event-index.json')
     ap.add_argument('--out', default='assets/raw')
     args = ap.parse_args(argv)
+    if args.scripts_for is not None:
+        return _main_scripts(args, opener, sleep, log)
     if args.event is not None:
         return _main_event(args, opener, sleep, log, max_requests)
     index = _load(args.index)
@@ -214,6 +315,23 @@ def _main_event(args, opener, sleep, log, max_requests):
         r = run_event(event, index, args.out, fetcher)
     except Exception as e:  # noqa: BLE001 - reported to the pipeline as a JSON line
         print(json.dumps({'status': 'error', 'requests': fetcher.count, 'sids': [], 'error': '%s: %s' % (type(e).__name__, e)}))
+        return 1
+    print(json.dumps(r))
+    return EXIT[r['status']]
+
+
+def _main_scripts(args, opener, sleep, log):
+    fetcher = Fetcher(opener or urllib.request.urlopen, max_requests=SCRIPTS_BUDGET, delay=float(SCRIPTS_DELAY),
+                      sleep=sleep, log=log)
+    try:
+        if not re.match(r'^\d{1,5}(,\d{1,5})*$', args.scripts_for):
+            raise ValueError('bad id list')
+        index = _load(args.index)
+        by_id = {e['id']: e for e in index['events']}
+        events = [by_id[int(x)] for x in args.scripts_for.split(',')]
+        r = run_scripts(events, args.out, fetcher)
+    except Exception as e:  # noqa: BLE001 - reported to the pipeline as a JSON line
+        print(json.dumps({'status': 'error', 'requests': fetcher.count, 'events': [], 'error': '%s: %s' % (type(e).__name__, e)}))
         return 1
     print(json.dumps(r))
     return EXIT[r['status']]

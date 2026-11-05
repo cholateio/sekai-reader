@@ -28,6 +28,7 @@ concurrency:
 env:
   R2_BUCKET: ${{ vars.R2_BUCKET }}
   BACKFILL: ${{ vars.BACKFILL }}
+  SCRIPTS_FIRST: ${{ vars.SCRIPTS_FIRST }}
   DIRECT_DAILY_USD: ${{ vars.DIRECT_DAILY_USD }}
   RCLONE_CONFIG_R2_TYPE: s3
   RCLONE_CONFIG_R2_PROVIDER: Cloudflare
@@ -38,7 +39,8 @@ env:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    # The scripts-first lane alone takes about 27 minutes (80 requests, 20 s apart).
+    timeout-minutes: 55
     permissions:
       contents: write
     steps:

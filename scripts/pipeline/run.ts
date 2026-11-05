@@ -5,14 +5,19 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import Anthropic from '@anthropic-ai/sdk';
-import type { Episode } from '../../src/scenario/types';
+import { parseScenario } from '../../src/scenario/parse';
+import type { RawScenario } from '../../src/scenario/types';
 import { collectBatches, reconcile, submitDue, type DirectorDeps } from './director';
 import {
-  authorizeDirect, dayOf, loadState, pickEvent, recordFetch, saveState, seedState, spentToday, syncIndex,
+  authorizeDirect, dayOf, loadState, pickEvent, recordFetch, recordScripts, saveState, scriptsLane, seedState, spentToday, syncIndex,
   type FetchStatus, type IndexFile, type PipelineState,
 } from './state';
 
 /** removed: script files fetch_episode deleted because they were Japanese; they must also leave R2. */
+export interface ScriptsResult {
+  status: 'done' | 'partial' | 'error'; requests: number; error?: string;
+  events: { id: number; status: 'done' | 'partial' | 'jp' | 'missing' | 'error'; sids: string[]; removed?: string[] }[];
+}
 export interface FetchResult { status: FetchStatus; requests: number; sids: string[]; error?: string; removed?: string[] }
 export interface RunDeps {
   statePath: string; indexPath: string; boardsDir: string;
@@ -20,10 +25,14 @@ export interface RunDeps {
   r2DeletePath?: string;
   fetchEvent(id: number): Promise<FetchResult>;
   buildEpisode(sid: string): Promise<boolean>;
+  /** Scripts-first lane: scripts only (no images) for these events, in one budgeted fetch_episode run. */
+  fetchScripts(ids: number[]): Promise<ScriptsResult>;
   /** null without ANTHROPIC_API_KEY: the direct phase makes no API calls. runOnce supplies persist. */
   director: Omit<DirectorDeps, 'persist'> | null;
-  env: { backfill: boolean; dailyCapUsd: number };
+  /** scriptsFirst (owner-approved 2026-11-05): replace image backfill with the scripts-only lane. */
+  env: { backfill: boolean; dailyCapUsd: number; scriptsFirst: boolean };
   now(): Date; log(line: string): void;
+  sleep(ms: number): Promise<void>;
 }
 export type Phase = 'fetch' | 'direct' | 'mark-deployed';
 export interface RunOptions { phase: Phase; event?: number; direct?: number }
@@ -31,16 +40,19 @@ export interface RunSummary {
   phase: Phase; picked?: { id: number; reason: string }; fetch?: FetchResult; built: string[]; authorized: number[];
   reconciled?: { adopted: string[] }; collected?: { done: string[]; retry: string[]; fallback: string[]; pending: string[] };
   submitted: string[]; skipped: string[]; deploy: boolean; spentToday?: number; failed?: string;
+  scripts?: { requests: number; done: number[]; other: string[] };
 }
 
+const SCRIPTS_GAP_MS = 20_000;
 const EXIT_STATUS: Record<number, FetchStatus> = { 0: 'done', 3: 'jp', 4: 'partial', 5: 'missing' };
 
 export function fetchResultFromChild(code: number, lastLine: string): FetchResult {
   const status = EXIT_STATUS[code];
   if (!status) {
     try {
-      const r = JSON.parse(lastLine) as { requests?: number; error?: string };
-      return { status: 'error', requests: Number(r.requests) || 0, sids: [], error: String(r.error ?? `exit ${code}`) };
+      const r = JSON.parse(lastLine) as { requests?: number; error?: string; removed?: unknown };
+      const removed = Array.isArray(r.removed) ? r.removed.filter((x): x is string => typeof x === 'string' && /^[a-z0-9_]+\.asset$/.test(x)) : [];
+      return { status: 'error', requests: Number(r.requests) || 0, sids: [], error: String(r.error ?? `exit ${code}`), ...(removed.length ? { removed } : {}) };
     } catch {
       return { status: 'error', requests: 0, sids: [], error: `exit ${code} without a result line` };
     }
@@ -83,7 +95,7 @@ async function fetchPhase(d: RunDeps, o: RunOptions, s: PipelineState, index: In
   const now = d.now();
   const added = syncIndex(s, index, now);
   if (added.length) d.log(`new events: ${added.join(', ')}`);
-  const picked = pickEvent(s, index, { backfill: d.env.backfill, today: dayOf(now), forced: o.event });
+  const picked = pickEvent(s, index, { backfill: d.env.backfill && !d.env.scriptsFirst, today: dayOf(now), forced: o.event });
   if (picked) {
     sum.picked = picked;
     d.log(`event ${picked.id} (${picked.reason})`);
@@ -104,9 +116,38 @@ async function fetchPhase(d: RunDeps, o: RunOptions, s: PipelineState, index: In
       d.log(`Japanese scripts to remove from R2: ${gone.join(', ')}`);
     }
   }
+  // The scripts lane takes the hour only when the queue spent at most one request (nothing, or a recheck
+  // that is still jp/missing), so the hourly volume stays at the approved 80 + 1; the gap keeps 20 s spacing.
+  const used = sum.fetch?.requests ?? 0;
+  const quiet = !picked || (picked.reason === 'jp-recheck' && used <= 1 && (sum.fetch?.status === 'jp' || sum.fetch?.status === 'missing'));
+  if (d.env.scriptsFirst && quiet && scriptsLane(s, index).length) {
+    if (used > 0) await d.sleep(SCRIPTS_GAP_MS);
+    await scriptsPhase(d, s, index, sum);
+  }
   if (o.event !== undefined) sum.authorized.push(...authorizeDirect(s, index, { eventIds: [o.event] }));
   if (o.direct && o.direct > 0) sum.authorized.push(...authorizeDirect(s, index, { newest: o.direct }));
   if (sum.authorized.length) d.log(`storyboards authorized: ${sum.authorized.join(', ')}`);
+}
+
+async function scriptsPhase(d: RunDeps, s: PipelineState, index: IndexFile, sum: RunSummary) {
+  const lane = scriptsLane(s, index);
+  if (!lane.length) return;
+  const now = d.now();
+  const r = await d.fetchScripts(lane);
+  sum.scripts = { requests: r.requests, done: [], other: [] };
+  d.log(`scripts lane: ${r.status}, ${r.requests} requests`);
+  if (r.status === 'error') { d.log(`scripts lane error: ${r.error ?? ''}`); return; }
+  for (const e of r.events) {
+    if (!lane.includes(e.id)) continue;
+    if (e.status === 'error') recordFetch(s, e.id, { status: 'error', error: 'invalid script' }, now);
+    else recordScripts(s, e.id, e.status, now);
+    if (e.status === 'done') {
+      sum.scripts.done.push(e.id);
+      sum.authorized.push(...authorizeDirect(s, index, { eventIds: [e.id] }));
+    } else sum.scripts.other.push(`${e.id}:${e.status}`);
+    const gone = (e.removed ?? []).filter(f => /^[a-z0-9_]+\.asset$/.test(f)).map(f => `raw/${f}`);
+    if (gone.length && d.r2DeletePath) fs.appendFileSync(d.r2DeletePath, gone.map(g => `${g}\n`).join(''));
+  }
 }
 
 async function directPhase(d: RunDeps, s: PipelineState, index: IndexFile, sum: RunSummary) {
@@ -142,6 +183,23 @@ export function spawnFetch(script: string, log: (line: string) => void): (id: nu
   };
 }
 
+export function spawnScripts(script: string, log: (line: string) => void): (ids: number[]) => Promise<ScriptsResult> {
+  return async ids => {
+    // 80 requests 20 s apart take about 27 minutes; the job timeout leaves room for it.
+    const r = await run('python3', [script, '--scripts-for', ids.join(',')], 40 * 60e3);
+    const lines = r.stdout.split('\n').map(l => l.trim()).filter(Boolean);
+    for (const l of lines.slice(0, -1)) log(l);
+    if (r.stderr.trim()) log(r.stderr.trim().split('\n').slice(-5).join('\n'));
+    try {
+      const res = JSON.parse(lines.at(-1) ?? '') as ScriptsResult;
+      if (!Array.isArray(res.events)) throw new Error('no events');
+      return res;
+    } catch {
+      return { status: 'error', requests: 0, events: [], error: `exit ${r.code} without a result line` };
+    }
+  };
+}
+
 function realDeps(): RunDeps {
   const log = (line: string) => console.log(line);
   const key = process.env.ANTHROPIC_API_KEY;
@@ -153,7 +211,8 @@ function realDeps(): RunDeps {
       if (r.code !== 0) throw new Error(`compact ${sid}: exit ${r.code}`);
       return r.stdout;
     },
-    readEpisode: sid => JSON.parse(fs.readFileSync(path.join('assets/public/episodes', `${sid}.json`), 'utf8')) as Episode,
+    // Parsed from the raw script so scripts-first episodes (no images yet, not built) can be directed.
+    readEpisode: sid => parseScenario(JSON.parse(fs.readFileSync(path.join('assets/raw', `${sid}.asset`), 'utf8')) as RawScenario),
     writeBoard: (sid, board) => fs.writeFileSync(path.join('storyboards', `${sid}.json`), JSON.stringify(board, null, 1) + '\n'),
     prompt, now: () => new Date(), log,
   } : null;
@@ -162,6 +221,7 @@ function realDeps(): RunDeps {
     statePath: 'data/pipeline-state.json', indexPath: 'data/tc-event-index.json', boardsDir: 'storyboards',
     r2DeletePath: 'assets/r2-delete.txt',
     fetchEvent: spawnFetch('scripts/fetch_episode.py', log),
+    fetchScripts: spawnScripts('scripts/fetch_episode.py', log),
     buildEpisode: async sid => {
       const r = await run('npx', ['tsx', 'scripts/build_episode.ts', sid], 10 * 60e3);
       if (r.stdout.trim()) log(r.stdout.trim());
@@ -169,8 +229,9 @@ function realDeps(): RunDeps {
       return r.code === 0;
     },
     director,
-    env: { backfill: process.env.BACKFILL === 'on', dailyCapUsd: process.env.DIRECT_DAILY_USD && Number.isFinite(cap) && cap >= 0 ? cap : 20 },
+    env: { backfill: process.env.BACKFILL === 'on', scriptsFirst: process.env.SCRIPTS_FIRST === 'on', dailyCapUsd: process.env.DIRECT_DAILY_USD && Number.isFinite(cap) && cap >= 0 ? cap : 20 },
     now: () => new Date(), log,
+    sleep: ms => new Promise(res => setTimeout(res, ms)),
   };
 }
 
@@ -182,7 +243,7 @@ phases:
 options (fetch only):
   --event N      process event N first; naming an old event also authorizes its storyboards
   --direct N     authorize storyboards for the N newest old events whose assets are done
-env: BACKFILL=on|off, DIRECT_DAILY_USD (default 20)`;
+env: BACKFILL=on|off, SCRIPTS_FIRST=on|off, DIRECT_DAILY_USD (default 20)`;
 
 function writeGithub(sum: RunSummary) {
   if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, `deploy=${sum.deploy}\n`);
@@ -193,6 +254,7 @@ function writeGithub(sum: RunSummary) {
     lines.push(`- event: ${sum.picked ? `${sum.picked.id} (${sum.picked.reason})` : '-'}`);
     if (sum.fetch) lines.push(`- fetch: ${sum.fetch.status}, ${sum.fetch.requests} requests`);
     lines.push(`- built: ${list(sum.built)}`, `- authorized: ${sum.authorized.join(', ') || '-'}`);
+    if (sum.scripts) lines.push(`- scripts lane: ${sum.scripts.requests} requests, done ${sum.scripts.done.join(', ') || '-'}, other ${list(sum.scripts.other)}`);
   } else if (sum.phase === 'direct') {
     lines.push(`- adopted: ${list(sum.reconciled?.adopted)}`, `- collected done: ${list(sum.collected?.done)}`,
       `- retry: ${list(sum.collected?.retry)}`, `- fallback: ${list(sum.collected?.fallback)}`,

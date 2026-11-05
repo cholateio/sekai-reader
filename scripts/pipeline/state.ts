@@ -11,6 +11,8 @@ export interface EventState {
   jpCheckedAt?: string;
   /** Set when a fetch ran out of budget; the queue resumes it next hour whatever BACKFILL says. */
   partialAt?: string;
+  /** All scripts fetched by the scripts-first lane (images may still be missing); enough for storyboards. */
+  scriptsAt?: string;
   eps: Record<string, EpState>;
 }
 /** adopted = found by reconcile on the Anthropic account; sids stay empty until its results are readable. */
@@ -146,7 +148,7 @@ export function authorizeDirect(s: PipelineState, index: IndexFile, o: { eventId
   if (o.newest && o.newest > 0) {
     const old = byNewest(index).filter(e => {
       const st = s.events[String(e.id)];
-      return st && st.kind === 'old' && st.assets === 'done' && hasManual(st) && !targets.has(e.id);
+      return st && st.kind === 'old' && hasScripts(st) && hasManual(st) && !targets.has(e.id);
     });
     for (const e of old.slice(0, o.newest)) targets.add(e.id);
   }
@@ -154,14 +156,31 @@ export function authorizeDirect(s: PipelineState, index: IndexFile, o: { eventId
   return [...targets];
 }
 
+const hasScripts = (st: EventState) => st.assets === 'done' || Boolean(st.scriptsAt);
+
 export function dueEpisodes(s: PipelineState, index: IndexFile): { eventId: number; sid: string }[] {
   const out: { eventId: number; sid: string }[] = [];
   for (const e of byNewest(index)) {
     const st = s.events[String(e.id)];
-    if (!st || st.assets !== 'done') continue;
+    if (!st || !hasScripts(st)) continue;
     for (const [, , sid] of [...e.eps].sort((a, b) => a[0] - b[0])) if (st.eps[sid]?.s === 'none') out.push({ eventId: e.id, sid });
   }
   return out;
+}
+
+/** Old events whose scripts the scripts-first lane still has to fetch, newest first. */
+export function scriptsLane(s: PipelineState, index: IndexFile): number[] {
+  return byNewest(index).filter(e => {
+    const st = s.events[String(e.id)];
+    return st && st.kind === 'old' && st.assets === 'pending' && !st.scriptsAt && st.failures < MAX_FAILURES;
+  }).map(e => e.id);
+}
+
+export function recordScripts(s: PipelineState, id: number, status: 'done' | 'partial' | 'jp' | 'missing', now: Date): void {
+  const e = s.events[String(id)];
+  if (!e) throw new Error(`unknown event ${id}`);
+  if (status === 'done') e.scriptsAt = now.toISOString();
+  else if (status === 'jp' || status === 'missing') recordFetch(s, id, { status }, now);
 }
 
 export function addSpend(s: PipelineState, day: string, usd: number): void {

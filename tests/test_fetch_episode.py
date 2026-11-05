@@ -147,9 +147,9 @@ def talk(name, body):
 
 class EventTest(unittest.TestCase):
     CHARS = PlanTest.CHARS
-    EP1 = {'FirstBackground': 'bg_a', 'TalkData': [talk('一歌', '今天一起練習吧。')]}
-    EP2 = {'FirstBackground': 'bg_a', 'TalkData': [talk('咲希', '好啊，放學後見。')]}
-    JP = {'FirstBackground': 'bg_a', 'TalkData': [talk('一歌', 'きょうはいっしょにれんしゅうしよう')]}
+    EP1 = {'FirstBackground': 'bg_a', 'TalkData': [talk('一歌', '今天一起練習吧。')], 'Snippets': [{'Action': 1, 'ReferenceIndex': 0}]}
+    EP2 = {'FirstBackground': 'bg_a', 'TalkData': [talk('咲希', '好啊，放學後見。')], 'Snippets': [{'Action': 1, 'ReferenceIndex': 0}]}
+    JP = {'FirstBackground': 'bg_a', 'TalkData': [talk('一歌', 'きょうはいっしょにれんしゅうしよう')], 'Snippets': [{'Action': 1, 'ReferenceIndex': 0}]}
     EVENT = {'id': 9, 'bundle': 'b', 'eps': [[1, 't1', 'event_9_01'], [2, 't2', 'event_9_02']]}
 
     def setUp(self):
@@ -300,6 +300,178 @@ class EventTest(unittest.TestCase):
         from contextlib import redirect_stdout
         with redirect_stdout(io.StringIO()):
             self.assertEqual(fe.main(['--event', '99', '--index', idx], opener=FakeOpener(), sleep=lambda s: None), 1)
+
+
+class ScriptsTest(unittest.TestCase):
+    CHARS = PlanTest.CHARS
+    TC = {'FirstBackground': 'bg_a', 'TalkData': [talk('一歌', '今天一起練習吧。')], 'Snippets': [{'Action': 1, 'ReferenceIndex': 0}]}
+    JP = EventTest.JP
+    E9 = {'id': 9, 'bundle': 'b9', 'eps': [[1, 't', 'event_9_01'], [2, 't', 'event_9_02']]}
+    E8 = {'id': 8, 'bundle': 'b8', 'eps': [[1, 't', 'event_8_01'], [2, 't', 'event_8_02'], [3, 't', 'event_8_03']]}
+    E7 = {'id': 7, 'bundle': 'b7', 'eps': [[1, 't', 'event_7_01']]}
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.out = self.tmp.name
+        self.index = {'events': [self.E9, self.E8, self.E7], 'chars': self.CHARS}
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def opener(self, jp=(), missing=()):
+        bodies = {}
+        for e in [self.E9, self.E8, self.E7]:
+            for ep in e['eps']:
+                bodies[fe.scenario_url(e['bundle'], ep[2])] = json.dumps(self.JP if e['id'] in jp else self.TC).encode()
+        return FakeOpener(bodies, missing=missing)
+
+    def fetcher(self, opener, **kw):
+        self.sleeps = []
+        return fe.Fetcher(opener, sleep=self.sleeps.append, log=lambda *a: None, **kw)
+
+    def test_scripts_only_fetches_no_images_across_events(self):
+        opener = self.opener()
+        r = fe.run_scripts([self.E9, self.E8], self.out, self.fetcher(opener))
+        self.assertEqual(r, {'status': 'done', 'requests': 5, 'events': [
+            {'id': 9, 'status': 'done', 'sids': ['event_9_01', 'event_9_02']},
+            {'id': 8, 'status': 'done', 'sids': ['event_8_01', 'event_8_02', 'event_8_03']}]})
+        self.assertTrue(all('/scenario/' in q.full_url for q in opener.requests))
+        self.assertFalse(os.path.exists(os.path.join(self.out, 'bg')))
+
+    def test_scripts_jp_and_missing_events_are_reported_and_skipped(self):
+        opener = self.opener(jp={9}, missing={fe.scenario_url('b8', 'event_8_02')})
+        r = fe.run_scripts([self.E9, self.E8, self.E7], self.out, self.fetcher(opener))
+        self.assertEqual([(e['id'], e['status']) for e in r['events']], [(9, 'jp'), (8, 'missing'), (7, 'done')])
+        self.assertFalse(os.path.exists(os.path.join(self.out, 'event_9_01.asset')))
+        self.assertEqual(r['status'], 'done')
+
+    def test_scripts_budget_stops_mid_event_as_partial(self):
+        r = fe.run_scripts([self.E9, self.E8], self.out, self.fetcher(self.opener(), max_requests=3))
+        self.assertEqual(r['status'], 'partial')
+        self.assertEqual(r['events'], [{'id': 9, 'status': 'done', 'sids': ['event_9_01', 'event_9_02']},
+                                       {'id': 8, 'status': 'partial', 'sids': ['event_8_01']}])
+
+    def test_scripts_reuse_existing_files_without_requests(self):
+        fe.run_scripts([self.E9], self.out, self.fetcher(self.opener()))
+        r = fe.run_scripts([self.E9], self.out, self.fetcher(self.opener()))
+        self.assertEqual(r['requests'], 0)
+        self.assertEqual(r['events'][0]['status'], 'done')
+
+    def test_scripts_japanese_later_episode_removes_whole_event(self):
+        opener = self.opener()
+        opener.bodies[fe.scenario_url('b8', 'event_8_02')] = json.dumps(self.JP).encode()
+        r = fe.run_scripts([self.E8], self.out, self.fetcher(opener))
+        self.assertEqual(r['events'][0]['status'], 'jp')
+        self.assertEqual(sorted(r['events'][0]['removed']), ['event_8_01.asset'])
+        self.assertEqual([f for f in os.listdir(self.out) if f.endswith('.asset')], [])
+
+    def test_scripts_malformed_episode_is_error_and_leaves_no_file(self):
+        opener = self.opener()
+        opener.bodies[fe.scenario_url('b9', 'event_9_02')] = b'<html>oops</html>'
+        r = fe.run_scripts([self.E9, self.E7], self.out, self.fetcher(opener))
+        self.assertEqual([(e['id'], e['status']) for e in r['events']], [(9, 'error'), (7, 'done')])
+        self.assertFalse(os.path.exists(os.path.join(self.out, 'event_9_02.asset')))
+        self.assertEqual(sorted(r['events'][0]['removed']), ['event_9_01.asset'])
+
+    def test_scripts_existing_japanese_file_is_caught_and_listed(self):
+        with open(os.path.join(self.out, 'event_8_03.asset'), 'w', encoding='utf-8') as f:
+            json.dump(self.JP, f)
+        r = fe.run_scripts([self.E8], self.out, self.fetcher(self.opener()))
+        self.assertEqual(r['events'][0]['status'], 'jp')
+        self.assertIn('event_8_03.asset', r['events'][0]['removed'])
+        self.assertFalse(os.path.exists(os.path.join(self.out, 'event_8_03.asset')))
+
+    def test_full_event_japanese_later_episode_also_removes_scripts(self):
+        idx = {'events': [self.E8], 'chars': self.CHARS}
+        opener = self.opener()
+        opener.bodies[fe.scenario_url('b8', 'event_8_02')] = json.dumps(self.JP).encode()
+        r = fe.run_event(self.E8, idx, self.out, self.fetcher(opener))
+        self.assertEqual(r['status'], 'jp')
+        self.assertEqual([f for f in os.listdir(self.out) if f.endswith('.asset')], [])
+
+    def test_scripts_schema_matches_parse_scenario(self):
+        self.assertTrue(fe._valid_script(self.TC))
+        for bad in [{'TalkData': []}, {'TalkData': [talk('a', 'b')]}, {'TalkData': ['x'], 'Snippets': [{'Action': 1, 'ReferenceIndex': 0}]},
+                    {'TalkData': [talk('a', 'b')], 'Snippets': ['x']}, {'TalkData': [talk('a', '')], 'Snippets': [{'Action': 1, 'ReferenceIndex': 0}]},
+                    [], 'x', None,
+                    {'TalkData': [{'Body': 123}], 'Snippets': [{'Action': 1, 'ReferenceIndex': 0}]},
+                    {'TalkData': [talk('a', 'b')], 'Snippets': [{'Action': True, 'ReferenceIndex': 0}]},
+                    {'TalkData': [talk('a', 'b')], 'Snippets': [{'Action': 1, 'ReferenceIndex': False}]},
+                    {'TalkData': [dict(talk('a', 'b'), Motions='x')], 'Snippets': [{'Action': 1, 'ReferenceIndex': 0}]},
+                    {'TalkData': [dict(talk('a', 'b'), WindowDisplayName=5)], 'Snippets': [{'Action': 1, 'ReferenceIndex': 0}]}]:
+            self.assertFalse(fe._valid_script(bad), bad)
+
+    def test_classification_exception_counts_as_invalid(self):
+        opener = self.opener()
+        orig = fe.kana_ratio
+        fe.kana_ratio = lambda a: (_ for _ in ()).throw(TypeError('boom'))
+        try:
+            r = fe.run_scripts([self.E9, self.E7], self.out, self.fetcher(opener))
+        finally:
+            fe.kana_ratio = orig
+        self.assertEqual([(e['id'], e['status']) for e in r['events']], [(9, 'error'), (7, 'error')])
+
+    def test_scripts_nested_garbage_is_per_event_error_and_lane_continues(self):
+        opener = self.opener()
+        opener.bodies[fe.scenario_url('b9', 'event_9_01')] = json.dumps({'TalkData': [1, 2], 'Snippets': [{'Action': 1, 'ReferenceIndex': 0}]}).encode()
+        r = fe.run_scripts([self.E9, self.E7], self.out, self.fetcher(opener))
+        self.assertEqual([(e['id'], e['status']) for e in r['events']], [(9, 'error'), (7, 'done')])
+
+    def test_full_event_invalid_returns_error_with_removed(self):
+        idx = {'events': [self.E8], 'chars': self.CHARS}
+        fe.run_scripts([self.E8], self.out, self.fetcher(self.opener()))
+        with open(os.path.join(self.out, 'event_8_02.asset'), 'w') as f:
+            f.write('{"TalkData": []}')
+        r = fe.run_event(self.E8, idx, self.out, self.fetcher(self.opener()))
+        self.assertEqual(r['status'], 'error')
+        self.assertEqual(r['removed'], ['event_8_01.asset', 'event_8_02.asset', 'event_8_03.asset'])
+        self.assertEqual([f for f in os.listdir(self.out) if f.endswith('.asset')], [])
+
+    def test_cli_event_invalid_prints_removed_and_exits_1(self):
+        import io
+        from contextlib import redirect_stdout
+        idx = os.path.join(self.out, 'index.json')
+        with open(idx, 'w', encoding='utf-8') as f:
+            json.dump({'events': [self.E7], 'chars': self.CHARS}, f)
+        raw = os.path.join(self.out, 'raw')
+        os.makedirs(raw)
+        with open(os.path.join(raw, 'event_7_01.asset'), 'w') as f:
+            f.write('{"TalkData": []}')
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = fe.main(['--event', '7', '--index', idx, '--out', raw], opener=self.opener(), sleep=lambda s: None, log=lambda *a: None)
+        self.assertEqual(code, 1)
+        last = json.loads(buf.getvalue().strip().splitlines()[-1])
+        self.assertEqual((last['status'], last['removed']), ('error', ['event_7_01.asset']))
+
+    def test_cli_scripts_for_uses_budget_80_and_20s_spacing(self):
+        import io
+        from contextlib import redirect_stdout
+        idx = os.path.join(self.out, 'index.json')
+        with open(idx, 'w', encoding='utf-8') as f:
+            json.dump(self.index, f)
+        sleeps = []
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = fe.main(['--scripts-for', '9,8', '--index', idx, '--out', os.path.join(self.out, 'raw')],
+                           opener=self.opener(), sleep=sleeps.append, log=lambda *a: None)
+        self.assertEqual(code, 0)
+        self.assertEqual(set(sleeps), {20.0})
+        last = json.loads(buf.getvalue().strip().splitlines()[-1])
+        self.assertEqual([e['id'] for e in last['events']], [9, 8])
+        self.assertEqual(fe.SCRIPTS_BUDGET, 80)
+
+    def test_cli_scripts_for_rejects_unknown_or_bad_ids(self):
+        import io
+        from contextlib import redirect_stdout
+        idx = os.path.join(self.out, 'index.json')
+        with open(idx, 'w', encoding='utf-8') as f:
+            json.dump(self.index, f)
+        for arg in ['9,99', '9;rm']:
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                self.assertEqual(fe.main(['--scripts-for', arg, '--index', idx], opener=self.opener(), sleep=lambda s: None), 1)
+            self.assertEqual(json.loads(buf.getvalue().strip().splitlines()[-1])['status'], 'error')
 
 
 if __name__ == '__main__':
