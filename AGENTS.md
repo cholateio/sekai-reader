@@ -48,3 +48,9 @@ A static web reader that turns Project SEKAI Traditional Chinese event stories i
 
 - `docs/specs/` — requirements and design decisions
 - `docs/DEVELOPMENT.md` — restart, commands, environment variables, deploy, gotchas
+
+## Guiding the owner through dashboards
+
+- The owner's Cloudflare dashboard uses the redesigned UI (as of 2026-11), in Traditional Chinese. The sidebar groups features under 帳戶首頁, 網域, 組建 (運算, AI, 儲存空間和資料庫, ...), 保護與連接 and 管理帳戶; there is no top-level "Workers & Pages" or "R2" entry. Do not give old menu paths from memory or old docs: point to the group and tell the owner to confirm the sub-item on screen, or to use the Ctrl+K quick search with the feature name.
+- The Account ID is the 32-character hex segment right after `dash.cloudflare.com/` in the address bar.
+- Labels are Chinese: e.g. the API-token permission "Workers Scripts" shows as 「Workers 指令碼」, "Edit" as 「編輯」.
