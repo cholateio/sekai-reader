@@ -3,9 +3,9 @@
 # are committed back to main. Each secret is scoped to the only step that needs it.
 name: pipeline
 
+# Started hourly by the Cloudflare Worker sekai-reader-cron (worker/); GitHub's own schedule was unreliable
+# and would double-run alongside the Worker, so there is no `schedule` trigger here.
 on:
-  schedule:
-    - cron: '23 * * * *'
   workflow_dispatch:
     inputs:
       event:

@@ -8,7 +8,7 @@ A static web reader that turns Project SEKAI Traditional Chinese event stories i
 ## Stack
 
 - Language / framework: TypeScript, Vite 6, no UI framework (own `h()` helper); Python 3 for the one-off fetch script
-- Services: GitHub Actions hourly pipeline, Cloudflare Pages (direct upload) + private R2 bucket, Anthropic API (storyboards)
+- Services: GitHub Actions pipeline started hourly by a Cloudflare Worker cron, Cloudflare Pages (direct upload) + private R2 bucket, Anthropic API (storyboards)
 - Test: `npm test`
 
 ## File layout
@@ -22,7 +22,8 @@ A static web reader that turns Project SEKAI Traditional Chinese event stories i
 - `storyboards/` — AI-director storyboards, line numbers only (committed)
 - `prompts/` — storyboard director prompt
 - `scripts/` — `build_episode.ts`, `fetch_episode.py`, `check_layout.ts`, `build_index.py`, `compact_script.py`
-- `scripts/pipeline/` — hourly pipeline: `state.ts` (queue, spend), `director.ts` (storyboard batches), `run.ts` (phases), `commit.sh`, `setup.sh`
+- `scripts/pipeline/` — hourly pipeline: `state.ts` (queue, spend), `director.ts` (storyboard batches), `run.ts` (phases), `commit.sh`, `setup.sh`, `setup-cron.sh`
+- `worker/` — Cloudflare Worker `sekai-reader-cron`: hourly cron that dispatches the pipeline workflow
 - `assets/` — git-ignored game assets: `raw/` inputs, `public/` reader files (Vite publicDir)
 - `tests/` — Vitest + unittest; `fixtures/` holds an original synthetic script; `real/` skips without assets
 - `docs/specs/` — requirement specs; the authority for what to build
