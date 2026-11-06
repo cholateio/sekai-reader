@@ -532,38 +532,39 @@
    "failures": 0,
    "eps": {
     "event_14_01": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_14_02": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_14_03": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_14_04": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_14_05": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_14_06": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_14_07": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_14_08": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     }
-   }
+   },
+   "scriptsAt": "2026-11-06T09:24:41.581Z"
   },
   "15": {
    "kind": "old",
@@ -571,38 +572,39 @@
    "failures": 0,
    "eps": {
     "event_15_01": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_15_02": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_15_03": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_15_04": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_15_05": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_15_06": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_15_07": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_15_08": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     }
-   }
+   },
+   "scriptsAt": "2026-11-06T09:24:41.581Z"
   },
   "16": {
    "kind": "old",
@@ -610,38 +612,39 @@
    "failures": 0,
    "eps": {
     "event_16_01": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_16_02": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_16_03": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_16_04": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_16_05": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_16_06": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_16_07": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_16_08": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     }
-   }
+   },
+   "scriptsAt": "2026-11-06T09:24:41.581Z"
   },
   "17": {
    "kind": "old",
@@ -649,38 +652,39 @@
    "failures": 0,
    "eps": {
     "event_17_01": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_17_02": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_17_03": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_17_04": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_17_05": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_17_06": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_17_07": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_17_08": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     }
-   }
+   },
+   "scriptsAt": "2026-11-06T09:24:41.581Z"
   },
   "18": {
    "kind": "old",
@@ -688,38 +692,39 @@
    "failures": 0,
    "eps": {
     "event_18_01": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_18_02": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_18_03": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_18_04": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_18_05": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_18_06": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_18_07": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_18_08": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     }
-   }
+   },
+   "scriptsAt": "2026-11-06T09:24:41.581Z"
   },
   "19": {
    "kind": "old",
@@ -727,38 +732,39 @@
    "failures": 0,
    "eps": {
     "event_19_01": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_19_02": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_19_03": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_19_04": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_19_05": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_19_06": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_19_07": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_19_08": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     }
-   }
+   },
+   "scriptsAt": "2026-11-06T09:24:41.581Z"
   },
   "20": {
    "kind": "old",
@@ -766,38 +772,39 @@
    "failures": 0,
    "eps": {
     "event_20_01": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_20_02": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_20_03": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_20_04": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_20_05": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_20_06": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_20_07": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_20_08": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     }
-   }
+   },
+   "scriptsAt": "2026-11-06T09:24:41.581Z"
   },
   "21": {
    "kind": "old",
@@ -805,38 +812,39 @@
    "failures": 0,
    "eps": {
     "event_21_01": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_21_02": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_21_03": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_21_04": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_21_05": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_21_06": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_21_07": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_21_08": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     }
-   }
+   },
+   "scriptsAt": "2026-11-06T09:24:41.581Z"
   },
   "22": {
    "kind": "old",
@@ -844,38 +852,39 @@
    "failures": 0,
    "eps": {
     "event_22_01": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_22_02": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_22_03": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_22_04": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_22_05": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_22_06": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_22_07": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_22_08": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     }
-   }
+   },
+   "scriptsAt": "2026-11-06T09:24:41.581Z"
   },
   "23": {
    "kind": "old",
@@ -883,38 +892,39 @@
    "failures": 0,
    "eps": {
     "event_23_01": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_23_02": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_23_03": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_23_04": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_23_05": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_23_06": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_23_07": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_23_08": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     }
-   }
+   },
+   "scriptsAt": "2026-11-06T09:24:41.581Z"
   },
   "24": {
    "kind": "old",
