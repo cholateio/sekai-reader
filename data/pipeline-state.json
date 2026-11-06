@@ -7253,7 +7253,7 @@
   },
   "179": {
    "kind": "old",
-   "assets": "pending",
+   "assets": "done",
    "failures": 0,
    "eps": {
     "wl_piapro_02_01": {
@@ -7317,7 +7317,8 @@
      "tries": 1
     }
    },
-   "scriptsAt": "2026-11-05T16:31:40.079Z"
+   "scriptsAt": "2026-11-05T16:31:40.079Z",
+   "assetsAt": "2026-11-06T12:32:05.797Z"
   },
   "180": {
    "kind": "old",
@@ -7724,5 +7725,5 @@
   "msgbatch_01SXYhqftVGdc7ZyxPp4v1XL": "2026-11-06",
   "msgbatch_01DizhkHkQbRmpRGhr3bsNTZ": "2026-11-06"
  },
- "pendingDeploy": false
+ "pendingDeploy": true
 }
