@@ -8,9 +8,10 @@ const GROUPS = ['light_sound', 'idol', 'street', 'theme_park', 'school_refusal',
 
 /**
  * Bottom sheet with the activity-type and character filters. Type taps apply without closing; a character tap
- * applies and closes; Esc / scrim / 清除 close and return focus to `returnTo`.
+ * applies and closes; Esc / scrim / 清除 close and return focus to `returnTo()` — a getter because `onChange`
+ * redraws the chips, so the element that opened the sheet may no longer be in the document.
  */
-export function openFilterSheet(initial: LibraryQuery, onChange: (next: LibraryQuery) => void, returnTo: HTMLElement): void {
+export function openFilterSheet(initial: LibraryQuery, onChange: (next: LibraryQuery) => void, returnTo: () => HTMLElement | null): void {
   document.querySelector('.sheet-scrim')?.remove();
   document.querySelector('.sheet')?.remove();
   let qy = initial;
@@ -19,7 +20,7 @@ export function openFilterSheet(initial: LibraryQuery, onChange: (next: LibraryQ
     ctrl.abort();
     scrim.remove();
     sheet.remove();
-    returnTo.focus();
+    returnTo()?.focus();
   };
   const typeRow = h('div', { class: 'chips' });
   const drawTypes = () => typeRow.replaceChildren(...[['all', '全部'], ...Object.keys(TYPES).map(k => [k, TYPE_SHORT[k] ?? k])].map(([k, n]) =>

@@ -123,6 +123,8 @@ a.ev:hover .nm { text-decoration: underline; }
 .ep .no { font-family: var(--font-display); font-size: 20px; color: var(--muted); grid-row: 1 / span 2; font-variant-numeric: tabular-nums; min-width: 1.6em; text-align: center; }
 .ep .t { font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
 .ep .acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; }
+a.ep { color: inherit; text-decoration: none; }
+a.ep:hover .t { text-decoration: underline; }
 .ep .read { background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 8px; padding: 4px 12px; font-weight: 500; text-decoration: none; }
 .evhead .cast { font-size: 13px; }
 .evhead .continue { justify-self: start; margin-top: 6px; text-decoration: none; }

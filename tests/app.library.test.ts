@@ -94,6 +94,7 @@ test('面板：選角色套用並關閉、Esc 關閉且焦點回晶片', () => {
   expect(document.querySelector('.sheet')).toBeNull();
   expect(location.hash).toBe('#library?char=17');
   expect(document.querySelector('.chip.more')!.textContent).toContain('奏');
+  expect(document.activeElement).toBe(document.querySelector('.chip.more'));
   expect(document.querySelectorAll('a.ev').length).toBe(EVENTS.filter(e => e.chars?.includes(17)).length);
   (document.querySelector('.chip.more') as HTMLElement).click();
   expect(document.querySelector('.sheet .cbtn[data-char="17"]')!.getAttribute('aria-pressed')).toBe('true');
@@ -111,10 +112,12 @@ test('面板：選類型不關閉、點遮罩關閉、清除', () => {
   (document.querySelector('.sheet-scrim') as HTMLElement).click();
   expect(document.querySelector('.sheet')).toBeNull();
   expect(document.querySelector('.chip.more')!.textContent).toContain('World Link');
+  expect(document.activeElement).toBe(document.querySelector('.chip.more'));
   (document.querySelector('.chip.more') as HTMLElement).click();
   (document.querySelector('.sheet .ghost') as HTMLElement).click();
   expect(document.querySelector('.sheet')).toBeNull();
   expect(location.hash).toBe('#library');
+  expect(document.activeElement).toBe(document.querySelector('.chip.more'));
 });
 test('× 清除角色與類型', () => {
   mount(viewLibrary(emptyManifest, { ...EMPTY_QUERY, char: 17, type: 'marathon' }));

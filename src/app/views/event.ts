@@ -17,13 +17,15 @@ export function viewEvent(id: number, manifest: Manifest): HTMLElement[] {
   const cont = start ? h('a', { class: 'primary continue', href: `#read-${e.id}-${start[0]}` },
     resume ? `繼續閱讀 第 ${start[0]} 話` : `從第 ${start[0]} 話開始`) : null;
 
+  // A readable episode is one link covering the whole row (long-press / new tab); unavailable rows stay inert.
   const eps = h('div', { class: 'eps' }, e.eps.map(([no, title, sid]) => {
     const pos = posOf(sid);
-    return h('div', { class: 'ep' },
+    const ok = available.has(sid);
+    return h(ok ? 'a' : 'div', { class: 'ep', href: ok ? `#read-${e.id}-${no}` : null },
       h('span', { class: 'no' }, no),
       h('span', { class: 't' }, title),
-      h('span', { class: 'acts' }, available.has(sid)
-        ? [h('a', { class: 'read', href: `#read-${e.id}-${no}` }, pos > 0.02 && pos <= 0.97 ? '繼續閱讀' : '閱讀'),
+      h('span', { class: 'acts' }, ok
+        ? [h('span', { class: 'read' }, pos > 0.02 && pos <= 0.97 ? '繼續閱讀' : '閱讀'),
           pos > 0.02 ? h('span', { class: 'prog' }, pos > 0.97 ? '已讀完' : `讀到 ${Math.round(pos * 100)}%`) : null]
         : h('span', { class: 'na' }, '尚未提供')));
   }));

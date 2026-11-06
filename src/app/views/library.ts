@@ -83,7 +83,7 @@ export function viewLibrary(manifest: Manifest, initial: LibraryQuery = EMPTY_QU
     const active = qy.char != null || qy.type !== 'all';
     const more = h('button', {
       class: 'chip more', 'aria-pressed': String(active), 'aria-haspopup': 'dialog',
-      onclick: () => openFilterSheet(qy, apply, more),
+      onclick: () => openFilterSheet(qy, apply, () => chips.querySelector<HTMLElement>('.chip.more')),
     }, moreLabel(qy), active ? h('span', {
       class: 'clear', role: 'button', 'aria-label': '清除角色與類型',
       onclick: (ev: Event) => { ev.stopPropagation(); apply({ ...qy, char: null, type: 'all' }); },

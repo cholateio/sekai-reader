@@ -68,7 +68,7 @@ describe('路由', () => {
     history.replaceState(null, '', '#event-173');
     const app = document.createElement('div');
     await startApp(app);
-    expect(app.querySelectorAll('a.read').length).toBe(1);
+    expect(app.querySelectorAll('a.ep').length).toBe(1);
     expect(app.textContent).toContain('尚未提供');
     expect(app.innerHTML).not.toContain('sekai.best');
   });

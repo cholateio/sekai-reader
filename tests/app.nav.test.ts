@@ -1,4 +1,5 @@
-import { beforeEach, expect, test } from 'vitest';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { startApp } from '../src/app/router';
 import { pushRecent, recentList, type RecentItem } from '../src/app/recent';
 import { prefs } from '../src/app/storage';
 import { navLink, siteHeader } from '../src/app/views/common';
@@ -7,7 +8,8 @@ const mount = (nodes: HTMLElement[]) => { document.body.replaceChildren(...nodes
 const drawer = () => document.querySelector('.drawer') as HTMLElement;
 const open = () => (document.querySelector('.menu') as HTMLElement).click();
 
-beforeEach(() => { localStorage.clear(); document.body.className = ''; });
+beforeEach(() => { localStorage.clear(); document.body.className = ''; history.replaceState(null, '', '/'); });
+afterEach(() => vi.unstubAllGlobals());
 
 test('pushRecent 去重置頂最多 5；recentList 跳過索引沒有的話', () => {
   for (const n of [1, 2, 3, 4, 5, 6]) pushRecent({ sid: `event_173_0${n}`, id: 173, no: n, title: `t${n}` });
@@ -61,7 +63,10 @@ test('活動頁：繼續閱讀指向最後有進度且未讀完的話，上一�
   const i = EVENTS.findIndex(e => e.id === 173);
   expect(root.querySelector(`.evnav a[href="#event-${EVENTS[i + 1].id}"]`)).not.toBeNull();
   expect(root.querySelector(`.evnav a[href="#event-${EVENTS[i - 1].id}"]`)).not.toBeNull();
-  expect(root.querySelector('.ep a[href="#read-173-1"]')).not.toBeNull();
+  expect(root.querySelector('a.ep[href="#read-173-1"]')).not.toBeNull();
+  expect(root.querySelector('a.ep[href="#read-173-1"] a')).toBeNull();
+  expect(root.querySelector('a.ep[href="#read-173-3"]')).toBeNull();
+  expect(root.querySelectorAll('.ep').length).toBe(8);
   expect(root.querySelector('.evhead .cast')).not.toBeNull();
   expect(root.querySelector('.evhead')!.textContent).toContain('可讀 2/8');
   expect(root.querySelector('.site-header .page-title')!.textContent).toMatch(/第 173 期 · .+ · 馬拉松|World Link/);
@@ -86,4 +91,22 @@ test('閱讀頁側邊欄有上一話／下一話，結尾卡片是連結', () =>
   mount(viewReader(ep, syntheticBoard(), { ...ctx, prev: null, next: { title: 'n', href: '#read-1-3' } }));
   expect(document.querySelector('.end a.primary[href="#read-1-3"]')).not.toBeNull();
   expect(drawer().textContent).not.toContain('上一話');
+});
+
+test('被取代的閱讀頁載入不寫入最近閱讀', async () => {
+  let resolveEp!: (r: Response) => void;
+  vi.stubGlobal('fetch', vi.fn((u: string) => u === '/manifest.json'
+    ? Promise.resolve(Response.json({ bg: [], sd: [], episodes: ['event_173_01'] }))
+    : new Promise<Response>(r => { resolveEp = r; })));
+  history.replaceState(null, '', '#read-173-1');
+  const app = document.createElement('div');
+  const started = startApp(app);
+  await new Promise(r => setTimeout(r, 0));
+  history.replaceState(null, '', '#library');
+  dispatchEvent(new HashChangeEvent('hashchange'));
+  resolveEp(Response.json(syntheticEpisode()));
+  await started;
+  await new Promise(r => setTimeout(r, 0));
+  expect(recentList()).toEqual([]);
+  expect(app.querySelector('.list')).not.toBeNull();
 });
