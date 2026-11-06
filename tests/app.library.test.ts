@@ -78,12 +78,22 @@ test('進度：讀到第 k 話、可讀 n/N 話、讀完', () => {
   expect(meta).toContain('讀完');
   expect(meta).not.toContain('讀到第');
 });
-test('頁面不含 sekai.best，常駐操作只有一個搜尋框與七顆晶片，沒有面板', () => {
+test('頁面不含 sekai.best，常駐操作只有一個搜尋框與六顆團體晶片，沒有「全部」也沒有面板', () => {
   mount(viewLibrary(emptyManifest, EMPTY_QUERY));
   expect(document.body.innerHTML).not.toContain('sekai.best');
   expect(document.querySelectorAll('input').length).toBe(1);
   expect(document.querySelectorAll('.chips').length).toBe(1);
-  expect(document.querySelectorAll('.chips .chip').length).toBe(7);
+  expect([...document.querySelectorAll('.chips .chip')].map(c => c.textContent)).toEqual(['L/n', 'MMJ', 'VBS', 'WxS', '25時', '混活']);
+  expect(document.querySelector('.chip[data-unit="all"]')).toBeNull();
+  expect(document.querySelectorAll('.chip[aria-pressed="true"]').length).toBe(0);
   expect(document.querySelector('.chip.more')).toBeNull();
   expect(document.querySelector('[aria-haspopup]')).toBeNull();
+});
+test('再點一次已選的團體晶片會清除篩選，搜尋保留', () => {
+  mount(viewLibrary(emptyManifest, { ...EMPTY_QUERY, q: '雪' }));
+  (document.querySelector('.chip[data-unit="light_sound"]') as HTMLElement).click();
+  expect(location.hash).toBe('#library?unit=light_sound&q=%E9%9B%AA');
+  (document.querySelector('.chip[data-unit="light_sound"]') as HTMLElement).click();
+  expect(location.hash).toBe('#library?q=%E9%9B%AA');
+  expect(document.querySelectorAll('.chip[aria-pressed="true"]').length).toBe(0);
 });

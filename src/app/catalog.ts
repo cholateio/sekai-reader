@@ -23,7 +23,7 @@ export const UNITS: Record<string, [string, string]> = {
 export const TYPES: Record<string, string> = { marathon: '馬拉松', cheerful_carnival: '歡樂嘉年華', world_bloom: 'World Link' };
 export const unitOf = (u: string) => UNITS[u] ?? UNITS.none;
 export const UNIT_SHORT: Record<string, string> = {
-  light_sound: 'Leo/need', idol: 'MMJ', street: 'VBS', theme_park: 'WxS', school_refusal: '25時', piapro: 'VS', none: '混活',
+  light_sound: 'L/n', idol: 'MMJ', street: 'VBS', theme_park: 'WxS', school_refusal: '25時', piapro: 'VS', none: '混活',
 };
 export const TYPE_SHORT: Record<string, string> = { marathon: '馬拉松', cheerful_carnival: '嘉年華', world_bloom: 'World Link' };
 

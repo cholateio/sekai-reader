@@ -56,10 +56,11 @@ export function viewLibrary(manifest: Manifest, initial: LibraryQuery = EMPTY_QU
         h('span', { class: 'meta' }, eventMeta(e, available))),
       h('span', { class: 'num' }, `#${e.id}`)))
       : [h('p', { class: 'empty' }, '找不到符合的活動。', h('br'), clearLink())]));
-    const unitChips = [['all', '全部', null] as const, ...Object.entries(UNITS).filter(([k]) => k !== 'piapro').map(([k, [, c]]) => [k, UNIT_SHORT[k], c] as const)]
-      .map(([k, n, c]) => h('button', {
-        class: 'chip', 'data-unit': k, 'aria-pressed': String(qy.unit === k), onclick: () => apply({ ...qy, unit: k }),
-      }, c ? h('i', { class: 'dot', style: `background:${c}` }) : null, n));
+    // No 「全部」 chip: nothing pressed means all units; tapping the pressed chip again clears it.
+    const unitChips = Object.entries(UNITS).filter(([k]) => k !== 'piapro').map(([k, [, c]]) => h('button', {
+      class: 'chip', 'data-unit': k, 'aria-pressed': String(qy.unit === k),
+      onclick: () => apply({ ...qy, unit: qy.unit === k ? 'all' : k }),
+    }, h('i', { class: 'dot', style: `background:${c}` }), UNIT_SHORT[k]));
     chips.replaceChildren(...unitChips);
   };
 
