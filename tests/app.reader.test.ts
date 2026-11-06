@@ -152,8 +152,10 @@ test('漢堡按鈕開關側邊欄，側邊欄有標題、返回與黑白', () =>
   (drawer().querySelector('[data-go="event"]') as HTMLElement).click();
   expect(location.hash).toBe('#event-1');
   menu().click();
-  (drawer().querySelector('[data-go="library"]') as HTMLElement).click();
-  expect(location.hash).toBe('#library');
+  const lib = drawer().querySelector('[data-go="library"]') as HTMLAnchorElement;
+  expect(lib.getAttribute('href')).toBe('#library');
+  lib.click();
+  expect(drawer().hidden).toBe(true);
 });
 test('點遮罩或按 Esc 關閉側邊欄', () => {
   mount(viewReader(ep, syntheticBoard(), ctx()));

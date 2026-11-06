@@ -1,5 +1,7 @@
 import { h } from '../../render/dom';
-import { unitOf } from '../catalog';
+import { UNIT_SHORT, UNITS, unitOf } from '../catalog';
+import { recentList } from '../recent';
+import { prefs } from '../storage';
 
 export const go = (hash: string) => { location.hash = hash; };
 
@@ -11,11 +13,31 @@ export function leavePage(): void {
   pageCtrl = new AbortController();
 }
 
+/** Drawer navigation row; `href` is a complete `#…` hash. */
+export function navLink(href: string, label: string, extra?: HTMLElement | string | null): HTMLAnchorElement {
+  return h('a', { class: 'drawer-item', href }, h('span', {}, label), extra ? h('small', {}, extra) : null) as HTMLAnchorElement;
+}
+
+function recentSection(): HTMLElement[] {
+  const items = recentList();
+  if (!items.length) return [];
+  return [h('p', { class: 'drawer-label' }, '最近閱讀'), ...items.map(r => {
+    const pos = prefs.get(`pos:${r.sid}`, 0);
+    const prog = pos > 0.97 ? '讀完' : pos > 0.02 ? `讀到 ${Math.round(pos * 100)}%` : '';
+    return navLink(`#read-${r.id}-${r.no}`, `第 ${r.id} 期 第 ${r.no} 話 ${r.title}`, prog);
+  })];
+}
+
+function unitRow(): HTMLElement {
+  return h('div', { class: 'drawer-units' }, Object.entries(UNITS).filter(([k]) => k !== 'piapro' && k !== 'none')
+    .map(([k, [, c]]) => h('a', { class: 'chip small', href: `#library?unit=${k}` }, h('i', { class: 'dot', style: `background:${c}` }), UNIT_SHORT[k])));
+}
+
 export interface HeaderOpts {
   /** Shown in the header bar and at the top of the drawer. */
   title?: string;
   sub?: string;
-  /** Page-specific navigation entries, listed above the always-present 活動目錄 entry. */
+  /** Page-specific navigation entries (links from `navLink`), listed above the always-present 活動目錄 entry. */
   items?: HTMLElement[];
   /** Settings (toggles) shown below the navigation, after a divider. */
   settings?: HTMLElement[];
@@ -34,7 +56,10 @@ export function siteHeader(o: HeaderOpts = {}): HTMLElement[] {
   const drawer = h('nav', { class: 'drawer', id: 'site-drawer', 'aria-label': '選單', hidden: true },
     o.title ? h('div', { class: 'drawer-head' }, h('b', {}, o.title), o.sub ? h('span', {}, o.sub) : null) : null,
     o.items ?? [],
-    h('button', { class: 'drawer-item', 'data-go': 'library', onclick: () => { close(); go('library'); } }, '活動目錄'),
+    h('a', { class: 'drawer-item', 'data-go': 'library', href: '#library' }, '活動目錄'),
+    recentSection(),
+    h('p', { class: 'drawer-label' }, '團體'),
+    unitRow(),
     o.settings?.length ? [h('hr', { class: 'drawer-sep' }), o.settings] : null);
   const setOpen = (open: boolean) => {
     drawer.hidden = scrim.hidden = !open;
@@ -42,7 +67,8 @@ export function siteHeader(o: HeaderOpts = {}): HTMLElement[] {
   };
   menu.addEventListener('click', () => setOpen(drawer.hidden));
   scrim.addEventListener('click', close);
-  drawer.addEventListener('click', e => { if ((e.target as HTMLElement).closest('[data-go]')) close(); });
+  // Any navigation out of the drawer closes it; toggles (settings) stay open.
+  drawer.addEventListener('click', e => { if ((e.target as HTMLElement).closest('a, [data-go]')) close(); });
   document.addEventListener('keydown', (e: KeyboardEvent) => { if (e.key === 'Escape') close(); }, { signal: pageSignal() });
   const header = h('header', { class: 'site-header' },
     h('div', { class: 'site-header-in' },
@@ -69,6 +95,6 @@ export function unitChip(u: string): HTMLElement {
 }
 
 export function viewMissing(message: string, back?: string): HTMLElement[] {
-  const items = back ? [h('button', { class: 'drawer-item', 'data-go': 'event', onclick: () => go(back) }, '這期的話數列表')] : [];
+  const items = back ? [navLink(back, '這期的話數列表')] : [];
   return [...siteHeader({ items }), h('p', { class: 'empty' }, message)];
 }
