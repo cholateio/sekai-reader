@@ -52,6 +52,10 @@ export function eventLabel(e: EventInfo): string {
   const c = e.chars?.[0] != null ? charById.get(e.chars[0]) : undefined;
   return n == null || !c ? (UNIT_SHORT[e.unit] ?? e.unit) : `${c.given}${n}箱`;
 }
+/** What readers call the event: `繪名5箱`, or `混活 #63` / `World Link #180` when there is no box. */
+export function eventShort(e: EventInfo): string {
+  return boxNo(e) == null ? `${eventLabel(e)} #${e.id}` : eventLabel(e);
+}
 export function charsOf(e: EventInfo): CharacterInfo[] {
   return (e.chars ?? []).map(id => charById.get(id)).filter((c): c is CharacterInfo => !!c);
 }

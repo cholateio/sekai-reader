@@ -24,7 +24,7 @@ test('recentList 容忍壞掉的儲存值', () => {
   pushRecent({ sid: 'event_173_01', id: 173, no: 1, title: 'a' });
   expect(recentList().length).toBe(1);
 });
-test('側邊欄：最近閱讀是連結，無紀錄時不顯示；沒有團體捷徑', () => {
+test('側邊欄：最近閱讀是連結、用「繪名5箱 第 N 話」不用標題，無紀錄時不顯示；沒有團體捷徑', () => {
   mount(siteHeader({ title: 'x' }));
   expect(drawer().textContent).not.toContain('最近閱讀');
   expect(drawer().textContent).not.toContain('團體');
@@ -35,22 +35,28 @@ test('側邊欄：最近閱讀是連結，無紀錄時不顯示；沒有團體�
   open();
   expect(drawer().hidden).toBe(false);
   const a = drawer().querySelector('a[href="#read-173-1"]')!;
-  expect(a.textContent).toContain('第 173 期 第 1 話');
+  expect(a.textContent).toContain(`${eventShort(EVENTS.find(e => e.id === 173)!)} 第 1 話`);
+  expect(a.textContent).toMatch(/\d箱 第 1 話/);
+  expect(a.textContent).not.toContain('令人開心的消息');
+  expect(a.textContent).not.toContain('第 173 期');
   expect(a.textContent).toContain('40%');
   a.dispatchEvent(new MouseEvent('click', { bubbles: true }));
   expect(drawer().hidden).toBe(true);
 });
-test('側邊欄段落順序：本頁導覽 → 活動目錄 → 最近閱讀 → 設定', () => {
+test('側邊欄段落順序：首頁 → 本頁導覽 → 最近閱讀 → 設定', () => {
   pushRecent({ sid: 'event_173_01', id: 173, no: 1, title: 'a' });
   mount(siteHeader({ title: 'x', items: [navLink('#event-173', '這期的話數列表')], settings: [document.createElement('button')] }));
   const kids = [...drawer().children];
   const at = (sel: string) => kids.findIndex(k => k.matches(sel) || !!k.querySelector(sel));
-  expect(at('a[href="#event-173"]')).toBeLessThan(at('a[href="#library"]'));
-  expect(at('a[href="#library"]')).toBeLessThan(at('a[href="#read-173-1"]'));
+  expect(drawer().querySelector('a[href="#library"]')!.textContent).toBe('首頁');
+  expect(drawer().textContent).not.toContain('活動目錄');
+  expect(at('.drawer-head')).toBeLessThan(at('a[href="#library"]'));
+  expect(at('a[href="#library"]')).toBeLessThan(at('a[href="#event-173"]'));
+  expect(at('a[href="#event-173"]')).toBeLessThan(at('a[href="#read-173-1"]'));
   expect(at('a[href="#read-173-1"]')).toBeLessThan(at('hr.drawer-sep'));
 });
 
-import { EVENTS, neighbours } from '../src/app/catalog';
+import { EVENTS, eventLabel, eventShort, neighbours } from '../src/app/catalog';
 import { viewEvent } from '../src/app/views/event';
 import { viewReader } from '../src/app/views/reader';
 import { syntheticBoard, syntheticEpisode } from './helpers';
@@ -70,7 +76,12 @@ test('活動頁：繼續閱讀指向最後有進度且未讀完的話，上一�
   expect(root.querySelector('.evhead .cast')).not.toBeNull();
   expect(root.querySelector('.evhead')!.textContent).toContain('可讀 2/8');
   expect(root.querySelector('.site-header .page-title')!.textContent).toMatch(/第 173 期 · .+ · 馬拉松|World Link/);
-  expect(drawer().querySelector(`a[href="#event-${EVENTS[i + 1].id}"]`)!.textContent).toContain('上一期');
+  const prevLink = drawer().querySelector(`a[href="#event-${EVENTS[i + 1].id}"]`)!;
+  expect(prevLink.textContent).toContain('上一期');
+  expect(prevLink.textContent).toContain(eventLabel(EVENTS[i + 1]));
+  expect(prevLink.textContent).not.toContain(EVENTS[i + 1].name);
+  expect(root.querySelector(`.evnav a[href="#event-${EVENTS[i + 1].id}"]`)!.textContent).not.toContain(EVENTS[i + 1].name);
+  expect(root.querySelector(`.evnav a[href="#event-${EVENTS[i + 1].id}"]`)!.textContent).toContain(eventLabel(EVENTS[i + 1]));
   expect(neighbours(165).next!.id).toBe(167);
 });
 test('活動頁：沒進度時從第 1 話開始；沒可讀話數就沒有按鈕', () => {
@@ -84,8 +95,9 @@ test('閱讀頁側邊欄有上一話／下一話，結尾卡片是連結', () =>
   const ep = syntheticEpisode();
   const ctx = { title: '第 1 話 測試', sub: '測試活動', back: '#event-1', manifest: { bg: [], sd: [], episodes: [ep.sid] } };
   mount(viewReader(ep, syntheticBoard(), { ...ctx, prev: { title: 'p', href: '#read-1-1' }, next: { title: 'n', href: null } }));
-  expect(drawer().querySelector('a[href="#read-1-1"]')!.textContent).toContain('上一話');
+  expect(drawer().querySelector('a[href="#read-1-1"]')!.textContent).toBe('上一話');
   expect(drawer().querySelector('.drawer-item.na')!.textContent).toContain('下一話');
+  expect(drawer().textContent).not.toContain('p');
   expect(drawer().querySelector('a[href="#event-1"]')!.textContent).toContain('這期的話數列表');
   expect(document.querySelector('.end a.ghost[href="#event-1"]')).not.toBeNull();
   mount(viewReader(ep, syntheticBoard(), { ...ctx, prev: null, next: { title: 'n', href: '#read-1-3' } }));

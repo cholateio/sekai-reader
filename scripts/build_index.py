@@ -2,7 +2,8 @@
 
 Downloads six master DB tables from Sekai-World's TC diff repo and writes a compact
 index: started events (newest first), their episodes, banner colour, featured characters
-(from the event's cards) and character colours.
+(from the event's cards) and character colours. Events the master data leaves untagged
+(`unit: "none"`, everything before #37) get their unit from the cards.
 
 The `jp` flag comes from the pipeline state file (events whose first episode is still Japanese).
 
@@ -42,8 +43,26 @@ def event_chars(event_cards, cards):
     return out
 
 
-def build_rows(events, stories, units, now_ms, jp_ids, event_chars):
+def first_tagged_event(events):
+    """Id of the oldest event whose master-data unit is set; older events are all "none" (untagged, not mixed)."""
+    return min((e["id"] for e in events.values() if e.get("unit", "none") != "none"), default=0)
+
+
+def event_unit(event, chars, unit_of_char, first_tagged):
+    """Master data tags events[].unit only from #37 (2022-10) on; before that every event is "none".
+    For those untagged events, cards (ignoring VIRTUAL SINGERs) all from one unit mean that unit's box event.
+    From the first tagged event on, "none" is the game's own mixed-event value and is kept."""
+    unit = event.get("unit", "none")
+    if unit != "none" or event["id"] >= first_tagged:
+        return unit
+    units = {unit_of_char[c] for c in chars if c in unit_of_char} - {"piapro"}
+    return units.pop() if len(units) == 1 else "none"
+
+
+def build_rows(events, stories, units, now_ms, jp_ids, event_chars, chars=()):
     unit_by_id = {u["id"]: u for u in units}
+    unit_of_char = {c["id"]: c["unit"] for c in chars}
+    first_tagged = first_tagged_event(events)
     rows = []
     for s in stories:
         e = events.get(s["eventId"])
@@ -53,7 +72,7 @@ def build_rows(events, stories, units, now_ms, jp_ids, event_chars):
         rows.append({
             "id": e["id"],
             "name": e["name"],
-            "unit": e.get("unit", "none"),
+            "unit": event_unit(e, event_chars.get(e["id"], []), unit_of_char, first_tagged),
             "type": e["eventType"],
             "date": time.strftime("%Y-%m-%d", time.gmtime(e["startAt"] / 1000)),
             "bundle": s["assetbundleName"],
@@ -82,7 +101,7 @@ def main(argv=None):
     chars = get("gameCharacters")
     units = get("gameCharacterUnits")
     chars_of = event_chars(get("eventCards"), get("cards"))
-    rows = build_rows(events, stories, units, time.time() * 1000, jp_ids_from_state(state), chars_of)
+    rows = build_rows(events, stories, units, time.time() * 1000, jp_ids_from_state(state), chars_of, chars)
 
     char_rows = []
     for c in chars:

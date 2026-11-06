@@ -49,6 +49,21 @@ class BuildRowsTest(unittest.TestCase):
         rows = bi.build_rows(EVENTS, STORIES, UNITS, now_ms=NOW, jp_ids=set(), event_chars={9: [3, 1]})
         self.assertEqual([r['chars'] for r in rows], [[], [3, 1]])
 
+    def test_unit_none_is_derived_from_cards(self):
+        # Master data tags events[].unit only from #37 (2022-10) on; earlier box events are "none" there.
+        chars = [{'id': 1, 'unit': 'light_sound'}, {'id': 2, 'unit': 'light_sound'}, {'id': 5, 'unit': 'idol'},
+                 {'id': 21, 'unit': 'piapro'}]
+        # Once the master data starts tagging (#14 here), "none" is the game's own mixed value: #15 stays none.
+        events = {9: dict(ev(9, 10 * DAY), unit='none'), 12: dict(ev(12, 50 * DAY), unit='none'),
+                  13: dict(ev(13, 60 * DAY), unit='none'), 14: dict(ev(14, 70 * DAY), unit='theme_park'),
+                  15: dict(ev(15, 80 * DAY), unit='none')}
+        stories = [story(9), story(12), story(13), story(14), story(15)]
+        ec = {9: [2, 21, 1], 12: [1, 5, 21], 13: [21], 14: [1, 2], 15: [1, 2, 21]}
+        rows = {r['id']: r['unit'] for r in bi.build_rows(events, stories, UNITS, now_ms=NOW, jp_ids=set(), event_chars=ec, chars=chars)}
+        self.assertEqual(rows, {9: 'light_sound', 12: 'none', 13: 'none', 14: 'theme_park', 15: 'none'})
+        self.assertEqual(bi.first_tagged_event(events), 14)
+        self.assertEqual(bi.first_tagged_event({9: events[9]}), 0)
+
     def test_no_hard_coded_jp_boundary(self):
         self.assertFalse(hasattr(bi, 'JP_TEXT_FROM'))
 

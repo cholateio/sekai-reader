@@ -1,5 +1,5 @@
 import { h } from '../../render/dom';
-import { unitOf } from '../catalog';
+import { eventById, eventShort, unitOf } from '../catalog';
 import { recentList } from '../recent';
 import { prefs } from '../storage';
 
@@ -24,7 +24,9 @@ function recentSection(): HTMLElement[] {
   return [h('p', { class: 'drawer-label' }, '最近閱讀'), ...items.map(r => {
     const pos = prefs.get(`pos:${r.sid}`, 0);
     const prog = pos > 0.97 ? '讀完' : pos > 0.02 ? `讀到 ${Math.round(pos * 100)}%` : '';
-    return navLink(`#read-${r.id}-${r.no}`, `第 ${r.id} 期 第 ${r.no} 話 ${r.title}`, prog);
+    // Readers remember 「繪名5箱」, not event or episode titles (owner, 2026-11-07).
+    const ev = eventById.get(r.id);
+    return navLink(`#read-${r.id}-${r.no}`, `${ev ? eventShort(ev) : `第 ${r.id} 期`} 第 ${r.no} 話`, prog);
   })];
 }
 
@@ -32,7 +34,7 @@ export interface HeaderOpts {
   /** Shown in the header bar and at the top of the drawer. */
   title?: string;
   sub?: string;
-  /** Page-specific navigation entries (links from `navLink`), listed above the always-present 活動目錄 entry. */
+  /** Page-specific navigation entries (links from `navLink`), listed below the always-present 首頁 entry. */
   items?: HTMLElement[];
   /** Settings (toggles) shown below the navigation, after a divider. */
   settings?: HTMLElement[];
@@ -50,8 +52,8 @@ export function siteHeader(o: HeaderOpts = {}): HTMLElement[] {
   const close = () => setOpen(false);
   const drawer = h('nav', { class: 'drawer', id: 'site-drawer', 'aria-label': '選單', hidden: true },
     o.title ? h('div', { class: 'drawer-head' }, h('b', {}, o.title), o.sub ? h('span', {}, o.sub) : null) : null,
+    h('a', { class: 'drawer-item', 'data-go': 'library', href: '#library' }, '首頁'),
     o.items ?? [],
-    h('a', { class: 'drawer-item', 'data-go': 'library', href: '#library' }, '活動目錄'),
     recentSection(),
     o.settings?.length ? [h('hr', { class: 'drawer-sep' }), o.settings] : null);
   const setOpen = (open: boolean) => {

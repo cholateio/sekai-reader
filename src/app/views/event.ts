@@ -42,13 +42,13 @@ export function viewEvent(id: number, manifest: Manifest): HTMLElement[] {
   }));
   const { prev, next } = neighbours(e.id);
   const evLink = (x: typeof prev, label: string, cls: string) => x
-    ? h('a', { class: `evnav-link ${cls}`, href: `#event-${x.id}` }, h('small', {}, `${label} #${x.id}`), h('span', {}, x.name)) : null;
+    ? h('a', { class: `evnav-link ${cls}`, href: `#event-${x.id}` }, h('small', {}, `${label} #${x.id}`), h('span', {}, eventLabel(x))) : null;
   const label = eventLabel(e);
   const type = TYPE_SHORT[e.type] ?? e.type;
   return [
     ...siteHeader({
       title: [`第 ${e.id} 期`, label, type === label ? null : type].filter(Boolean).join(' · '),
-      items: [prev ? navLink(`#event-${prev.id}`, `上一期 #${prev.id}`, prev.name) : null, next ? navLink(`#event-${next.id}`, `下一期 #${next.id}`, next.name) : null]
+      items: [prev ? navLink(`#event-${prev.id}`, `上一期 #${prev.id}`, eventLabel(prev)) : null, next ? navLink(`#event-${next.id}`, `下一期 #${next.id}`, eventLabel(next)) : null]
         .filter((x): x is HTMLAnchorElement => !!x),
     }),
     h('div', { class: 'evhead' },

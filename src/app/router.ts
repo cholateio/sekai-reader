@@ -1,6 +1,6 @@
 import { h } from '../render/dom';
 import { loadStoryboard, resolveStoryboard } from '../storyboard';
-import { eventById } from './catalog';
+import { eventById, eventLabel } from './catalog';
 import { parseQuery } from './filter';
 import { loadEpisode, loadManifest, type Manifest } from './load';
 import { pushRecent, type RecentItem } from './recent';
@@ -54,7 +54,7 @@ async function route(r: string, manifest: Manifest): Promise<Page> {
     return {
       recent: { sid, id, no, title },
       nodes: viewReader(ep, resolveStoryboard(loadStoryboard(sid), ep), {
-        title: `第 ${no} 話 ${title}`, sub: ev.name, back: `#event-${id}`, manifest, unit: unitFlavor(ev.unit),
+        title: `第 ${no} 話 ${title}`, sub: `第 ${id} 期 · ${eventLabel(ev)}`, back: `#event-${id}`, manifest, unit: unitFlavor(ev.unit),
         prev: link(ev.eps[i - 1]), next: link(ev.eps[i + 1]),
       }),
       restore: prefs.get(`pos:${sid}`, 0),

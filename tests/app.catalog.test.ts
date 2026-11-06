@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { boxNo, charById, charsOf, EVENTS, eventLabel, neighbours } from '../src/app/catalog';
+import { boxNo, charById, charsOf, EVENTS, eventLabel, eventShort, neighbours } from '../src/app/catalog';
 
 const e184 = EVENTS.find(e => e.id === 184)!;
 const banner = e184.chars![0];
@@ -13,6 +13,18 @@ test('boxNo：看板角色在同團活動裡的第幾次；混活、World Link�
   expect(boxNo(EVENTS.find(e => e.type === 'world_bloom')!)).toBeNull();
   expect(boxNo({ ...e184, chars: undefined })).toBeNull();
   expect(boxNo(EVENTS.find(e => e.id === 172)!)).toBeNull(); // 繪名 headlining a WxS event: guest, not a box
+});
+test('早期箱活（主資料 unit 為 none）也算箱：第 1 期是咲希1箱', () => {
+  const e1 = EVENTS.find(e => e.id === 1)!;
+  expect(e1.unit).toBe('light_sound');
+  expect(boxNo(e1)).toBe(1);
+  expect(eventLabel(e1)).toBe('咲希1箱');
+  expect(EVENTS.find(e => e.id === 4)!.unit).toBe('none'); // five units: still mixed
+});
+test('eventShort：箱活只給「繪名5箱」，其他帶期數', () => {
+  expect(eventShort(e184)).toBe(eventLabel(e184));
+  expect(eventShort({ ...e184, unit: 'none' })).toBe('混活 #184');
+  expect(eventShort(EVENTS.find(e => e.id === 172)!)).toBe('WxS #172');
 });
 test('eventLabel：繪名N箱、混活、World Link、缺 chars 退回團體短名', () => {
   expect(eventLabel(e184)).toBe(`繪名${boxNo(e184)}箱`);

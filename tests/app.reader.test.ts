@@ -238,11 +238,11 @@ describe('其他頁面也用同一個頁首', () => {
     expect(app.querySelector('.drawer [data-go="library"]')).not.toBeNull();
   });
 });
-test('側邊欄導覽在上、黑白在分隔線之後', () => {
+test('側邊欄首頁在最上、本頁導覽其次、黑白在分隔線之後', () => {
   mount(viewReader(ep, syntheticBoard(), ctx()));
   const kids = [...drawer().children];
   const at = (sel: string) => kids.findIndex(k => k.matches(sel));
-  expect(at('a[href="#event-1"]')).toBeLessThan(at('[data-go="library"]'));
-  expect(at('[data-go="library"]')).toBeLessThan(at('hr.drawer-sep'));
+  expect(at('[data-go="library"]')).toBeLessThan(at('a[href="#event-1"]'));
+  expect(at('a[href="#event-1"]')).toBeLessThan(at('hr.drawer-sep'));
   expect(at('hr.drawer-sep')).toBeLessThan(at('[aria-label="黑白"]'));
 });

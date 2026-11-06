@@ -13,7 +13,8 @@ export interface ReaderCtx {
   sub: string;
   back: string;
   manifest: Manifest;
-  /** Neighbouring episodes in the same event; href (a complete `#…`) is null when not available yet. */
+  /** Neighbouring episodes in the same event; href (a complete `#…`) is null when not available yet.
+   *  The drawer shows only 上一話／下一話; `title` is for the end card. */
   prev?: { title: string; href: string | null } | null;
   next: { title: string; href: string | null } | null;
   /** Unit easter egg for the comic; null/undefined for mixed events. */
@@ -45,7 +46,7 @@ export function viewReader(ep: Episode, board: Storyboard, ctx: ReaderCtx): HTML
     },
   }, h('span', {}, '黑白'), h('i', { class: 'switch', 'aria-hidden': 'true' }));
   const epLink = (x: ReaderCtx['next'], label: string) => !x ? null : x.href
-    ? navLink(x.href, label, x.title) : h('span', { class: 'drawer-item na' }, h('span', {}, label), h('small', {}, '尚未提供'));
+    ? navLink(x.href, label) : h('span', { class: 'drawer-item na' }, h('span', {}, label), h('small', {}, '尚未提供'));
   const header = siteHeader({
     title: ctx.title, sub: ctx.sub, progress: true,
     items: [epLink(ctx.prev ?? null, '上一話'), epLink(ctx.next, '下一話'), navLink(ctx.back, '這期的話數列表')]
