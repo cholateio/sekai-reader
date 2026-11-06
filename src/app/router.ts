@@ -1,6 +1,7 @@
 import { h } from '../render/dom';
 import { loadStoryboard, resolveStoryboard } from '../storyboard';
 import { eventById } from './catalog';
+import { parseQuery } from './filter';
 import { loadEpisode, loadManifest, type Manifest } from './load';
 import { prefs } from './storage';
 import { unitFlavor } from './units';
@@ -31,7 +32,8 @@ function onScroll(): void {
 async function route(r: string, manifest: Manifest): Promise<{ nodes: HTMLElement[]; restore: number }> {
   document.body.classList.remove('paper', 'bw');
   posKey = null;
-  if (r === 'library') return { nodes: viewLibrary(manifest), restore: 0 };
+  const [name, search = ''] = r.split('?', 2);
+  if (name === 'library') return { nodes: viewLibrary(manifest, parseQuery(search)), restore: 0 };
   let m = /^event-(\d+)$/.exec(r);
   if (m) return { nodes: viewEvent(Number(m[1]), manifest), restore: 0 };
   m = /^read-(\d+)-(\d+)$/.exec(r);
