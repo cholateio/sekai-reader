@@ -13,38 +13,39 @@
    "failures": 0,
    "eps": {
     "event_01_01": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_01_02": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_01_03": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_01_04": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_01_05": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_01_06": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_01_07": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_01_08": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     }
-   }
+   },
+   "scriptsAt": "2026-11-06T11:30:50.940Z"
   },
   "2": {
    "kind": "old",
@@ -52,38 +53,39 @@
    "failures": 0,
    "eps": {
     "event_02_01": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_02_02": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_02_03": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_02_04": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_02_05": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_02_06": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_02_07": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_02_08": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     }
-   }
+   },
+   "scriptsAt": "2026-11-06T11:30:50.940Z"
   },
   "3": {
    "kind": "old",
@@ -91,38 +93,39 @@
    "failures": 0,
    "eps": {
     "event_03_01": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_03_02": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_03_03": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_03_04": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_03_05": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_03_06": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_03_07": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     },
     "event_03_08": {
-     "s": "manual",
+     "s": "none",
      "tries": 0
     }
-   }
+   },
+   "scriptsAt": "2026-11-06T11:30:50.940Z"
   },
   "4": {
    "kind": "old",
