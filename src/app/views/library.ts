@@ -16,17 +16,13 @@ function progressOf(e: EventInfo): string {
   return last ? `讀到第 ${last} 話` : '';
 }
 
-/** Second row of a library entry: date · box label · episode count (or readable n/N) · progress. */
-export function eventMeta(e: EventInfo, available: Set<string>): HTMLElement[] {
-  const total = e.eps.length;
-  const n = e.eps.filter(x => available.has(x[2])).length;
-  const eps = n && n < total ? `可讀 ${n}/${total} 話` : `${total} 話`;
-  return [e.date, eventLabel(e), eps, progressOf(e) || null]
+/** Second row of a library entry: date · box label · progress. Episode counts live on the event page. */
+export function eventMeta(e: EventInfo): HTMLElement[] {
+  return [e.date, eventLabel(e), progressOf(e) || null]
     .filter((x): x is string => !!x).map(x => h('span', {}, x));
 }
 
-export function viewLibrary(manifest: Manifest, initial: LibraryQuery = EMPTY_QUERY): HTMLElement[] {
-  const available = new Set(manifest.episodes);
+export function viewLibrary(_manifest: Manifest, initial: LibraryQuery = EMPTY_QUERY): HTMLElement[] {
   let qy = initial;
   const list = h('div', { class: 'list' });
   const chips = h('div', { class: 'chips', role: 'group', 'aria-label': '篩選' });
@@ -53,7 +49,7 @@ export function viewLibrary(manifest: Manifest, initial: LibraryQuery = EMPTY_QU
       h('i', { class: 'stripe', style: `background:${e.color || unitOf(e.unit)[1]}` }),
       h('span', { class: 'main' },
         h('span', { class: 'nm' }, e.name),
-        h('span', { class: 'meta' }, eventMeta(e, available))),
+        h('span', { class: 'meta' }, eventMeta(e))),
       h('span', { class: 'num' }, `#${e.id}`)))
       : [h('p', { class: 'empty' }, '找不到符合的活動。', h('br'), clearLink())]));
     // No 「全部」 chip: nothing pressed means all units; tapping the pressed chip again clears it.

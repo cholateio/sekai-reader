@@ -1,5 +1,5 @@
 import { h } from '../../render/dom';
-import { UNIT_SHORT, UNITS, unitOf } from '../catalog';
+import { unitOf } from '../catalog';
 import { recentList } from '../recent';
 import { prefs } from '../storage';
 
@@ -28,11 +28,6 @@ function recentSection(): HTMLElement[] {
   })];
 }
 
-function unitRow(): HTMLElement {
-  return h('div', { class: 'drawer-units' }, Object.entries(UNITS).filter(([k]) => k !== 'piapro' && k !== 'none')
-    .map(([k, [, c]]) => h('a', { class: 'chip small', href: `#library?unit=${k}` }, h('i', { class: 'dot', style: `background:${c}` }), UNIT_SHORT[k])));
-}
-
 export interface HeaderOpts {
   /** Shown in the header bar and at the top of the drawer. */
   title?: string;
@@ -58,8 +53,6 @@ export function siteHeader(o: HeaderOpts = {}): HTMLElement[] {
     o.items ?? [],
     h('a', { class: 'drawer-item', 'data-go': 'library', href: '#library' }, '活動目錄'),
     recentSection(),
-    h('p', { class: 'drawer-label' }, '團體'),
-    unitRow(),
     o.settings?.length ? [h('hr', { class: 'drawer-sep' }), o.settings] : null);
   const setOpen = (open: boolean) => {
     drawer.hidden = scrim.hidden = !open;

@@ -10,12 +10,12 @@ const mount = (nodes: HTMLElement[]) => { document.body.replaceChildren(...nodes
 beforeEach(() => { localStorage.clear(); history.replaceState(null, '', '#library'); });
 afterEach(() => { document.body.replaceChildren(); });
 
-test('列是連結，第二行只有日期、箱、話數；不列角色也不列類型', () => {
+test('列是連結，第二行只有日期與箱；不列話數、角色、類型', () => {
   const root = mount(viewLibrary(emptyManifest, EMPTY_QUERY));
   const row = root.querySelector('a.ev[href="#event-184"]')!;
   const meta = row.querySelector('.meta')!.textContent!;
   expect(meta).toMatch(/繪名\d+箱/);
-  expect(meta).toContain('8 話');
+  expect(meta).not.toMatch(/\d+ 話/);
   expect(meta).not.toContain('馬拉松');
   expect(row.querySelector('.cast')).toBeNull();
   expect(root.querySelector('.list .cast')).toBeNull();
@@ -63,20 +63,17 @@ test('空結果有清除連結', () => {
   mount(viewLibrary(emptyManifest, { ...EMPTY_QUERY, q: 'zzzz-nothing' }));
   expect(document.querySelector('.empty a.clear-all')).not.toBeNull();
 });
-test('進度：讀到第 k 話、可讀 n/N 話、讀完', () => {
+test('進度：讀到第 k 話、讀完；不顯示可讀數或話數', () => {
   prefs.set('pos:event_173_02', 0.4);
   const m = { bg: [], sd: [], episodes: ['event_173_01', 'event_173_02'] };
   let meta = mount(viewLibrary(m, EMPTY_QUERY)).querySelector('a.ev[href="#event-173"] .meta')!.textContent!;
-  expect(meta).toContain('可讀 2/8 話');
-  expect(meta).not.toMatch(/·\s*8 話/);
   expect(meta).toContain('讀到第 2 話');
-  for (let i = 1; i <= 8; i++) prefs.set(`pos:event_173_0${i}`, 0.99);
-  const all = { bg: [], sd: [], episodes: Array.from({ length: 8 }, (_, i) => `event_173_0${i + 1}`) };
-  meta = mount(viewLibrary(all, EMPTY_QUERY)).querySelector('a.ev[href="#event-173"] .meta')!.textContent!;
-  expect(meta).toContain('8 話');
   expect(meta).not.toContain('可讀');
+  expect(meta.replace('讀到第 2 話', '')).not.toContain('話');
+  for (let i = 1; i <= 8; i++) prefs.set(`pos:event_173_0${i}`, 0.99);
+  meta = mount(viewLibrary(m, EMPTY_QUERY)).querySelector('a.ev[href="#event-173"] .meta')!.textContent!;
   expect(meta).toContain('讀完');
-  expect(meta).not.toContain('讀到第');
+  expect(meta).not.toContain('話');
 });
 test('頁面不含 sekai.best，常駐操作只有一個搜尋框與六顆團體晶片，沒有「全部」也沒有面板', () => {
   mount(viewLibrary(emptyManifest, EMPTY_QUERY));

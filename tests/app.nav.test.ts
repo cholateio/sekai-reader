@@ -24,10 +24,11 @@ test('recentList 容忍壞掉的儲存值', () => {
   pushRecent({ sid: 'event_173_01', id: 173, no: 1, title: 'a' });
   expect(recentList().length).toBe(1);
 });
-test('側邊欄：最近閱讀與團體捷徑是連結，無紀錄時不顯示最近閱讀', () => {
+test('側邊欄：最近閱讀是連結，無紀錄時不顯示；沒有團體捷徑', () => {
   mount(siteHeader({ title: 'x' }));
   expect(drawer().textContent).not.toContain('最近閱讀');
-  expect(drawer().querySelectorAll('a.chip[href^="#library?unit="]').length).toBe(5);
+  expect(drawer().textContent).not.toContain('團體');
+  expect(drawer().querySelector('a[href^="#library?unit="]')).toBeNull();
   pushRecent({ sid: 'event_173_01', id: 173, no: 1, title: '令人開心的消息' });
   prefs.set('pos:event_173_01', 0.4);
   mount(siteHeader({ title: 'x' }));
@@ -39,15 +40,14 @@ test('側邊欄：最近閱讀與團體捷徑是連結，無紀錄時不顯示�
   a.dispatchEvent(new MouseEvent('click', { bubbles: true }));
   expect(drawer().hidden).toBe(true);
 });
-test('側邊欄段落順序：本頁導覽 → 活動目錄 → 最近閱讀 → 團體 → 設定', () => {
+test('側邊欄段落順序：本頁導覽 → 活動目錄 → 最近閱讀 → 設定', () => {
   pushRecent({ sid: 'event_173_01', id: 173, no: 1, title: 'a' });
   mount(siteHeader({ title: 'x', items: [navLink('#event-173', '這期的話數列表')], settings: [document.createElement('button')] }));
   const kids = [...drawer().children];
   const at = (sel: string) => kids.findIndex(k => k.matches(sel) || !!k.querySelector(sel));
   expect(at('a[href="#event-173"]')).toBeLessThan(at('a[href="#library"]'));
   expect(at('a[href="#library"]')).toBeLessThan(at('a[href="#read-173-1"]'));
-  expect(at('a[href="#read-173-1"]')).toBeLessThan(at('a.chip[href^="#library?unit="]'));
-  expect(at('a.chip[href^="#library?unit="]')).toBeLessThan(at('hr.drawer-sep'));
+  expect(at('a[href="#read-173-1"]')).toBeLessThan(at('hr.drawer-sep'));
 });
 
 import { EVENTS, neighbours } from '../src/app/catalog';
