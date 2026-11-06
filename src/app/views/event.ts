@@ -1,9 +1,20 @@
 import { h } from '../../render/dom';
-import { eventById, eventLabel, neighbours, TYPE_SHORT } from '../catalog';
+import { charsOf, eventById, eventLabel, neighbours, TYPE_SHORT, type EventInfo } from '../catalog';
 import type { Manifest } from '../load';
 import { prefs } from '../storage';
 import { navLink, siteFooter, siteHeader, unitChip, viewMissing } from './common';
-import { castRow } from './library';
+
+const CAST_MAX = 8;
+
+/** Featured characters as colour dots + given names; null when the index has no `chars` for the event. */
+export function castRow(e: EventInfo): HTMLElement | null {
+  const cs = charsOf(e);
+  if (!cs.length) return null;
+  return h('span', { class: 'cast' },
+    cs.slice(0, CAST_MAX).map(c => h('span', { class: 'c' }, h('i', { class: 'dot', style: `background:${c.color}` }), c.given)),
+    cs.length > CAST_MAX ? h('span', { class: 'more-cast' }, `等 ${cs.length} 人`) : null);
+}
+
 
 export function viewEvent(id: number, manifest: Manifest): HTMLElement[] {
   const e = eventById.get(id);

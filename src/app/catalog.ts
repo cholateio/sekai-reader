@@ -27,21 +27,30 @@ export const UNIT_SHORT: Record<string, string> = {
 };
 export const TYPE_SHORT: Record<string, string> = { marathon: '馬拉松', cheerful_carnival: '嘉年華', world_bloom: 'World Link' };
 
-// Box number = position of the event among its unit's events, oldest first (fan term 「第N箱」).
+// Box number = how many times the banner character (first event card, `chars[0]`) has headlined
+// an event of their own unit, oldest first (fan term 「繪名5箱」). Mixed events, World Link and
+// cross-unit guest events (banner from another unit, e.g. #172) are not boxes and do not count.
 const BOX = new Map<number, number>();
-for (const unit of new Set(EVENTS.map(e => e.unit))) {
-  if (unit === 'none') continue;
-  EVENTS.filter(e => e.unit === unit).sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id)
-    .forEach((e, i) => BOX.set(e.id, i + 1));
+{
+  const count = new Map<number, number>();
+  for (const e of [...EVENTS].sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id)) {
+    const banner = e.chars?.[0];
+    if (e.unit === 'none' || e.type === 'world_bloom' || banner == null || charById.get(banner)?.unit !== e.unit) continue;
+    const n = (count.get(banner) ?? 0) + 1;
+    count.set(banner, n);
+    BOX.set(e.id, n);
+  }
 }
 export function boxNo(e: EventInfo): number | null {
-  return e.unit === 'none' ? null : (BOX.get(e.id) ?? null);
+  // Re-check the fields so a modified copy of an event (tests, future overrides) does not inherit the id's box.
+  return e.unit === 'none' || e.type === 'world_bloom' || e.chars?.[0] == null ? null : (BOX.get(e.id) ?? null);
 }
 export function eventLabel(e: EventInfo): string {
   if (e.type === 'world_bloom') return 'World Link';
   if (e.unit === 'none') return '混活';
   const n = boxNo(e);
-  return n == null ? (UNIT_SHORT[e.unit] ?? e.unit) : `${UNIT_SHORT[e.unit] ?? e.unit} 第${n}箱`;
+  const c = e.chars?.[0] != null ? charById.get(e.chars[0]) : undefined;
+  return n == null || !c ? (UNIT_SHORT[e.unit] ?? e.unit) : `${c.given}${n}箱`;
 }
 export function charsOf(e: EventInfo): CharacterInfo[] {
   return (e.chars ?? []).map(id => charById.get(id)).filter((c): c is CharacterInfo => !!c);

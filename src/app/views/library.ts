@@ -1,12 +1,9 @@
 import { h } from '../../render/dom';
-import { BUILT, charById, charsOf, EVENTS, eventLabel, TYPE_SHORT, UNIT_SHORT, UNITS, unitOf, type EventInfo } from '../catalog';
+import { BUILT, EVENTS, eventLabel, UNIT_SHORT, UNITS, unitOf, type EventInfo } from '../catalog';
 import { EMPTY_QUERY, filterEvents, isFiltered, toHash, type LibraryQuery } from '../filter';
 import type { Manifest } from '../load';
 import { prefs } from '../storage';
 import { siteFooter, siteHeader } from './common';
-import { openFilterSheet } from './sheet';
-
-const CAST_MAX = 8;
 
 function progressOf(e: EventInfo): string {
   let last = 0, done = 0;
@@ -19,29 +16,13 @@ function progressOf(e: EventInfo): string {
   return last ? `讀到第 ${last} 話` : '';
 }
 
-export function castRow(e: EventInfo): HTMLElement | null {
-  const cs = charsOf(e);
-  if (!cs.length) return null;
-  return h('span', { class: 'cast' },
-    cs.slice(0, CAST_MAX).map(c => h('span', { class: 'c' }, h('i', { class: 'dot', style: `background:${c.color}` }), c.given)),
-    cs.length > CAST_MAX ? h('span', { class: 'more-cast' }, `等 ${cs.length} 人`) : null);
-}
-
+/** Second row of a library entry: date · box label · episode count (or readable n/N) · progress. */
 export function eventMeta(e: EventInfo, available: Set<string>): HTMLElement[] {
-  const label = eventLabel(e);
-  const type = TYPE_SHORT[e.type] ?? e.type;
+  const total = e.eps.length;
   const n = e.eps.filter(x => available.has(x[2])).length;
-  const prog = progressOf(e);
-  return [e.date, label, type === label ? null : type, `${e.eps.length} 話`, n ? `可讀 ${n}/${e.eps.length}` : null, prog || null]
+  const eps = n && n < total ? `可讀 ${n}/${total} 話` : `${total} 話`;
+  return [e.date, eventLabel(e), eps, progressOf(e) || null]
     .filter((x): x is string => !!x).map(x => h('span', {}, x));
-}
-
-function moreLabel(qy: LibraryQuery): (HTMLElement | string)[] {
-  const c = qy.char != null ? charById.get(qy.char) : null;
-  const parts: (HTMLElement | string)[] = [];
-  if (c) parts.push(h('i', { class: 'dot', style: `background:${c.color}` }), c.given);
-  if (qy.type !== 'all') parts.push(c ? ' · ' : '', TYPE_SHORT[qy.type] ?? qy.type);
-  return parts.length ? parts : ['角色 ▾'];
 }
 
 export function viewLibrary(manifest: Manifest, initial: LibraryQuery = EMPTY_QUERY): HTMLElement[] {
@@ -72,23 +53,14 @@ export function viewLibrary(manifest: Manifest, initial: LibraryQuery = EMPTY_QU
       h('i', { class: 'stripe', style: `background:${e.color || unitOf(e.unit)[1]}` }),
       h('span', { class: 'main' },
         h('span', { class: 'nm' }, e.name),
-        h('span', { class: 'meta' }, eventMeta(e, available)),
-        castRow(e)),
+        h('span', { class: 'meta' }, eventMeta(e, available))),
       h('span', { class: 'num' }, `#${e.id}`)))
       : [h('p', { class: 'empty' }, '找不到符合的活動。', h('br'), clearLink())]));
     const unitChips = [['all', '全部', null] as const, ...Object.entries(UNITS).filter(([k]) => k !== 'piapro').map(([k, [, c]]) => [k, UNIT_SHORT[k], c] as const)]
       .map(([k, n, c]) => h('button', {
         class: 'chip', 'data-unit': k, 'aria-pressed': String(qy.unit === k), onclick: () => apply({ ...qy, unit: k }),
       }, c ? h('i', { class: 'dot', style: `background:${c}` }) : null, n));
-    const active = qy.char != null || qy.type !== 'all';
-    const more = h('button', {
-      class: 'chip more', 'aria-pressed': String(active), 'aria-haspopup': 'dialog',
-      onclick: () => openFilterSheet(qy, apply, () => chips.querySelector<HTMLElement>('.chip.more')),
-    }, moreLabel(qy), active ? h('span', {
-      class: 'clear', role: 'button', 'aria-label': '清除角色與類型',
-      onclick: (ev: Event) => { ev.stopPropagation(); apply({ ...qy, char: null, type: 'all' }); },
-    }, '×') : null);
-    chips.replaceChildren(...unitChips, more);
+    chips.replaceChildren(...unitChips);
   };
 
   const search = h('input', {
