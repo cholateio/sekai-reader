@@ -1,11 +1,11 @@
-import index from '../../data/tc-event-index.json';
+import { CHARS, type CharacterInfo } from '../app/catalog';
 
-export interface CharacterInfo { id: number; first: string; given: string; unit: string; color: string }
+export type { CharacterInfo };
 
 export const SIDE_COLOR = '#7b8496';
 
 const byName = new Map<string, CharacterInfo>();
-for (const c of index.chars as CharacterInfo[]) {
+for (const c of CHARS) {
   byName.set(c.given, c);
   if (c.first) byName.set(c.first + c.given, c);
 }
