@@ -68,7 +68,7 @@ describe('路由', () => {
     history.replaceState(null, '', '#event-173');
     const app = document.createElement('div');
     await startApp(app);
-    expect(app.querySelectorAll('button.read').length).toBe(1);
+    expect(app.querySelectorAll('a.ep').length).toBe(1);
     expect(app.textContent).toContain('尚未提供');
     expect(app.innerHTML).not.toContain('sekai.best');
   });
@@ -149,11 +149,15 @@ test('漢堡按鈕開關側邊欄，側邊欄有標題、返回與黑白', () =>
   expect(drawer().textContent).toContain('第 1 話 測試');
   expect(drawer().textContent).toContain('測試活動');
   expect(drawer().querySelector('[aria-label="黑白"]')).not.toBeNull();
-  (drawer().querySelector('[data-go="event"]') as HTMLElement).click();
-  expect(location.hash).toBe('#event-1');
+  const back = drawer().querySelector('a[href="#event-1"]') as HTMLAnchorElement;
+  expect(back.textContent).toContain('這期的話數列表');
+  back.click();
+  expect(drawer().hidden).toBe(true);
   menu().click();
-  (drawer().querySelector('[data-go="library"]') as HTMLElement).click();
-  expect(location.hash).toBe('#library');
+  const lib = drawer().querySelector('[data-go="library"]') as HTMLAnchorElement;
+  expect(lib.getAttribute('href')).toBe('#library');
+  lib.click();
+  expect(drawer().hidden).toBe(true);
 });
 test('點遮罩或按 Esc 關閉側邊欄', () => {
   mount(viewReader(ep, syntheticBoard(), ctx()));
@@ -238,7 +242,7 @@ test('側邊欄導覽在上、黑白在分隔線之後', () => {
   mount(viewReader(ep, syntheticBoard(), ctx()));
   const kids = [...drawer().children];
   const at = (sel: string) => kids.findIndex(k => k.matches(sel));
-  expect(at('[data-go="event"]')).toBeLessThan(at('[data-go="library"]'));
+  expect(at('a[href="#event-1"]')).toBeLessThan(at('[data-go="library"]'));
   expect(at('[data-go="library"]')).toBeLessThan(at('hr.drawer-sep'));
   expect(at('hr.drawer-sep')).toBeLessThan(at('[aria-label="黑白"]'));
 });

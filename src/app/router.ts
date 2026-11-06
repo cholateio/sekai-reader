@@ -1,7 +1,9 @@
 import { h } from '../render/dom';
 import { loadStoryboard, resolveStoryboard } from '../storyboard';
 import { eventById } from './catalog';
+import { parseQuery } from './filter';
 import { loadEpisode, loadManifest, type Manifest } from './load';
+import { pushRecent, type RecentItem } from './recent';
 import { prefs } from './storage';
 import { unitFlavor } from './units';
 import { leavePage, viewMissing } from './views/common';
@@ -28,10 +30,13 @@ function onScroll(): void {
   if (posKey && now >= quietUntil && now - scrollTick > 400) { scrollTick = now; prefs.set(`pos:${posKey}`, p); }
 }
 
-async function route(r: string, manifest: Manifest): Promise<{ nodes: HTMLElement[]; restore: number }> {
+interface Page { nodes: HTMLElement[]; restore: number; /** Recorded only when this render is still the latest (see startApp). */ recent?: RecentItem }
+
+async function route(r: string, manifest: Manifest): Promise<Page> {
   document.body.classList.remove('paper', 'bw');
   posKey = null;
-  if (r === 'library') return { nodes: viewLibrary(manifest), restore: 0 };
+  const [name, search = ''] = r.split('?', 2);
+  if (name === 'library') return { nodes: viewLibrary(manifest, parseQuery(search)), restore: 0 };
   let m = /^event-(\d+)$/.exec(r);
   if (m) return { nodes: viewEvent(Number(m[1]), manifest), restore: 0 };
   m = /^read-(\d+)-(\d+)$/.exec(r);
@@ -43,12 +48,14 @@ async function route(r: string, manifest: Manifest): Promise<{ nodes: HTMLElemen
     const [, title, sid] = ev.eps[i];
     const ep = manifest.episodes.includes(sid) || !manifest.episodes.length ? await loadEpisode(sid) : null;
     if (!ep) return { nodes: viewMissing(`第 ${no} 話「${title}」尚未提供。`, `#event-${id}`), restore: 0 };
-    const nx = ev.eps[i + 1];
+    const link = (x: typeof ev.eps[number] | undefined) => x
+      ? { title: x[1], href: manifest.episodes.includes(x[2]) ? `#read-${id}-${x[0]}` : null } : null;
     posKey = sid;
     return {
+      recent: { sid, id, no, title },
       nodes: viewReader(ep, resolveStoryboard(loadStoryboard(sid), ep), {
-        title: `第 ${no} 話 ${title}`, sub: ev.name, back: `event-${id}`, manifest, unit: unitFlavor(ev.unit),
-        next: nx ? { title: nx[1], href: manifest.episodes.includes(nx[2]) ? `read-${id}-${nx[0]}` : null } : null,
+        title: `第 ${no} 話 ${title}`, sub: ev.name, back: `#event-${id}`, manifest, unit: unitFlavor(ev.unit),
+        prev: link(ev.eps[i - 1]), next: link(ev.eps[i + 1]),
       }),
       restore: prefs.get(`pos:${sid}`, 0),
     };
@@ -64,8 +71,9 @@ export async function startApp(app: HTMLElement): Promise<void> {
     if (!location.hash || location.hash === '#') history.replaceState(null, '', DEFAULT_ROUTE);
     const mine = ++seq;
     leavePage();
-    const { nodes, restore } = await route(location.hash.slice(1), manifest);
+    const { nodes, restore, recent } = await route(location.hash.slice(1), manifest);
     if (mine !== seq) return;
+    if (recent) pushRecent(recent);
     quietUntil = Date.now() + RESTORE_QUIET_MS;
     app.replaceChildren(h('div', { class: 'wrap' }, nodes));
     requestAnimationFrame(() => {

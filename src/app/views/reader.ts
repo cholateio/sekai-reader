@@ -6,14 +6,15 @@ import type { Episode } from '../../scenario/types';
 import type { Storyboard } from '../../storyboard/types';
 import type { Manifest } from '../load';
 import { prefs } from '../storage';
-import { go, siteHeader } from './common';
+import { navLink, siteHeader } from './common';
 
 export interface ReaderCtx {
   title: string;
   sub: string;
   back: string;
   manifest: Manifest;
-  /** Next episode in the same event; href null when it is not available yet. */
+  /** Neighbouring episodes in the same event; href (a complete `#…`) is null when not available yet. */
+  prev?: { title: string; href: string | null } | null;
   next: { title: string; href: string | null } | null;
   /** Unit easter egg for the comic; null/undefined for mixed events. */
   unit?: UnitFlavor | null;
@@ -43,19 +44,22 @@ export function viewReader(ep: Episode, board: Storyboard, ctx: ReaderCtx): HTML
       applyPrefs();
     },
   }, h('span', {}, '黑白'), h('i', { class: 'switch', 'aria-hidden': 'true' }));
+  const epLink = (x: ReaderCtx['next'], label: string) => !x ? null : x.href
+    ? navLink(x.href, label, x.title) : h('span', { class: 'drawer-item na' }, h('span', {}, label), h('small', {}, '尚未提供'));
   const header = siteHeader({
     title: ctx.title, sub: ctx.sub, progress: true,
-    items: [h('button', { class: 'drawer-item', 'data-go': 'event', onclick: () => go(ctx.back) }, '這期的話數列表')],
+    items: [epLink(ctx.prev ?? null, '上一話'), epLink(ctx.next, '下一話'), navLink(ctx.back, '這期的話數列表')]
+      .filter((x): x is HTMLElement => !!x),
     settings: [bwBtn],
   });
 
   const end = h('div', { class: 'end' });
   if (ctx.next) {
     end.append(h('b', {}, `下一話：${ctx.next.title}`), ctx.next.href
-      ? h('button', { class: 'primary', onclick: () => go(ctx.next!.href!) }, '繼續閱讀')
+      ? h('a', { class: 'primary', href: ctx.next.href }, '繼續閱讀')
       : h('span', { class: 'sub' }, '下一話尚未提供。'));
   } else end.append(h('b', {}, '這期活動讀完了'));
-  end.append(h('button', { class: 'ghost', onclick: () => go(ctx.back) }, '回到話數列表'));
+  end.append(h('a', { class: 'ghost', href: ctx.back }, '回到話數列表'));
 
   return [...header, body, end];
 }

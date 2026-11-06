@@ -62,6 +62,9 @@ The pipeline workflow reads these (set once with `bash scripts/pipeline/setup.sh
 - `fetch_episode.py` fetches one event per run; never loop it over events.
 - GitHub disables scheduled workflows in public repos after 60 days without repository activity. If the Actions tab shows the pipeline disabled, re-enable it there.
 - Pushes made with `GITHUB_TOKEN` do not trigger other workflows, so pipeline commits never start kit-guard or another pipeline run.
+- Library filters live in the hash: `#library?unit=street&char=12&type=marathon&q=…` (`src/app/filter.ts`). Filter changes use `history.replaceState`, so Back from an event returns to the same filtered list; unknown values are ignored. Character ids come from the index's per-event `chars` (event cards), so an index built before 2026-11-06 just shows no cast rows and no character matches.
+- Every navigation target is a real `<a href="#…">` (rows, episodes, drawer, prev/next); `go()` is only for programmatic jumps. jsdom does not navigate on anchor clicks, so tests assert `href` attributes, not `location.hash`.
+- `localStorage` keys are allow-listed in `src/app/storage.ts` (`bw`, `recent`, `pos:<sid>`); `recent` holds the last 5 episodes opened and the drawer shows the 3 newest that still exist in the index.
 - Bubble outlines are SVG drawn after layout (`fitBubbles`): they need the comic mounted, and redraw on font load and width change. The reading size is fixed at 14px (no Aa control). Measure with `offsetWidth`/`offsetHeight`, never `getBoundingClientRect` (the impact entry animation scales bubbles).
 - Bubble shape comes from `src/render/comic/shape.ts` rules; a storyboard `shape` override is for when the rule is wrong, not for decoration.
 - Seams stay 10px of visible paper because `applyEdges` pulls each row up by the slant (22px) plus one ink width per side without ink (est). A scene change without a trans card keeps a 20px pacing gap on purpose.

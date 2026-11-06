@@ -1,7 +1,8 @@
 """Build the Taiwan-server event index used by the reader.
 
-Downloads four master DB tables from Sekai-World's TC diff repo and writes a compact
-index: started events (newest first), their episodes, banner colour, and character colours.
+Downloads six master DB tables from Sekai-World's TC diff repo and writes a compact
+index: started events (newest first), their episodes, banner colour, featured characters
+(from the event's cards) and character colours.
 
 The `jp` flag comes from the pipeline state file (events whose first episode is still Japanese).
 
@@ -27,7 +28,21 @@ def jp_ids_from_state(state):
     return {int(k) for k, v in (state.get("events") or {}).items() if v.get("assets") == "jp"}
 
 
-def build_rows(events, stories, units, now_ms, jp_ids):
+def event_chars(event_cards, cards):
+    """Character ids per event, deduped in eventCards order; cards missing from `cards` are skipped."""
+    char_of = {c["id"]: c["characterId"] for c in cards}
+    out = {}
+    for ec in event_cards:
+        cid = char_of.get(ec["cardId"])
+        if cid is None:
+            continue
+        lst = out.setdefault(ec["eventId"], [])
+        if cid not in lst:
+            lst.append(cid)
+    return out
+
+
+def build_rows(events, stories, units, now_ms, jp_ids, event_chars):
     unit_by_id = {u["id"]: u for u in units}
     rows = []
     for s in stories:
@@ -44,6 +59,7 @@ def build_rows(events, stories, units, now_ms, jp_ids):
             "bundle": s["assetbundleName"],
             "color": banner["colorCode"] if banner else None,
             "jp": e["id"] in jp_ids,
+            "chars": event_chars.get(e["id"], []),
             "eps": [[x["episodeNo"], x["title"], x["scenarioId"]]
                     for x in sorted(s["eventStoryEpisodes"], key=lambda x: x["episodeNo"])],
         })
@@ -65,7 +81,8 @@ def main(argv=None):
     stories = get("eventStories")
     chars = get("gameCharacters")
     units = get("gameCharacterUnits")
-    rows = build_rows(events, stories, units, time.time() * 1000, jp_ids_from_state(state))
+    chars_of = event_chars(get("eventCards"), get("cards"))
+    rows = build_rows(events, stories, units, time.time() * 1000, jp_ids_from_state(state), chars_of)
 
     char_rows = []
     for c in chars:
