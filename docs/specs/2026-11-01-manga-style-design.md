@@ -70,7 +70,7 @@ MVP 做出來之後，使用者在手機上讀 173-1，和紙本漫畫對照後�
 4. 這句在分鏡的 `cut` 裡 → `cut`
 5. 格子類型是 `shout`、`impact`，或 `pop` → `shout`
 6. `shake` 為真，或表情名含 surprise／cry／shock → `wobble`
-7. 句尾是「……」或「…」且全句 ≤ 12 字，或表情名含 sad／down／shy／trouble → `whisper`
+7. 句尾是「……」或「…」且全句 ≤ 12 字，或表情名含 sad／down／shy／trouble 且全句 ≤ 20 字 → `whisper`（長篇說明即使表情困擾也維持 `round`，2026-11-06 owner）
 8. 其餘 → `round`
 
 尾巴方向：和現在的 `speakerSide` 一樣，依場景內出現順序左右交替；`impact`、`split`、`reveal`、`shout` 的框置中，尾巴朝下中央或不畫。特寫格的尾巴固定朝左（小人在左）。

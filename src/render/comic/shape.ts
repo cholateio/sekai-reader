@@ -8,6 +8,8 @@ const SHAKY_FACE = /surprise|cry|shock/;
 const QUIET_FACE = /sad|down|shy|trouble/;
 const TRAILING_ELLIPSIS = /(……|…)$/;
 const QUIET_MAX_CHARS = 12;
+// A long explanation in a troubled face is not a whisper (owner, 2026-11-06).
+const QUIET_FACE_MAX_CHARS = 20;
 
 /** Rule order is a spec decision (manga-style design, 對白框); the first match wins. */
 export function shapeFor(line: Line, panel: Panel, index: number, flavor?: UnitFlavor | null): BubbleShape {
@@ -20,6 +22,8 @@ export function shapeFor(line: Line, panel: Panel, index: number, flavor?: UnitF
   if (SHOUT_PANELS.has(panel.t)) return 'shout';
   const face = line.face.toLowerCase();
   if (line.shake || SHAKY_FACE.test(face)) return 'wobble';
-  if ((TRAILING_ELLIPSIS.test(line.body) && [...line.body].length <= QUIET_MAX_CHARS) || QUIET_FACE.test(face)) return 'whisper';
+  const chars = [...line.body].length;
+  if (TRAILING_ELLIPSIS.test(line.body) && chars <= QUIET_MAX_CHARS) return 'whisper';
+  if (QUIET_FACE.test(face) && chars <= QUIET_FACE_MAX_CHARS) return 'whisper';
   return 'round';
 }

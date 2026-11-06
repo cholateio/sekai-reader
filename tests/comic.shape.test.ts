@@ -24,6 +24,8 @@ test.each([
   ['單個刪節號', L({ body: '是嗎…' }), { t: 'talk' }, 'whisper'],
   ['長句刪節號', L({ body: '這句話很長很長很長很長很長……' }), { t: 'talk' }, 'round'],
   ['困擾表情', L({ face: 'face_trouble_01' }), { t: 'talk' }, 'whisper'],
+  ['困擾表情 20 字內', L({ face: 'face_trouble_01', body: '那果然還是只能選其中一邊呢。' }), { t: 'talk' }, 'whisper'],
+  ['困擾表情長句', L({ face: 'face_sad_01', body: '畢竟我幾乎沒有一個人單獨寫過我們的曲子，這樣還是不太對。' }), { t: 'talk' }, 'round'],
   ['一般', L({}), { t: 'talk' }, 'round'],
 ] as [string, Line, Panel, string][])('規則：%s', (_n, line, panel, want) => expect(shapeFor(line, panel, 0)).toBe(want));
 
