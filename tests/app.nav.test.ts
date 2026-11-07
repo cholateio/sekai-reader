@@ -61,11 +61,10 @@ import { viewEvent } from '../src/app/views/event';
 import { viewReader } from '../src/app/views/reader';
 import { syntheticBoard, syntheticEpisode } from './helpers';
 
-test('活動頁：繼續閱讀指向最後有進度且未讀完的話，上一期／下一期與話數都是連結', () => {
+test('活動頁：上一期／下一期與話數都是連結，標題區沒有繼續閱讀按鈕', () => {
   prefs.set('pos:event_173_02', 0.4); prefs.set('pos:event_173_01', 0.99);
   const root = mount(viewEvent(173, { bg: [], sd: [], episodes: ['event_173_01', 'event_173_02'] }));
-  expect(root.querySelector('a.continue')!.getAttribute('href')).toBe('#read-173-2');
-  expect(root.querySelector('a.continue')!.textContent).toContain('繼續閱讀 第 2 話');
+  expect(root.querySelector('.continue')).toBeNull();
   const { prev: p173, next: n173 } = neighbours(173);
   expect(root.querySelector(`.evnav a[href="#event-${p173!.id}"]`)).not.toBeNull();
   expect(root.querySelector(`.evnav a[href="#event-${n173!.id}"]`)).not.toBeNull();
@@ -76,9 +75,10 @@ test('活動頁：繼續閱讀指向最後有進度且未讀完的話，上一�
   expect(root.querySelector('.evhead .cast')).not.toBeNull();
   expect(root.querySelector('.evhead')!.textContent).toContain('可讀 2/8');
   expect(root.querySelector('.site-header .page-title')!.textContent).toBe('第 173 期');
-  // The page body is titled by the event name; the box label (「穗波6箱」) is for navigation only.
-  expect(root.querySelector('.evhead h1')!.textContent).toBe(EVENTS.find(e => e.id === 173)!.name);
-  expect(root.querySelector('.evhead')!.textContent).not.toContain(eventLabel(EVENTS.find(e => e.id === 173)!));
+  // Title = event name; the meta line is only the start date and the box label (no type, no episode count).
+  const e173 = EVENTS.find(e => e.id === 173)!;
+  expect(root.querySelector('.evhead h1')!.textContent).toBe(e173.name);
+  expect([...root.querySelectorAll('.evmeta span')].map(x => x.textContent)).toEqual([`${e173.date} 開始`, eventLabel(e173)]);
   expect(root.querySelector('.evhead')!.textContent).toContain('其餘尚未提供');
   expect(root.querySelector('.eps')!.textContent).not.toContain('尚未提供'); // said once in the head, not per row
   expect(root.querySelector('a.ep[href="#read-173-2"]')!.textContent).toContain('讀到 40%');
@@ -98,12 +98,10 @@ test('活動頁：上一期／下一期列永遠兩格，缺的一邊留空', ()
   expect(cells[1].getAttribute('href')).toBe('#event-14');
   expect(root.querySelector('.evhead')!.textContent).toContain('這期的漫畫尚未提供');
 });
-test('活動頁：沒進度時從第 1 話開始；沒可讀話數就沒有按鈕', () => {
-  let root = mount(viewEvent(173, { bg: [], sd: [], episodes: ['event_173_01'] }));
-  expect(root.querySelector('a.continue')!.getAttribute('href')).toBe('#read-173-1');
-  expect(root.querySelector('a.continue')!.textContent).toContain('從第 1 話開始');
-  root = mount(viewEvent(173, { bg: [], sd: [], episodes: [] }));
-  expect(root.querySelector('a.continue')).toBeNull();
+test('活動頁：混活的資訊列顯示「混活」', () => {
+  const mixed = EVENTS.find(e => e.unit === 'none' && e.type !== 'world_bloom')!;
+  const root = mount(viewEvent(mixed.id, { bg: [], sd: [], episodes: [] }));
+  expect(root.querySelector('.evmeta')!.textContent).toContain('混活');
 });
 test('閱讀頁側邊欄有上一話／下一話，結尾卡片是連結', () => {
   const ep = syntheticEpisode();

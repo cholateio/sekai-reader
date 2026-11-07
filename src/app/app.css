@@ -107,7 +107,6 @@ a.ev:hover .nm { text-decoration: underline; }
 .evmeta { margin: 2px 0 0; display: flex; flex-wrap: wrap; gap: 0 14px; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
 .evhead .cast { font-size: 13px; margin-top: 6px; }
 .evstatus { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
-.evhead .continue { justify-self: start; margin-top: 14px; }
 
 .eps { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 20px; }
 .eps li { border-top: 1px solid var(--line); }

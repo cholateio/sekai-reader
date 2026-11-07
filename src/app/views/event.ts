@@ -1,5 +1,5 @@
 import { h } from '../../render/dom';
-import { charsOf, eventById, eventLabel, neighbours, TYPE_SHORT, unitOf, type EventInfo } from '../catalog';
+import { charsOf, eventById, eventLabel, neighbours, unitOf, type EventInfo } from '../catalog';
 import { bannerUrl, type Manifest } from '../load';
 import { prefs } from '../storage';
 import { navLink, siteFooter, siteHeader, viewMissing } from './common';
@@ -22,11 +22,6 @@ export function viewEvent(id: number, manifest: Manifest): HTMLElement[] {
   const available = new Set(manifest.episodes);
   const readable = e.eps.filter(x => available.has(x[2]));
   const posOf = (sid: string) => prefs.get(`pos:${sid}`, 0);
-  // Continue = the last readable episode that was started but not finished; otherwise episode 1.
-  const resume = [...readable].reverse().find(([, , sid]) => { const p = posOf(sid); return p > 0.02 && p <= 0.97; });
-  const start = resume ?? readable[0];
-  const cont = start ? h('a', { class: 'primary continue', href: `#read-${e.id}-${start[0]}` },
-    resume ? `繼續閱讀 第 ${start[0]} 話` : `從第 ${start[0]} 話開始`) : null;
 
   // A readable episode is one link covering the whole cell (long-press / new tab); unavailable cells stay inert
   // and muted, and 「尚未提供」 is said once in the head instead of on every cell.
@@ -45,7 +40,6 @@ export function viewEvent(id: number, manifest: Manifest): HTMLElement[] {
     ? h('a', { class: `evnav-link ${cls}`, href: `#event-${x.id}` }, h('small', {}, `${label} #${x.id}`), h('span', {}, eventLabel(x)))
     : h('span', { class: `evnav-empty ${cls}`, 'aria-hidden': 'true' });
   const label = eventLabel(e);
-  const type = TYPE_SHORT[e.type] ?? e.type;
   const [unitName, unitColor] = unitOf(e.unit);
   const banner = bannerUrl(manifest, e.bundle);
   const status = readable.length === e.eps.length ? null
@@ -62,10 +56,9 @@ export function viewEvent(id: number, manifest: Manifest): HTMLElement[] {
     },
       h('p', { class: 'evunit' }, unitName),
       h('h1', { class: 'evtitle' }, e.name),
-      h('p', { class: 'evmeta' }, h('span', {}, `${e.date} 開始`), h('span', {}, type), h('span', {}, `全 ${e.eps.length} 話`)),
+      h('p', { class: 'evmeta' }, h('span', {}, `${e.date} 開始`), h('span', {}, label)),
       castRow(e),
-      status ? h('p', { class: 'evstatus' }, status) : null,
-      cont),
+      status ? h('p', { class: 'evstatus' }, status) : null),
     eps,
     h('nav', { class: 'evnav', 'aria-label': '相鄰活動' }, evLink(prev, '上一期', 'prev'), evLink(next, '下一期', 'next')),
     siteFooter(),
