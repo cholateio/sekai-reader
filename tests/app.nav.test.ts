@@ -75,7 +75,12 @@ test('活動頁：繼續閱讀指向最後有進度且未讀完的話，上一�
   expect(root.querySelectorAll('.ep').length).toBe(8);
   expect(root.querySelector('.evhead .cast')).not.toBeNull();
   expect(root.querySelector('.evhead')!.textContent).toContain('可讀 2/8');
-  expect(root.querySelector('.site-header .page-title')!.textContent).toMatch(/第 173 期 · .+ · 馬拉松|World Link/);
+  expect(root.querySelector('.site-header .page-title')!.textContent).toBe('第 173 期');
+  expect(root.querySelector('.evhead .evbox')!.textContent).toBe(eventLabel(EVENTS.find(e => e.id === 173)!));
+  expect(root.querySelector('.evhead .evname')!.textContent).toBe(EVENTS.find(e => e.id === 173)!.name);
+  expect(root.querySelector('.evhead')!.textContent).toContain('其餘尚未提供');
+  expect(root.querySelector('.eps')!.textContent).not.toContain('尚未提供'); // said once in the head, not per row
+  expect(root.querySelector('a.ep[href="#read-173-2"]')!.textContent).toContain('讀到 40%');
   expect(eventLabel(p173!)).toMatch(/^.+\d+箱$/); // previous Leo/need box, not the previous event id
   const prevLink = drawer().querySelector(`a[href="#event-${p173!.id}"]`)!;
   expect(prevLink.textContent).toContain('上一期');
@@ -83,6 +88,14 @@ test('活動頁：繼續閱讀指向最後有進度且未讀完的話，上一�
   expect(prevLink.textContent).not.toContain(p173!.name);
   expect(root.querySelector(`.evnav a[href="#event-${p173!.id}"]`)!.textContent).not.toContain(p173!.name);
   expect(root.querySelector(`.evnav a[href="#event-${p173!.id}"]`)!.textContent).toContain(eventLabel(p173!));
+});
+test('活動頁：上一期／下一期列永遠兩格，缺的一邊留空', () => {
+  const root = mount(viewEvent(2, { bg: [], sd: [], episodes: [] }));
+  const cells = root.querySelector('.evnav')!.children;
+  expect(cells.length).toBe(2);
+  expect(cells[0].matches('.evnav-empty')).toBe(true);
+  expect(cells[1].getAttribute('href')).toBe('#event-14');
+  expect(root.querySelector('.evhead')!.textContent).toContain('這期的漫畫尚未提供');
 });
 test('活動頁：沒進度時從第 1 話開始；沒可讀話數就沒有按鈕', () => {
   let root = mount(viewEvent(173, { bg: [], sd: [], episodes: ['event_173_01'] }));

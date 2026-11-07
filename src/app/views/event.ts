@@ -1,8 +1,8 @@
 import { h } from '../../render/dom';
-import { charsOf, eventById, eventLabel, neighbours, TYPE_SHORT, type EventInfo } from '../catalog';
+import { charsOf, eventById, eventLabel, neighbours, TYPE_SHORT, unitOf, type EventInfo } from '../catalog';
 import type { Manifest } from '../load';
 import { prefs } from '../storage';
-import { navLink, siteFooter, siteHeader, unitChip, viewMissing } from './common';
+import { navLink, siteFooter, siteHeader, viewMissing } from './common';
 
 const CAST_MAX = 8;
 
@@ -28,34 +28,40 @@ export function viewEvent(id: number, manifest: Manifest): HTMLElement[] {
   const cont = start ? h('a', { class: 'primary continue', href: `#read-${e.id}-${start[0]}` },
     resume ? `繼續閱讀 第 ${start[0]} 話` : `從第 ${start[0]} 話開始`) : null;
 
-  // A readable episode is one link covering the whole row (long-press / new tab); unavailable rows stay inert.
-  const eps = h('div', { class: 'eps' }, e.eps.map(([no, title, sid]) => {
+  // A readable episode is one link covering the whole cell (long-press / new tab); unavailable cells stay inert
+  // and muted, and 「尚未提供」 is said once in the head instead of on every cell.
+  const eps = h('ol', { class: 'eps' }, e.eps.map(([no, title, sid]) => {
     const pos = posOf(sid);
     const ok = available.has(sid);
-    return h(ok ? 'a' : 'div', { class: 'ep', href: ok ? `#read-${e.id}-${no}` : null },
+    const state = pos > 0.97 ? '讀完' : pos > 0.02 ? `讀到 ${Math.round(pos * 100)}%` : '開始閱讀';
+    return h('li', {}, h(ok ? 'a' : 'div', { class: ok ? 'ep' : 'ep na', href: ok ? `#read-${e.id}-${no}` : null },
       h('span', { class: 'no' }, no),
       h('span', { class: 't' }, title),
-      h('span', { class: 'acts' }, ok
-        ? [h('span', { class: 'read' }, pos > 0.02 && pos <= 0.97 ? '繼續閱讀' : '閱讀'),
-          pos > 0.02 ? h('span', { class: 'prog' }, pos > 0.97 ? '已讀完' : `讀到 ${Math.round(pos * 100)}%`) : null]
-        : h('span', { class: 'na' }, '尚未提供')));
+      ok ? h('span', { class: 'prog' }, state) : null,
+      ok && pos > 0.02 ? h('i', { class: 'bar', style: `--p:${Math.min(1, pos)}`, 'aria-hidden': 'true' }) : null));
   }));
   const { prev, next } = neighbours(e.id);
   const evLink = (x: typeof prev, label: string, cls: string) => x
-    ? h('a', { class: `evnav-link ${cls}`, href: `#event-${x.id}` }, h('small', {}, `${label} #${x.id}`), h('span', {}, eventLabel(x))) : null;
+    ? h('a', { class: `evnav-link ${cls}`, href: `#event-${x.id}` }, h('small', {}, `${label} #${x.id}`), h('span', {}, eventLabel(x)))
+    : h('span', { class: `evnav-empty ${cls}`, 'aria-hidden': 'true' });
   const label = eventLabel(e);
   const type = TYPE_SHORT[e.type] ?? e.type;
+  const [unitName, unitColor] = unitOf(e.unit);
+  const status = readable.length === e.eps.length ? null
+    : readable.length ? `可讀 ${readable.length}/${e.eps.length} 話，其餘尚未提供。` : '這期的漫畫尚未提供，先列出各話標題。';
   return [
     ...siteHeader({
-      title: [`第 ${e.id} 期`, label, type === label ? null : type].filter(Boolean).join(' · '),
+      title: `第 ${e.id} 期`, sub: label,
       items: [prev ? navLink(`#event-${prev.id}`, `上一期 #${prev.id}`, eventLabel(prev)) : null, next ? navLink(`#event-${next.id}`, `下一期 #${next.id}`, eventLabel(next)) : null]
         .filter((x): x is HTMLAnchorElement => !!x),
     }),
-    h('div', { class: 'evhead' },
-      h('h2', {}, e.name),
-      h('div', { class: 'evmeta' }, unitChip(e.unit), h('span', {}, label), `${e.date} 開始`, h('span', {}, `${e.eps.length} 話`),
-        readable.length ? h('span', {}, `可讀 ${readable.length}/${e.eps.length}`) : null),
+    h('section', { class: 'evhead', style: `--tone:${e.color || unitColor}` },
+      h('p', { class: 'evunit' }, unitName),
+      h('h1', { class: 'evbox' }, label),
+      h('p', { class: 'evname' }, e.name),
+      h('p', { class: 'evmeta' }, h('span', {}, `${e.date} 開始`), type === label ? null : h('span', {}, type), h('span', {}, `全 ${e.eps.length} 話`)),
       castRow(e),
+      status ? h('p', { class: 'evstatus' }, status) : null,
       cont),
     eps,
     h('nav', { class: 'evnav', 'aria-label': '相鄰活動' }, evLink(prev, '上一期', 'prev'), evLink(next, '下一期', 'next')),

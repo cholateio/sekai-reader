@@ -1,5 +1,5 @@
 import { h } from '../../render/dom';
-import { eventById, eventShort, unitOf } from '../catalog';
+import { eventById, eventShort } from '../catalog';
 import { recentList } from '../recent';
 import { prefs } from '../storage';
 
@@ -74,19 +74,9 @@ export function siteHeader(o: HeaderOpts = {}): HTMLElement[] {
   return [header, scrim, drawer];
 }
 
-export const ISSUES_URL = 'https://github.com/cholateio/sekai-reader/issues';
-
-/** Copyright notice wording approved by the owner 2026-11-04; no e-mail and no takedown promise. */
+/** Copyright notice (owner, 2026-11-04; contact sentence removed 2026-11-07): no e-mail, no takedown promise. */
 export function siteFooter(): HTMLElement {
-  return h('footer', { class: 'site-footer' },
-    '本站為非官方粉絲專案，遊戲內容著作權屬 SEGA、Colorful Palette、Crypton。權利人如有疑慮，請透過 ',
-    h('a', { href: ISSUES_URL, target: '_blank', rel: 'noopener' }, 'GitHub issue'),
-    ' 聯絡。');
-}
-
-export function unitChip(u: string): HTMLElement {
-  const [name, color] = unitOf(u);
-  return h('span', { class: 'chip small' }, h('i', { class: 'dot', style: `background:${color}` }), name);
+  return h('footer', { class: 'site-footer' }, '本站為非官方粉絲專案，遊戲內容著作權屬 SEGA、Colorful Palette、Crypton。');
 }
 
 export function viewMissing(message: string, back?: string): HTMLElement[] {
