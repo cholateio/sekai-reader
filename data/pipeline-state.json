@@ -4,7 +4,8 @@
  "spend": {
   "2026-11-04": 0.835148,
   "2026-11-05": 40.804868,
-  "2026-11-06": 79.386184
+  "2026-11-06": 78.130314,
+  "2026-11-07": 4.089576
  },
  "events": {
   "1": {
@@ -13,36 +14,36 @@
    "failures": 0,
    "eps": {
     "event_01_01": {
-     "s": "none",
-     "tries": 0
+     "s": "batch",
+     "tries": 1
     },
     "event_01_02": {
-     "s": "none",
-     "tries": 0
+     "s": "batch",
+     "tries": 1
     },
     "event_01_03": {
-     "s": "none",
-     "tries": 0
+     "s": "batch",
+     "tries": 1
     },
     "event_01_04": {
-     "s": "none",
-     "tries": 0
+     "s": "batch",
+     "tries": 1
     },
     "event_01_05": {
-     "s": "none",
-     "tries": 0
+     "s": "batch",
+     "tries": 1
     },
     "event_01_06": {
-     "s": "none",
-     "tries": 0
+     "s": "batch",
+     "tries": 1
     },
     "event_01_07": {
-     "s": "none",
-     "tries": 0
+     "s": "batch",
+     "tries": 1
     },
     "event_01_08": {
-     "s": "none",
-     "tries": 0
+     "s": "batch",
+     "tries": 1
     }
    },
    "scriptsAt": "2026-11-06T11:30:50.940Z"
@@ -53,36 +54,36 @@
    "failures": 0,
    "eps": {
     "event_02_01": {
-     "s": "none",
-     "tries": 0
+     "s": "batch",
+     "tries": 1
     },
     "event_02_02": {
-     "s": "none",
-     "tries": 0
+     "s": "batch",
+     "tries": 1
     },
     "event_02_03": {
-     "s": "none",
-     "tries": 0
+     "s": "batch",
+     "tries": 1
     },
     "event_02_04": {
-     "s": "none",
-     "tries": 0
+     "s": "batch",
+     "tries": 1
     },
     "event_02_05": {
-     "s": "none",
-     "tries": 0
+     "s": "batch",
+     "tries": 1
     },
     "event_02_06": {
-     "s": "none",
-     "tries": 0
+     "s": "batch",
+     "tries": 1
     },
     "event_02_07": {
-     "s": "none",
-     "tries": 0
+     "s": "batch",
+     "tries": 1
     },
     "event_02_08": {
-     "s": "none",
-     "tries": 0
+     "s": "batch",
+     "tries": 1
     }
    },
    "scriptsAt": "2026-11-06T11:30:50.940Z"
@@ -93,36 +94,36 @@
    "failures": 0,
    "eps": {
     "event_03_01": {
-     "s": "none",
-     "tries": 0
+     "s": "batch",
+     "tries": 1
     },
     "event_03_02": {
-     "s": "none",
-     "tries": 0
+     "s": "batch",
+     "tries": 1
     },
     "event_03_03": {
-     "s": "none",
-     "tries": 0
+     "s": "batch",
+     "tries": 1
     },
     "event_03_04": {
-     "s": "none",
-     "tries": 0
+     "s": "batch",
+     "tries": 1
     },
     "event_03_05": {
-     "s": "none",
-     "tries": 0
+     "s": "batch",
+     "tries": 1
     },
     "event_03_06": {
-     "s": "none",
-     "tries": 0
+     "s": "batch",
+     "tries": 1
     },
     "event_03_07": {
-     "s": "none",
-     "tries": 0
+     "s": "batch",
+     "tries": 1
     },
     "event_03_08": {
-     "s": "none",
-     "tries": 0
+     "s": "batch",
+     "tries": 1
     }
    },
    "scriptsAt": "2026-11-06T11:30:50.940Z"
@@ -133,35 +134,35 @@
    "failures": 0,
    "eps": {
     "event_04_01": {
-     "s": "batch",
+     "s": "done",
      "tries": 1
     },
     "event_04_02": {
-     "s": "batch",
+     "s": "done",
      "tries": 1
     },
     "event_04_03": {
-     "s": "batch",
+     "s": "done",
      "tries": 1
     },
     "event_04_04": {
-     "s": "batch",
+     "s": "done",
      "tries": 1
     },
     "event_04_05": {
-     "s": "batch",
+     "s": "done",
      "tries": 1
     },
     "event_04_06": {
-     "s": "batch",
+     "s": "done",
      "tries": 1
     },
     "event_04_07": {
-     "s": "batch",
+     "s": "done",
      "tries": 1
     },
     "event_04_08": {
-     "s": "batch",
+     "s": "done",
      "tries": 1
     }
    },
@@ -173,7 +174,7 @@
    "failures": 0,
    "eps": {
     "event_05_01": {
-     "s": "batch",
+     "s": "done",
      "tries": 2
     },
     "event_05_02": {
@@ -185,11 +186,11 @@
      "tries": 1
     },
     "event_05_04": {
-     "s": "batch",
+     "s": "fallback",
      "tries": 2
     },
     "event_05_05": {
-     "s": "batch",
+     "s": "fallback",
      "tries": 2
     },
     "event_05_06": {
@@ -7504,36 +7505,57 @@
     }
    },
    "lastError": "exit 1",
-   "jpCheckedAt": "2026-11-06T00:24:23.490Z"
+   "jpCheckedAt": "2026-11-07T00:24:45.513Z"
   }
  },
  "batches": [
   {
-   "id": "msgbatch_01PRTGUH1mg2MiTUuJxtuwfA",
-   "day": "2026-11-06",
-   "eventId": 5,
+   "id": "msgbatch_016nnuGSsMQvffxgZnaYGScM",
+   "day": "2026-11-07",
+   "eventId": 3,
    "sids": [
-    "event_05_01",
-    "event_05_04",
-    "event_05_05"
+    "event_03_01",
+    "event_03_02",
+    "event_03_03",
+    "event_03_04",
+    "event_03_05",
+    "event_03_06",
+    "event_03_07",
+    "event_03_08"
    ],
-   "estUsd": 0.506706
+   "estUsd": 1.3654100000000002
   },
   {
-   "id": "msgbatch_01MnM9hgpQPXQjmhYxLR7eb4",
-   "day": "2026-11-06",
-   "eventId": 4,
+   "id": "msgbatch_014SxHAQubtAtBr22LeCax7h",
+   "day": "2026-11-07",
+   "eventId": 2,
    "sids": [
-    "event_04_01",
-    "event_04_02",
-    "event_04_03",
-    "event_04_04",
-    "event_04_05",
-    "event_04_06",
-    "event_04_07",
-    "event_04_08"
+    "event_02_01",
+    "event_02_02",
+    "event_02_03",
+    "event_02_04",
+    "event_02_05",
+    "event_02_06",
+    "event_02_07",
+    "event_02_08"
    ],
-   "estUsd": 1.3639979999999998
+   "estUsd": 1.362632
+  },
+  {
+   "id": "msgbatch_01B7QPfLBpWN5N7pX3KAW2Qn",
+   "day": "2026-11-07",
+   "eventId": 1,
+   "sids": [
+    "event_01_01",
+    "event_01_02",
+    "event_01_03",
+    "event_01_04",
+    "event_01_05",
+    "event_01_06",
+    "event_01_07",
+    "event_01_08"
+   ],
+   "estUsd": 1.361534
   }
  ],
  "knownBatches": {
@@ -7825,7 +7847,10 @@
   "msgbatch_016YYnfyzXmNRhsg5qnEk49C": "2026-11-06",
   "msgbatch_01GQpj2KdZ7sCL7x8NB8vJvC": "2026-11-06",
   "msgbatch_01PRTGUH1mg2MiTUuJxtuwfA": "2026-11-06",
-  "msgbatch_01MnM9hgpQPXQjmhYxLR7eb4": "2026-11-06"
+  "msgbatch_01MnM9hgpQPXQjmhYxLR7eb4": "2026-11-06",
+  "msgbatch_016nnuGSsMQvffxgZnaYGScM": "2026-11-07",
+  "msgbatch_014SxHAQubtAtBr22LeCax7h": "2026-11-07",
+  "msgbatch_01B7QPfLBpWN5N7pX3KAW2Qn": "2026-11-07"
  },
- "pendingDeploy": false
+ "pendingDeploy": true
 }
