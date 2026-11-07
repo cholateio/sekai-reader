@@ -6555,7 +6555,7 @@
   "162": {
    "kind": "old",
    "assets": "pending",
-   "failures": 1,
+   "failures": 2,
    "eps": {
     "event_162_01": {
      "s": "done",
