@@ -49,4 +49,4 @@ An hourly GitHub Actions workflow keeps the site current: it checks the Taiwan-s
 
 ## License
 
-The source code is [MIT](LICENSE). The MIT license does not cover game content: scenario text, backgrounds and character images belong to SEGA / Colorful Palette, and the data comes from Sekai-World. This is a non-commercial fan project.
+The source code is [MIT](LICENSE). The MIT license does not cover game content: scenario text, backgrounds, event banners and character images belong to SEGA / Colorful Palette, and the data comes from Sekai-World. This is a non-commercial fan project.

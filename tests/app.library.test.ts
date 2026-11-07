@@ -94,3 +94,14 @@ test('再點一次已選的團體晶片會清除篩選，搜尋保留', () => {
   expect(location.hash).toBe('#library?q=%E9%9B%AA');
   expect(document.querySelectorAll('.chip[aria-pressed="true"]').length).toBe(0);
 });
+
+test('有橫幅的期在列上放延遲載入的縮圖；沒有的放同尺寸的色塊', () => {
+  const [a, b] = EVENTS;
+  const root = mount(viewLibrary({ ...emptyManifest, banners: [a.bundle] }, EMPTY_QUERY));
+  const img = root.querySelector(`a.ev[href="#event-${a.id}"] .thumb img`) as HTMLImageElement;
+  expect(img.getAttribute('src')).toBe(`/banner/s/${a.bundle}.webp`);
+  expect(img.getAttribute('loading')).toBe('lazy');
+  expect(img.getAttribute('alt')).toBe('');
+  expect(root.querySelector(`a.ev[href="#event-${b.id}"] .thumb`)).not.toBeNull();
+  expect(root.querySelector(`a.ev[href="#event-${b.id}"] .thumb img`)).toBeNull();
+});

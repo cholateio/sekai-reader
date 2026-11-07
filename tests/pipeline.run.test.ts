@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { expect, test } from 'vitest';
-import { fetchResultFromChild, runOnce, spawnFetch, spawnScripts, type FetchResult, type RunDeps, type ScriptsResult } from '../scripts/pipeline/run';
+import { fetchResultFromChild, runOnce, spawnBanners, spawnFetch, spawnScripts, type BannersResult, type FetchResult, type RunDeps, type ScriptsResult } from '../scripts/pipeline/run';
 import { loadState, type IndexEvent, type IndexFile, type PipelineState } from '../scripts/pipeline/state';
 import { syntheticEpisode } from './helpers';
 
@@ -12,7 +12,7 @@ const ev = (id: number, date: string, n = 2): IndexEvent => ({
 });
 const NOW = new Date('2026-11-04T10:00:00Z');
 
-function setup(o: { fetch?: (id: number) => FetchResult; build?: (sid: string) => boolean; withDirector?: boolean; backfill?: boolean; cap?: number; scriptsFirst?: boolean; scripts?: (ids: number[]) => ScriptsResult } = {}) {
+function setup(o: { fetch?: (id: number) => FetchResult; build?: (sid: string) => boolean; withDirector?: boolean; backfill?: boolean; cap?: number; scriptsFirst?: boolean; scripts?: (ids: number[]) => ScriptsResult; banners?: (ids: number[]) => BannersResult; bannersBuilt?: () => { ok: boolean; built: number; changed: boolean; failed: string[] } } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'run-'));
   const index: IndexFile = { events: [ev(173, '2026-10-01', 3), ev(172, '2026-09-20'), ev(171, '2026-09-10')], built: '2026-11-04' };
   const indexPath = path.join(dir, 'index.json');
@@ -23,6 +23,8 @@ function setup(o: { fetch?: (id: number) => FetchResult; build?: (sid: string) =
   const calls: string[] = [];
   const fetched: number[] = [];
   const scriptCalls: number[][] = [];
+  const bannerCalls: number[][] = [];
+  let bannerBuilds = 0;
   const sleeps: number[] = [];
   const built: string[] = [];
   let n = 0;
@@ -48,6 +50,11 @@ function setup(o: { fetch?: (id: number) => FetchResult; build?: (sid: string) =
       const idx = JSON.parse(fs.readFileSync(indexPath, 'utf8')) as IndexFile;
       return { status: 'done', requests: 9, events: ids.map(id => ({ id, status: 'done' as const, sids: idx.events.find(e => e.id === id)!.eps.map(e => e[2]) })) };
     },
+    fetchBanners: async ids => {
+      bannerCalls.push(ids);
+      return o.banners ? o.banners(ids) : { status: 'done', requests: ids.length, events: ids.map(id => ({ id, status: 'done' as const })) };
+    },
+    buildBanners: async () => { bannerBuilds++; return o.bannersBuilt ? o.bannersBuilt() : { ok: true, built: 0, changed: false, failed: [] }; },
     director: o.withDirector ? {
       client: client as never, compact: async () => 'BG:x', readEpisode: () => syntheticEpisode(),
       writeBoard: () => {}, prompt: 'P', now: () => NOW, log: () => {},
@@ -62,7 +69,7 @@ function setup(o: { fetch?: (id: number) => FetchResult; build?: (sid: string) =
     fs.writeFileSync(indexPath, JSON.stringify(idx));
   };
   const state = () => loadState(deps.statePath) as PipelineState;
-  return { deps, calls, fetched, built, addNew, state, ended, index, scriptCalls, sleeps };
+  return { deps, calls, fetched, built, addNew, state, ended, index, scriptCalls, sleeps, bannerCalls, builds: () => bannerBuilds };
 }
 const epStates = (s: PipelineState, id: number) => Object.values(s.events[String(id)].eps).map(e => e.s);
 
@@ -364,4 +371,80 @@ test('scripts-first：壞掉的劇本記為錯誤並排進 R2 刪除清單', asy
   expect(s.events['173']).toMatchObject({ failures: 1, assets: 'pending' });
   expect(s.events['173'].scriptsAt).toBeUndefined();
   expect(fs.readFileSync(t.deps.r2DeletePath!, 'utf8')).toBe('raw/event_173_01.asset\n');
+});
+
+test('橫幅通道：抓完圖的活動同一輪就抓橫幅，先等 5 秒，記 done 並部署；每輪都整理橫幅檔', async () => {
+  const t = setup({ backfill: true });
+  const r = await runOnce(t.deps, { phase: 'fetch' });
+  expect(t.fetched).toEqual([173]);
+  expect(t.bannerCalls).toEqual([[173]]);
+  expect(t.sleeps).toEqual([5000]);
+  expect(t.state().events['173'].banner).toBe('done');
+  expect(r.banners).toEqual({ requests: 1, done: [173], missing: [], built: 0 });
+  expect(r.deploy).toBe(true);
+  expect(t.builds()).toBe(1);
+  await runOnce(t.deps, { phase: 'fetch' });
+  expect(t.bannerCalls.flat().filter(id => id === 173)).toHaveLength(1); // never asked twice
+});
+
+test('橫幅通道：404 記 missing 不再要，其他錯誤不記、下輪再試；通道整體失敗不中斷流水線', async () => {
+  const t = setup({ banners: ids => ({ status: 'done', requests: ids.length, events: ids.map(id => ({ id, status: id === 172 ? 'missing' as const : 'error' as const })) }) });
+  await runOnce(t.deps, { phase: 'fetch' });
+  const s0 = t.state();
+  for (const id of ['173', '172', '171']) s0.events[id].assets = 'done';
+  s0.pendingDeploy = false;
+  fs.writeFileSync(t.deps.statePath, JSON.stringify(s0));
+  t.sleeps.length = 0;
+  const r = await runOnce(t.deps, { phase: 'fetch' });
+  expect(t.bannerCalls.at(-1)).toEqual([173, 172, 171]);
+  expect(t.sleeps).toEqual([]); // nothing else was requested this hour
+  const s = t.state();
+  expect([s.events['173'].banner, s.events['172'].banner, s.events['171'].banner]).toEqual([undefined, 'missing', undefined]);
+  expect(r.deploy).toBe(false);
+  t.deps.fetchBanners = async () => ({ status: 'error', requests: 0, events: [], error: 'boom' });
+  const r2 = await runOnce(t.deps, { phase: 'fetch' });
+  expect(r2.failed).toBeUndefined();
+  expect(t.state().events['173'].banner).toBeUndefined();
+});
+
+test('橫幅整理產生新檔時觸發部署（補上先前抓到但沒轉檔的橫幅）', async () => {
+  const t = setup({ bannersBuilt: () => ({ ok: true, built: 2, changed: true, failed: [] }) });
+  await runOnce(t.deps, { phase: 'fetch' });
+  const s0 = t.state();
+  s0.pendingDeploy = false;
+  fs.writeFileSync(t.deps.statePath, JSON.stringify(s0));
+  const r = await runOnce(t.deps, { phase: 'fetch' });
+  expect(r.deploy).toBe(true);
+  expect(r.banners?.built).toBe(2);
+});
+
+test('真實 fetchBanners：spawn 帶 --banners 與逗號分隔的 id', async () => {
+  const f = spawnBanners('tests/fixtures/fake_fetch.py', () => {});
+  expect(await f([9, 8])).toEqual({ status: 'done', requests: 2, events: [{ id: 9, status: 'done' }, { id: 8, status: 'done' }] });
+});
+
+test('橫幅轉檔失敗（下載壞檔）時清掉 done 紀錄，下一輪重抓；只有 manifest 變動也會部署', async () => {
+  let build = { ok: true, built: 0, changed: false, failed: [] as string[] };
+  const t = setup({ backfill: true, bannersBuilt: () => build });
+  build = { ok: true, built: 0, changed: false, failed: ['b173'] };
+  await runOnce(t.deps, { phase: 'fetch' });
+  expect(t.state().events['173'].banner).toBeUndefined();
+  build = { ok: true, built: 0, changed: true, failed: [] };
+  const s0 = t.state();
+  s0.pendingDeploy = false;
+  fs.writeFileSync(t.deps.statePath, JSON.stringify(s0));
+  const r = await runOnce(t.deps, { phase: 'fetch' });
+  expect(t.bannerCalls.at(-1)).toContain(173);
+  expect(r.deploy).toBe(true);
+});
+
+test('橫幅通道呼叫前已把本輪狀態寫回檔案（fetch_episode 會用狀態檔核對資格）', async () => {
+  const t = setup({ backfill: true });
+  let onDisk: string | undefined;
+  t.deps.fetchBanners = async ids => {
+    onDisk = (loadState(t.deps.statePath) as PipelineState).events['173'].assets;
+    return { status: 'done', requests: ids.length, events: ids.map(id => ({ id, status: 'done' as const })) };
+  };
+  await runOnce(t.deps, { phase: 'fetch' });
+  expect(onDisk).toBe('done');
 });

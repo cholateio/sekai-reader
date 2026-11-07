@@ -136,3 +136,14 @@ test('被取代的閱讀頁載入不寫入最近閱讀', async () => {
   expect(recentList()).toEqual([]);
   expect(app.querySelector('.list')).not.toBeNull();
 });
+
+test('活動頁：有橫幅時標題區以它為背景，沒有就維持原樣', () => {
+  const e = EVENTS.find(x => x.id === 173)!;
+  let root = mount(viewEvent(173, { bg: [], sd: [], episodes: [], banners: [e.bundle] }));
+  const head = root.querySelector('.evhead') as HTMLElement;
+  expect(head.classList.contains('has-banner')).toBe(true);
+  expect(head.getAttribute('style')).toContain(`/banner/${e.bundle}.webp`);
+  root = mount(viewEvent(173, { bg: [], sd: [], episodes: [] }));
+  expect(root.querySelector('.evhead')!.classList.contains('has-banner')).toBe(false);
+  expect(root.querySelector('.evhead')!.getAttribute('style')).not.toContain('/banner/');
+});

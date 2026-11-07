@@ -6,6 +6,10 @@ if '--scripts-for' in sys.argv:
     ids = [int(x) for x in sys.argv[sys.argv.index('--scripts-for') + 1].split(',')]
     print(json.dumps({'status': 'done', 'requests': len(ids), 'events': [{'id': i, 'status': 'done', 'sids': ['event_%d_01' % i]} for i in ids]}))
     sys.exit(0)
+if '--banners' in sys.argv:
+    ids = [int(x) for x in sys.argv[sys.argv.index('--banners') + 1].split(',')]
+    print(json.dumps({'status': 'done', 'requests': len(ids), 'events': [{'id': i, 'status': 'done'} for i in ids]}))
+    sys.exit(0)
 eid = int(sys.argv[sys.argv.index('--event') + 1])
 print('fetched https://example.test/x 10 bytes')
 if eid == 1:

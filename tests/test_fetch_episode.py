@@ -474,5 +474,83 @@ class ScriptsTest(unittest.TestCase):
             self.assertEqual(json.loads(buf.getvalue().strip().splitlines()[-1])['status'], 'error')
 
 
+WEBP = b'RIFF\x10\x00\x00\x00WEBPVP8 ' + b'\x00' * 8
+
+
+class BannersTest(unittest.TestCase):
+    E9 = {'id': 9, 'bundle': 'event_b9', 'eps': []}
+    E8 = {'id': 8, 'bundle': 'event_b8', 'eps': []}
+    E7 = {'id': 7, 'bundle': 'event_b7', 'eps': []}
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.out = self.tmp.name
+        self.sleeps = []
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def fetcher(self, opener):
+        return fe.Fetcher(opener, max_requests=fe.BANNER_MAX, sleep=self.sleeps.append, log=lambda *a: None)
+
+    def path(self, e):
+        return os.path.join(self.out, 'banner', e['bundle'] + '.webp')
+
+    def test_banner_url_is_tc_home_banner(self):
+        self.assertEqual(fe.banner_url('event_colors_2025'),
+                         'https://storage.sekai.best/sekai-tc-assets/home/banner/event_colors_2025/event_colors_2025.webp')
+
+    def test_banners_done_missing_and_invalid(self):
+        opener = FakeOpener({fe.banner_url('event_b9'): WEBP, fe.banner_url('event_b7'): b'<html>'},
+                            missing=[fe.banner_url('event_b8')])
+        r = fe.run_banners([self.E9, self.E8, self.E7], self.out, self.fetcher(opener))
+        self.assertEqual(r, {'status': 'done', 'requests': 3, 'events': [
+            {'id': 9, 'status': 'done'}, {'id': 8, 'status': 'missing'}, {'id': 7, 'status': 'error'}]})
+        self.assertTrue(os.path.exists(self.path(self.E9)))
+        self.assertFalse(os.path.exists(self.path(self.E8)))
+        self.assertFalse(os.path.exists(self.path(self.E7)))  # not a WebP: no file left behind
+        self.assertEqual(self.sleeps, [5.0, 5.0])
+
+    def test_existing_banner_is_done_without_request(self):
+        os.makedirs(os.path.join(self.out, 'banner'))
+        with open(self.path(self.E9), 'wb') as f:
+            f.write(WEBP)
+        opener = FakeOpener()
+        r = fe.run_banners([self.E9], self.out, self.fetcher(opener))
+        self.assertEqual((r['requests'], r['events']), (0, [{'id': 9, 'status': 'done'}]))
+        self.assertEqual(opener.requests, [])
+
+    def test_cli_banners_caps_at_four_and_rejects_bad_ids(self):
+        import io
+        from contextlib import redirect_stdout
+        events = [{'id': i, 'bundle': 'event_b%d' % i, 'eps': []} for i in range(1, 7)]
+        idx = os.path.join(self.out, 'index.json')
+        with open(idx, 'w', encoding='utf-8') as f:
+            json.dump({'events': events, 'chars': []}, f)
+        st = os.path.join(self.out, 'state.json')
+        states = {str(i): {'assets': 'done'} for i in range(1, 7)}
+        states['5'] = {'assets': 'pending'}
+        states['6'] = {'assets': 'done', 'banner': 'missing'}
+        with open(st, 'w', encoding='utf-8') as f:
+            json.dump({'events': states}, f)
+        self.assertEqual(fe.BANNER_MAX, 4)
+        for arg in ['1,2,3,4,1', '1,99', '1;rm', '5', '6']:
+            buf = io.StringIO()
+            opener = FakeOpener()
+            with redirect_stdout(buf):
+                self.assertEqual(fe.main(['--banners', arg, '--index', idx, '--state', st], opener=opener, sleep=lambda s: None), 1)
+            self.assertEqual(opener.requests, [])
+            self.assertEqual(json.loads(buf.getvalue().strip().splitlines()[-1])['status'], 'error')
+        sleeps = []
+        buf = io.StringIO()
+        opener = FakeOpener({fe.banner_url('event_b%d' % i): WEBP for i in range(1, 7)})
+        with redirect_stdout(buf):
+            code = fe.main(['--banners', '4,3', '--index', idx, '--state', st, '--out', self.out], opener=opener, sleep=sleeps.append, log=lambda *a: None)
+        self.assertEqual(code, 0)
+        self.assertEqual(sleeps, [5.0])
+        last = json.loads(buf.getvalue().strip().splitlines()[-1])
+        self.assertEqual(last['events'], [{'id': 4, 'status': 'done'}, {'id': 3, 'status': 'done'}])
+
+
 if __name__ == '__main__':
     unittest.main()

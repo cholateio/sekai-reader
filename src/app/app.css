@@ -70,10 +70,13 @@ a { color: var(--ink); }
 .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
 .list { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
 .ev {
-  display: grid; grid-template-columns: 4px 1fr auto; gap: 0 12px; align-items: center;
+  --tone: var(--muted);
+  display: grid; grid-template-columns: 4px 76px 1fr auto; gap: 0 12px; align-items: center;
   padding: 12px 0; border: 0; border-bottom: 1px solid var(--line); background: none; text-align: left; width: 100%;
 }
-.ev .stripe { align-self: stretch; border-radius: 2px; }
+.ev .stripe { align-self: stretch; border-radius: 2px; background: var(--tone); }
+.ev .thumb { width: 76px; aspect-ratio: 2 / 1; border-radius: 4px; overflow: hidden; background: color-mix(in srgb, var(--tone) 16%, var(--bg)); }
+.ev .thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .ev .main { min-width: 0; }
 .ev .nm { font-weight: 500; display: block; overflow-wrap: anywhere; }
 .ev .meta { font-family: var(--font-mono); color: var(--muted); font-size: 12.5px; display: flex; flex-wrap: wrap; gap: 4px 10px; font-variant-numeric: tabular-nums; }
@@ -92,6 +95,13 @@ a.ev:hover .nm { text-decoration: underline; }
 
 /* event page: the event name is the one large element (box labels like 「真冬1箱」 are for navigation only). */
 .evhead { --tone: var(--ink); padding: 2px 0 4px 16px; margin: 28px 0 26px; border-left: 4px solid var(--tone); display: grid; gap: 4px; }
+.evhead.has-banner { position: relative; isolation: isolate; }
+/* The banner sits behind the text: right-aligned, faded leftwards, low opacity so the title stays readable. */
+.evhead.has-banner::before {
+  content: ''; position: absolute; z-index: -1; inset: 0 0 0 auto; width: min(100%, 520px);
+  background: var(--banner) center / cover no-repeat; opacity: .32;
+  -webkit-mask-image: linear-gradient(to left, #000 35%, transparent); mask-image: linear-gradient(to left, #000 35%, transparent);
+}
 .evunit { margin: 0; font-size: 13px; color: var(--muted); }
 .evtitle { margin: 2px 0 4px; font-family: var(--font-display); font-weight: 700; font-size: clamp(26px, 8vw, 38px); line-height: 1.25; color: var(--ink); text-wrap: balance; overflow-wrap: anywhere; }
 .evmeta { margin: 2px 0 0; display: flex; flex-wrap: wrap; gap: 0 14px; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }

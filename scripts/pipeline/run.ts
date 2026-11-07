@@ -9,7 +9,7 @@ import { parseScenario } from '../../src/scenario/parse';
 import type { RawScenario } from '../../src/scenario/types';
 import { collectBatches, reconcile, submitDue, type DirectorDeps } from './director';
 import {
-  authorizeDirect, dayOf, loadState, pickEvent, recordFetch, recordScripts, saveState, scriptsLane, seedState, spentToday, syncIndex,
+  authorizeDirect, bannerLane, dayOf, loadState, pickEvent, recordBanner, recordFetch, recordScripts, saveState, scriptsLane, seedState, spentToday, syncIndex,
   type FetchStatus, type IndexFile, type PipelineState,
 } from './state';
 
@@ -17,6 +17,10 @@ import {
 export interface ScriptsResult {
   status: 'done' | 'partial' | 'error'; requests: number; error?: string;
   events: { id: number; status: 'done' | 'partial' | 'jp' | 'missing' | 'error'; sids: string[]; removed?: string[] }[];
+}
+export interface BannersResult {
+  status: 'done' | 'error'; requests: number; error?: string;
+  events: { id: number; status: 'done' | 'missing' | 'error' }[];
 }
 export interface FetchResult { status: FetchStatus; requests: number; sids: string[]; error?: string; removed?: string[] }
 export interface RunDeps {
@@ -27,6 +31,10 @@ export interface RunDeps {
   buildEpisode(sid: string): Promise<boolean>;
   /** Scripts-first lane: scripts only (no images) for these events, in one budgeted fetch_episode run. */
   fetchScripts(ids: number[]): Promise<ScriptsResult>;
+  /** Banner lane (spec 2026-11-07): home banners of at most 4 events, one request each. */
+  fetchBanners(ids: number[]): Promise<BannersResult>;
+  /** Converts raw banners that have no public copy yet and rewrites the manifest; failed = undecodable bundles. */
+  buildBanners(): Promise<{ ok: boolean; built: number; changed: boolean; failed: string[] }>;
   /** null without ANTHROPIC_API_KEY: the direct phase makes no API calls. runOnce supplies persist. */
   director: Omit<DirectorDeps, 'persist'> | null;
   /** scriptsFirst (owner-approved 2026-11-05): replace image backfill with the scripts-only lane. */
@@ -41,9 +49,11 @@ export interface RunSummary {
   reconciled?: { adopted: string[] }; collected?: { done: string[]; retry: string[]; fallback: string[]; pending: string[] };
   submitted: string[]; skipped: string[]; deploy: boolean; spentToday?: number; failed?: string;
   scripts?: { requests: number; done: number[]; other: string[] };
+  banners?: { requests: number; done: number[]; missing: number[]; built: number };
 }
 
 const SCRIPTS_GAP_MS = 20_000;
+const BANNER_GAP_MS = 5_000;
 const EXIT_STATUS: Record<number, FetchStatus> = { 0: 'done', 3: 'jp', 4: 'partial', 5: 'missing' };
 
 export function fetchResultFromChild(code: number, lastLine: string): FetchResult {
@@ -124,6 +134,7 @@ async function fetchPhase(d: RunDeps, o: RunOptions, s: PipelineState, index: In
     if (used > 0) await d.sleep(SCRIPTS_GAP_MS);
     await scriptsPhase(d, s, index, sum);
   }
+  await bannerPhase(d, s, index, sum);
   if (o.event !== undefined) sum.authorized.push(...authorizeDirect(s, index, { eventIds: [o.event] }));
   if (o.direct && o.direct > 0) sum.authorized.push(...authorizeDirect(s, index, { newest: o.direct }));
   if (sum.authorized.length) d.log(`storyboards authorized: ${sum.authorized.join(', ')}`);
@@ -147,6 +158,39 @@ async function scriptsPhase(d: RunDeps, s: PipelineState, index: IndexFile, sum:
     } else sum.scripts.other.push(`${e.id}:${e.status}`);
     const gone = (e.removed ?? []).filter(f => /^[a-z0-9_]+\.asset$/.test(f)).map(f => `raw/${f}`);
     if (gone.length && d.r2DeletePath) fs.appendFileSync(d.r2DeletePath, gone.map(g => `${g}\n`).join(''));
+  }
+}
+
+// After the queue and the scripts lane, so an event whose images were fetched this hour gets its banner now.
+async function bannerPhase(d: RunDeps, s: PipelineState, index: IndexFile, sum: RunSummary) {
+  const b: NonNullable<RunSummary['banners']> = { requests: 0, done: [], missing: [], built: 0 };
+  sum.banners = b;
+  const lane = bannerLane(s, index);
+  if (lane.length) {
+    if (sum.picked || sum.scripts) await d.sleep(BANNER_GAP_MS);
+    // fetch_episode --banners checks eligibility against the state file, so this run's results must be on disk.
+    saveState(d.statePath, s);
+    const r = await d.fetchBanners(lane);
+    b.requests = r.requests;
+    d.log(`banners: ${r.status}, ${r.requests} requests`);
+    if (r.status === 'error') d.log(`banners error: ${r.error ?? ''}`);
+    else for (const e of r.events) {
+      if (!lane.includes(e.id)) continue;
+      recordBanner(s, e.id, e.status);
+      if (e.status === 'done') b.done.push(e.id);
+      else if (e.status === 'missing') b.missing.push(e.id);
+    }
+  }
+  const built = await d.buildBanners();
+  if (!built.ok) d.log('build banners failed');
+  b.built = built.built;
+  if (built.built > 0 || built.changed) s.pendingDeploy = true;
+  // build_banners deleted these raw files; forget the record so the lane fetches them again.
+  for (const bundle of built.failed) {
+    const ev = index.events.find(e => e.bundle === bundle);
+    const st = ev && s.events[String(ev.id)];
+    if (st?.banner === 'done') delete st.banner;
+    d.log(`banner ${bundle} could not be decoded; refetching`);
   }
 }
 
@@ -200,6 +244,22 @@ export function spawnScripts(script: string, log: (line: string) => void): (ids:
   };
 }
 
+export function spawnBanners(script: string, log: (line: string) => void): (ids: number[]) => Promise<BannersResult> {
+  return async ids => {
+    const r = await run('python3', [script, '--banners', ids.join(',')], 5 * 60e3);
+    const lines = r.stdout.split('\n').map(l => l.trim()).filter(Boolean);
+    for (const l of lines.slice(0, -1)) log(l);
+    if (r.stderr.trim()) log(r.stderr.trim().split('\n').slice(-5).join('\n'));
+    try {
+      const res = JSON.parse(lines.at(-1) ?? '') as BannersResult;
+      if (!Array.isArray(res.events)) throw new Error('no events');
+      return res;
+    } catch {
+      return { status: 'error', requests: 0, events: [], error: `exit ${r.code} without a result line` };
+    }
+  };
+}
+
 function realDeps(): RunDeps {
   const log = (line: string) => console.log(line);
   const key = process.env.ANTHROPIC_API_KEY;
@@ -222,6 +282,19 @@ function realDeps(): RunDeps {
     r2DeletePath: 'assets/r2-delete.txt',
     fetchEvent: spawnFetch('scripts/fetch_episode.py', log),
     fetchScripts: spawnScripts('scripts/fetch_episode.py', log),
+    fetchBanners: spawnBanners('scripts/fetch_episode.py', log),
+    buildBanners: async () => {
+      const r = await run('npx', ['tsx', 'scripts/build_banners.ts'], 5 * 60e3);
+      if (r.stdout.trim()) log(r.stdout.trim());
+      if (r.code !== 0) log(`build banners failed: exit ${r.code} ${r.stderr.trim().split('\n').slice(-3).join(' ')}`);
+      try {
+        const j = JSON.parse(r.stdout.trim().split('\n').at(-1) ?? '') as { built?: unknown; changed?: unknown; failed?: unknown };
+        const failed = Array.isArray(j.failed) ? j.failed.filter((x): x is string => typeof x === 'string') : [];
+        return { ok: r.code === 0, built: Number(j.built) || 0, changed: j.changed === true, failed };
+      } catch {
+        return { ok: false, built: 0, changed: false, failed: [] };
+      }
+    },
     buildEpisode: async sid => {
       const r = await run('npx', ['tsx', 'scripts/build_episode.ts', sid], 10 * 60e3);
       if (r.stdout.trim()) log(r.stdout.trim());
@@ -237,7 +310,7 @@ function realDeps(): RunDeps {
 
 const HELP = `usage: tsx scripts/pipeline/run.ts <phase> [--event N] [--direct N]
 phases:
-  fetch          update the queue, fetch at most one event, build its episodes
+  fetch          update the queue, fetch at most one event, build its episodes, then up to 4 home banners
   direct         reconcile and collect storyboard batches, submit due episodes (needs ANTHROPIC_API_KEY)
   mark-deployed  clear pendingDeploy after a successful deploy
 options (fetch only):
@@ -254,6 +327,7 @@ function writeGithub(sum: RunSummary) {
     lines.push(`- event: ${sum.picked ? `${sum.picked.id} (${sum.picked.reason})` : '-'}`);
     if (sum.fetch) lines.push(`- fetch: ${sum.fetch.status}, ${sum.fetch.requests} requests`);
     lines.push(`- built: ${list(sum.built)}`, `- authorized: ${sum.authorized.join(', ') || '-'}`);
+    if (sum.banners) lines.push(`- banners: ${sum.banners.requests} requests, done ${sum.banners.done.join(', ') || '-'}, missing ${sum.banners.missing.join(', ') || '-'}, built ${sum.banners.built}`);
     if (sum.scripts) lines.push(`- scripts lane: ${sum.scripts.requests} requests, done ${sum.scripts.done.join(', ') || '-'}, other ${list(sum.scripts.other)}`);
   } else if (sum.phase === 'direct') {
     lines.push(`- adopted: ${list(sum.reconciled?.adopted)}`, `- collected done: ${list(sum.collected?.done)}`,

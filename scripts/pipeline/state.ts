@@ -13,6 +13,8 @@ export interface EventState {
   partialAt?: string;
   /** All scripts fetched by the scripts-first lane (images may still be missing); enough for storyboards. */
   scriptsAt?: string;
+  /** Home banner (spec 2026-11-07): done = fetched; missing = 404, never asked again. Unset = not tried yet. */
+  banner?: 'done' | 'missing';
   eps: Record<string, EpState>;
 }
 /** adopted = found by reconcile on the Anthropic account; sids stay empty until its results are readable. */
@@ -181,6 +183,23 @@ export function recordScripts(s: PipelineState, id: number, status: 'done' | 'pa
   if (!e) throw new Error(`unknown event ${id}`);
   if (status === 'done') e.scriptsAt = now.toISOString();
   else if (status === 'jp' || status === 'missing') recordFetch(s, id, { status }, now);
+}
+
+/** Banner lane (owner-approved 2026-11-07): at most 4 per run, events whose images are fetched, newest first. */
+export const BANNER_MAX = 4;
+export function bannerLane(s: PipelineState, index: IndexFile): number[] {
+  return byNewest(index).filter(e => {
+    const st = s.events[String(e.id)];
+    return st && st.assets === 'done' && !st.banner;
+  }).slice(0, BANNER_MAX).map(e => e.id);
+}
+
+export function recordBanner(s: PipelineState, id: number, status: 'done' | 'missing' | 'error'): void {
+  const e = s.events[String(id)];
+  if (!e) throw new Error(`unknown event ${id}`);
+  if (status === 'error') return;
+  e.banner = status;
+  if (status === 'done') s.pendingDeploy = true;
 }
 
 export function addSpend(s: PipelineState, day: string, usd: number): void {

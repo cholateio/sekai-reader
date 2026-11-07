@@ -1,7 +1,7 @@
 import { h } from '../../render/dom';
 import { BUILT, EVENTS, eventLabel, UNIT_SHORT, UNITS, unitOf, type EventInfo } from '../catalog';
 import { EMPTY_QUERY, filterEvents, isFiltered, toHash, type LibraryQuery } from '../filter';
-import type { Manifest } from '../load';
+import { bannerUrl, type Manifest } from '../load';
 import { prefs } from '../storage';
 import { siteFooter, siteHeader } from './common';
 
@@ -22,7 +22,14 @@ export function eventMeta(e: EventInfo): HTMLElement[] {
     .filter((x): x is string => !!x).map(x => h('span', {}, x));
 }
 
-export function viewLibrary(_manifest: Manifest, initial: LibraryQuery = EMPTY_QUERY): HTMLElement[] {
+// Every row keeps the same box (a tinted block when there is no banner) so titles stay aligned.
+function thumb(e: EventInfo, manifest: Manifest): HTMLElement {
+  const src = bannerUrl(manifest, e.bundle, true);
+  return h('span', { class: 'thumb', 'aria-hidden': 'true' },
+    src ? h('img', { src, alt: '', loading: 'lazy', decoding: 'async', width: '200', height: '100' }) : null);
+}
+
+export function viewLibrary(manifest: Manifest, initial: LibraryQuery = EMPTY_QUERY): HTMLElement[] {
   let qy = initial;
   const list = h('div', { class: 'list' });
   const chips = h('div', { class: 'chips', role: 'group', 'aria-label': '篩選' });
@@ -45,8 +52,9 @@ export function viewLibrary(_manifest: Manifest, initial: LibraryQuery = EMPTY_Q
     const rows = filterEvents(EVENTS, qy);
     count.hidden = !isFiltered(qy);
     count.replaceChildren(`符合 ${rows.length} 期 · `, clearLink());
-    list.replaceChildren(...(rows.length ? rows.map(e => h('a', { class: 'ev', href: `#event-${e.id}` },
-      h('i', { class: 'stripe', style: `background:${e.color || unitOf(e.unit)[1]}` }),
+    list.replaceChildren(...(rows.length ? rows.map(e => h('a', { class: 'ev', href: `#event-${e.id}`, style: `--tone:${e.color || unitOf(e.unit)[1]}` },
+      h('i', { class: 'stripe' }),
+      thumb(e, manifest),
       h('span', { class: 'main' },
         h('span', { class: 'nm' }, e.name),
         h('span', { class: 'meta' }, eventMeta(e))),

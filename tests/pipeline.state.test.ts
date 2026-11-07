@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, expect, test, vi } from 'vitest';
 import {
-  addSpend, authorizeDirect, dayOf, dueEpisodes, loadState, pickEvent, recordFetch, recordScripts, rememberBatch, saveState, scriptsLane, seedState,
+  addSpend, authorizeDirect, bannerLane, dayOf, dueEpisodes, loadState, pickEvent, recordBanner, recordFetch, recordScripts, rememberBatch, saveState, scriptsLane, seedState,
   spentToday, syncIndex, type IndexEvent, type IndexFile,
 } from '../scripts/pipeline/state';
 
@@ -297,4 +297,30 @@ test('dueEpisodes 把只有劇本的期也算進來；authorizeDirect newest 也
   expect(dueEpisodes(s, base)).toEqual([]);
   expect(authorizeDirect(s, base, { newest: 5 })).toEqual([172]);
   expect(dueEpisodes(s, base).map(d => d.sid)).toEqual(['event_172_01', 'event_172_02']);
+});
+
+test('橫幅通道：只取已抓完圖、還沒有橫幅紀錄的活動，新到舊，最多 4 期', () => {
+  const idx = index(...[180, 179, 178, 177, 176, 175].map((id, i) => ev(id, `2026-09-${20 - i}`)));
+  const s = seedState(idx, [], NOW);
+  for (const id of [180, 179, 178, 177, 176, 175]) s.events[String(id)].assets = 'done';
+  s.events['179'].assets = 'pending';
+  s.events['178'].banner = 'missing';
+  expect(bannerLane(s, idx)).toEqual([180, 177, 176, 175]);
+  s.events['180'].banner = 'done';
+  expect(bannerLane(s, idx)).toEqual([177, 176, 175]);
+});
+
+test('recordBanner：done 觸發部署，404 記 missing，其他錯誤不記狀態', () => {
+  const s = seeded();
+  s.pendingDeploy = false;
+  recordBanner(s, 172, 'error');
+  expect(s.events['172'].banner).toBeUndefined();
+  expect(s.pendingDeploy).toBe(false);
+  recordBanner(s, 172, 'missing');
+  expect(s.events['172'].banner).toBe('missing');
+  expect(s.pendingDeploy).toBe(false);
+  recordBanner(s, 173, 'done');
+  expect(s.events['173'].banner).toBe('done');
+  expect(s.pendingDeploy).toBe(true);
+  expect(() => recordBanner(s, 999, 'done')).toThrow();
 });

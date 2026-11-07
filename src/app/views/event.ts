@@ -1,6 +1,6 @@
 import { h } from '../../render/dom';
 import { charsOf, eventById, eventLabel, neighbours, TYPE_SHORT, unitOf, type EventInfo } from '../catalog';
-import type { Manifest } from '../load';
+import { bannerUrl, type Manifest } from '../load';
 import { prefs } from '../storage';
 import { navLink, siteFooter, siteHeader, viewMissing } from './common';
 
@@ -47,6 +47,7 @@ export function viewEvent(id: number, manifest: Manifest): HTMLElement[] {
   const label = eventLabel(e);
   const type = TYPE_SHORT[e.type] ?? e.type;
   const [unitName, unitColor] = unitOf(e.unit);
+  const banner = bannerUrl(manifest, e.bundle);
   const status = readable.length === e.eps.length ? null
     : readable.length ? `可讀 ${readable.length}/${e.eps.length} 話，其餘尚未提供。` : '這期的漫畫尚未提供，先列出各話標題。';
   return [
@@ -55,7 +56,10 @@ export function viewEvent(id: number, manifest: Manifest): HTMLElement[] {
       items: [prev ? navLink(`#event-${prev.id}`, `上一期 #${prev.id}`, eventLabel(prev)) : null, next ? navLink(`#event-${next.id}`, `下一期 #${next.id}`, eventLabel(next)) : null]
         .filter((x): x is HTMLAnchorElement => !!x),
     }),
-    h('section', { class: 'evhead', style: `--tone:${e.color || unitColor}` },
+    h('section', {
+      class: banner ? 'evhead has-banner' : 'evhead',
+      style: `--tone:${e.color || unitColor}` + (banner ? `;--banner:url("${banner}")` : ''),
+    },
       h('p', { class: 'evunit' }, unitName),
       h('h1', { class: 'evtitle' }, e.name),
       h('p', { class: 'evmeta' }, h('span', {}, `${e.date} 開始`), h('span', {}, type), h('span', {}, `全 ${e.eps.length} 話`)),

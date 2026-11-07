@@ -1,6 +1,12 @@
 import type { Episode } from '../scenario/types';
 
-export interface Manifest { bg: string[]; sd: number[]; episodes: string[] }
+/** banners: event bundles whose home banner is deployed (spec 2026-11-07); absent in older manifests. */
+export interface Manifest { bg: string[]; sd: number[]; episodes: string[]; banners?: string[] }
+
+/** Deployed banner of an event: `small` is the 200-wide list thumbnail, otherwise the 720-wide backdrop. */
+export function bannerUrl(m: Manifest, bundle: string, small = false): string | null {
+  return SID.test(bundle) && m.banners?.includes(bundle) ? `/banner/${small ? 's/' : ''}${bundle}.webp` : null;
+}
 
 const SID = /^[a-z0-9_]+$/;
 
@@ -15,7 +21,7 @@ export async function loadEpisode(sid: string): Promise<Episode | null> {
 }
 
 export async function loadManifest(): Promise<Manifest> {
-  const empty: Manifest = { bg: [], sd: [], episodes: [] };
+  const empty: Manifest = { bg: [], sd: [], episodes: [], banners: [] };
   try {
     const res = await fetch('/manifest.json');
     if (!res.ok) return empty;
@@ -24,6 +30,7 @@ export async function loadManifest(): Promise<Manifest> {
       bg: Array.isArray(m.bg) ? m.bg : [],
       sd: Array.isArray(m.sd) ? m.sd : [],
       episodes: Array.isArray(m.episodes) ? m.episodes : [],
+      banners: Array.isArray(m.banners) ? m.banners.filter((b): b is string => typeof b === 'string') : [],
     };
   } catch { return empty; }
 }

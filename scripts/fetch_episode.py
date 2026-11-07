@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Fetcher for one event's (or one episode's) assets into assets/raw/ (git-ignored).
 
-Usage: python3 scripts/fetch_episode.py --event <id> | <sid> [--index data/tc-event-index.json] [--out assets/raw]
+Usage: python3 scripts/fetch_episode.py --event <id> | --scripts-for <ids> | --banners <ids> | <sid>
+       [--index data/tc-event-index.json] [--out assets/raw]
 
 Constraints (spec 2026-11-04): one event per run, at most 40 requests, >= 5 s between requests, no Referer
 header, User-Agent names this project, existing files are never re-fetched. Started only by the hourly
@@ -9,6 +10,8 @@ pipeline or by a person; never loop this over many events.
 --event prints a JSON result as its last line; exit codes: done 0, jp 3, partial 4, missing 5, error 1.
 missing = a script is not on the mirror yet (HTTP 404); the pipeline rechecks it daily.
 A Japanese first episode (kana ratio > 0.05) reports jp and keeps no script.
+--banners (spec 2026-11-07, owner-approved): the home banner only, at most 4 events, one request each, 5 s apart,
+and only events the pipeline state (--state) lists with assets done and no banner record.
 """
 import argparse
 import json
@@ -67,6 +70,10 @@ def background_url(bg):
 
 def sd_url(char_id):
     return '%s/sekai-jp-assets/bonds_honor/character/chr_sd_%02d_01.webp' % (BASE, char_id)
+
+
+def banner_url(bundle):
+    return '%s/sekai-tc-assets/home/banner/%s/%s.webp' % (BASE, bundle, bundle)
 
 
 def find_bundle(index, sid):
@@ -275,6 +282,43 @@ def run_scripts(events, out, fetcher):
     return {'status': status, 'requests': fetcher.count - start, 'events': results}
 
 
+BANNER_MAX = 4
+
+
+def _is_webp(path):
+    with open(path, 'rb') as f:
+        head = f.read(12)
+    return head[:4] == b'RIFF' and head[8:12] == b'WEBP'
+
+
+def _banner_of(event, out, fetcher):
+    bundle = event['bundle']
+    if not SID_RE.match(bundle):
+        raise ValueError('invalid bundle: %r' % bundle)
+    dest = os.path.join(out, 'banner', bundle + '.webp')
+    try:
+        fetcher.get(banner_url(bundle), dest)
+    except urllib.error.HTTPError as e:
+        return 'missing' if e.code == 404 else 'error'
+    except OSError:
+        return 'error'
+    if not os.path.exists(dest):
+        return 'error'
+    if not _is_webp(dest):
+        os.remove(dest)
+        return 'error'
+    return 'done'
+
+
+def run_banners(events, out, fetcher):
+    """Home banners of a few events, one request each; a 404 is reported as missing, not as a failure."""
+    if len(events) > BANNER_MAX:
+        raise ValueError('at most %d banners per run' % BANNER_MAX)
+    start = fetcher.count
+    results = [{'id': e['id'], 'status': _banner_of(e, out, fetcher)} for e in events]
+    return {'status': 'done', 'requests': fetcher.count - start, 'events': results}
+
+
 def run(sid, index, out, fetcher):
     if not SID_RE.match(sid):
         raise ValueError('invalid sid: %r' % sid)
@@ -287,17 +331,22 @@ def run(sid, index, out, fetcher):
 
 def main(argv=None, opener=None, sleep=time.sleep, log=print, max_requests=40):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter,
-                                 usage='%(prog)s (--event ID | --scripts-for ID,ID | SID) [--index PATH] [--out DIR]')
+                                 usage='%(prog)s (--event ID | --scripts-for ID,ID | --banners ID,ID | SID) [--index PATH] [--out DIR]')
     target = ap.add_mutually_exclusive_group(required=True)
     target.add_argument('sid', nargs='?', metavar='SID', help='fetch one episode (e.g. event_173_02)')
     target.add_argument('--event', type=int, metavar='ID', help='fetch one whole event; prints a JSON result line')
     target.add_argument('--scripts-for', metavar='ID,ID,...',
                         help='scripts only (no images) for these events, newest first; budget %d, %d s apart' % (SCRIPTS_BUDGET, SCRIPTS_DELAY))
+    target.add_argument('--banners', metavar='ID,ID,...',
+                        help='home banners of these events (at most %d), one request each, 5 s apart' % BANNER_MAX)
     ap.add_argument('--index', default='data/tc-event-index.json')
+    ap.add_argument('--state', default='data/pipeline-state.json', help='pipeline state; --banners only')
     ap.add_argument('--out', default='assets/raw')
     args = ap.parse_args(argv)
     if args.scripts_for is not None:
         return _main_scripts(args, opener, sleep, log)
+    if args.banners is not None:
+        return _main_banners(args, opener, sleep, log)
     if args.event is not None:
         return _main_event(args, opener, sleep, log, max_requests)
     index = _load(args.index)
@@ -335,6 +384,27 @@ def _main_scripts(args, opener, sleep, log):
         return 1
     print(json.dumps(r))
     return EXIT[r['status']]
+
+
+def _main_banners(args, opener, sleep, log):
+    fetcher = Fetcher(opener or urllib.request.urlopen, max_requests=BANNER_MAX, sleep=sleep, log=log)
+    try:
+        if not re.match(r'^\d{1,5}(,\d{1,5})*$', args.banners):
+            raise ValueError('bad id list')
+        index = _load(args.index)
+        by_id = {e['id']: e for e in index['events']}
+        events = [by_id[int(x)] for x in args.banners.split(',')]
+        state = _load(args.state)['events']
+        for e in events:
+            st = state.get(str(e['id'])) or {}
+            if st.get('assets') != 'done' or st.get('banner'):
+                raise ValueError('event %d is not due for a banner' % e['id'])
+        r = run_banners(events, args.out, fetcher)
+    except Exception as e:  # noqa: BLE001 - reported to the pipeline as a JSON line
+        print(json.dumps({'status': 'error', 'requests': fetcher.count, 'events': [], 'error': '%s: %s' % (type(e).__name__, e)}))
+        return 1
+    print(json.dumps(r))
+    return 0
 
 
 if __name__ == '__main__':

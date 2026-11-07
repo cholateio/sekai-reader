@@ -20,6 +20,7 @@ npm run dev                          # -> http://localhost:5173 (opens #read-173
 | `npm run preview` | Serve `dist/` |
 | `npm test` | Vitest (jsdom) + Python unittest. Real-data tests skip when `assets/raw/event_173_01.asset` is absent |
 | `npm run build:episode <sid>` | `.asset` → episode JSON, backgrounds resized to 1280 px WebP q82, chibi copied, manifest rebuilt; non-zero exit if a needed background is missing |
+| `npx tsx scripts/build_banners.ts` | `assets/raw/banner/{bundle}.webp` → `assets/public/banner/` (720 px) and `banner/s/` (200 px) WebP q80, manifest rebuilt with `banners`; prints `built N`; the pipeline runs it every fetch phase |
 | `npm run check:layout` | Build + preview + headless Chromium at 390×844: scroll width, panel count, 49 lines, no broken images, no `sekai.best`; screenshots in `scratch/` |
 | `npm run pipeline -- <fetch\|direct\|mark-deployed> [--event N] [--direct N]` | One pipeline phase locally (state in `data/pipeline-state.json`). `fetch --event N` hits storage.sekai.best; `direct` needs `ANTHROPIC_API_KEY` in the environment and spends money. Without either it is a safe offline dry run |
 | `python3 scripts/fetch_episode.py --event <id>` | Download one event's assets into `assets/raw/` (max 40 requests, 5 s apart, stops at the budget and reports `partial`; a Japanese first episode reports `jp` and keeps nothing; a script the mirror does not have yet reports `missing`, exit 5). `<sid>` instead of `--event` fetches one episode. The hourly pipeline runs this; by hand only when files are lost |

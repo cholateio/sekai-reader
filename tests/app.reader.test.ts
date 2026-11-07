@@ -37,7 +37,7 @@ test('閱讀設定只寫入允許的鍵', () => {
 test('loadEpisode 404 回 null、loadManifest 失敗回空清單', async () => {
   vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 404 })));
   expect(await loadEpisode('event_x')).toBeNull();
-  expect(await loadManifest()).toEqual({ bg: [], sd: [], episodes: [] });
+  expect(await loadManifest()).toEqual({ bg: [], sd: [], episodes: [], banners: [] });
 });
 test('loadEpisode 拒絕不合法的 sid', async () => {
   const f = vi.fn();
