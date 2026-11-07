@@ -6555,7 +6555,7 @@
   "162": {
    "kind": "old",
    "assets": "pending",
-   "failures": 0,
+   "failures": 1,
    "eps": {
     "event_162_01": {
      "s": "done",
@@ -6590,7 +6590,8 @@
      "tries": 2
     }
    },
-   "scriptsAt": "2026-11-05T17:24:23.417Z"
+   "scriptsAt": "2026-11-05T17:24:23.417Z",
+   "lastError": "HTTPError: HTTP Error 404: Not Found"
   },
   "163": {
    "kind": "old",
