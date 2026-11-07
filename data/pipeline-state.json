@@ -6594,7 +6594,7 @@
   },
   "163": {
    "kind": "old",
-   "assets": "pending",
+   "assets": "done",
    "failures": 0,
    "eps": {
     "wl_street_02_01": {
@@ -6642,7 +6642,8 @@
      "tries": 1
     }
    },
-   "scriptsAt": "2026-11-05T17:24:23.417Z"
+   "scriptsAt": "2026-11-05T17:24:23.417Z",
+   "assetsAt": "2026-11-07T08:24:41.219Z"
   },
   "164": {
    "kind": "old",
@@ -7809,5 +7810,5 @@
   "msgbatch_01KBkuC7VDvLp1ZZTuWRuq2k": "2026-11-07",
   "msgbatch_01P8MrDT2WC1gwpkosjZJ9sZ": "2026-11-07"
  },
- "pendingDeploy": false
+ "pendingDeploy": true
 }
