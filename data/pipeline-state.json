@@ -5,7 +5,7 @@
   "2026-11-04": 0.835148,
   "2026-11-05": 40.804868,
   "2026-11-06": 78.130314,
-  "2026-11-07": 15.480888
+  "2026-11-07": 15.220718
  },
  "events": {
   "1": {
@@ -3910,9 +3910,8 @@
      "tries": 1
     },
     "event_97_07": {
-     "s": "batch",
-     "tries": 2,
-     "err": "stop_reason max_tokens"
+     "s": "done",
+     "tries": 2
     },
     "event_97_08": {
      "s": "done",
@@ -5379,9 +5378,8 @@
      "tries": 1
     },
     "event_133_06": {
-     "s": "batch",
-     "tries": 2,
-     "err": "invalid board: missing line r=29"
+     "s": "done",
+     "tries": 2
     },
     "event_133_07": {
      "s": "done",
@@ -5460,9 +5458,8 @@
      "tries": 1
     },
     "event_135_06": {
-     "s": "batch",
-     "tries": 2,
-     "err": "stop_reason max_tokens"
+     "s": "done",
+     "tries": 2
     },
     "event_135_07": {
      "s": "done",
@@ -6357,7 +6354,7 @@
   },
   "157": {
    "kind": "old",
-   "assets": "pending",
+   "assets": "done",
    "failures": 0,
    "eps": {
     "event_157_01": {
@@ -6393,7 +6390,9 @@
      "tries": 1
     }
    },
-   "scriptsAt": "2026-11-05T18:24:25.882Z"
+   "scriptsAt": "2026-11-05T18:24:25.882Z",
+   "assetsAt": "2026-11-07T16:24:52.787Z",
+   "banner": "done"
   },
   "158": {
    "kind": "old",
@@ -7322,9 +7321,8 @@
      "tries": 1
     },
     "wl_piapro_02_07": {
-     "s": "batch",
-     "tries": 2,
-     "err": "invalid board: panel 7: cast must be speaker names"
+     "s": "done",
+     "tries": 2
     },
     "wl_piapro_02_08": {
      "s": "done",
@@ -7542,48 +7540,7 @@
    "jpCheckedAt": "2026-11-07T00:24:45.513Z"
   }
  },
- "batches": [
-  {
-   "id": "msgbatch_01XxyQgxCop6qGuY75TEwC5z",
-   "day": "2026-11-07",
-   "eventId": 179,
-   "sids": [
-    "wl_piapro_02_07"
-   ],
-   "estUsd": 0.1745,
-   "promptVersion": "v4-caps"
-  },
-  {
-   "id": "msgbatch_01HqDJXEsiCV6sNz3PPFZQBu",
-   "day": "2026-11-07",
-   "eventId": 135,
-   "sids": [
-    "event_135_06"
-   ],
-   "estUsd": 0.191342,
-   "promptVersion": "v4-caps"
-  },
-  {
-   "id": "msgbatch_01Cson7HL8jpk25WtndLjptP",
-   "day": "2026-11-07",
-   "eventId": 133,
-   "sids": [
-    "event_133_06"
-   ],
-   "estUsd": 0.175454,
-   "promptVersion": "v4-caps"
-  },
-  {
-   "id": "msgbatch_013NJy4b3mKWgMXEZGqJaVN3",
-   "day": "2026-11-07",
-   "eventId": 97,
-   "sids": [
-    "event_97_07"
-   ],
-   "estUsd": 0.1866,
-   "promptVersion": "v4-caps"
-  }
- ],
+ "batches": [],
  "knownBatches": {
   "msgbatch_019NZj12dSfVNmjjvNRg3HzJ": "2026-11-04",
   "msgbatch_01JbfNt2acE6QhAYYXQBWzED": "2026-11-04",
@@ -7978,6 +7935,6 @@
   "msgbatch_01Cson7HL8jpk25WtndLjptP": "2026-11-07",
   "msgbatch_013NJy4b3mKWgMXEZGqJaVN3": "2026-11-07"
  },
- "pendingDeploy": false,
+ "pendingDeploy": true,
  "promptVersion": "v4-caps"
 }
