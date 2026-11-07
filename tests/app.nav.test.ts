@@ -66,9 +66,9 @@ test('活動頁：繼續閱讀指向最後有進度且未讀完的話，上一�
   const root = mount(viewEvent(173, { bg: [], sd: [], episodes: ['event_173_01', 'event_173_02'] }));
   expect(root.querySelector('a.continue')!.getAttribute('href')).toBe('#read-173-2');
   expect(root.querySelector('a.continue')!.textContent).toContain('繼續閱讀 第 2 話');
-  const i = EVENTS.findIndex(e => e.id === 173);
-  expect(root.querySelector(`.evnav a[href="#event-${EVENTS[i + 1].id}"]`)).not.toBeNull();
-  expect(root.querySelector(`.evnav a[href="#event-${EVENTS[i - 1].id}"]`)).not.toBeNull();
+  const { prev: p173, next: n173 } = neighbours(173);
+  expect(root.querySelector(`.evnav a[href="#event-${p173!.id}"]`)).not.toBeNull();
+  expect(root.querySelector(`.evnav a[href="#event-${n173!.id}"]`)).not.toBeNull();
   expect(root.querySelector('a.ep[href="#read-173-1"]')).not.toBeNull();
   expect(root.querySelector('a.ep[href="#read-173-1"] a')).toBeNull();
   expect(root.querySelector('a.ep[href="#read-173-3"]')).toBeNull();
@@ -76,13 +76,13 @@ test('活動頁：繼續閱讀指向最後有進度且未讀完的話，上一�
   expect(root.querySelector('.evhead .cast')).not.toBeNull();
   expect(root.querySelector('.evhead')!.textContent).toContain('可讀 2/8');
   expect(root.querySelector('.site-header .page-title')!.textContent).toMatch(/第 173 期 · .+ · 馬拉松|World Link/);
-  const prevLink = drawer().querySelector(`a[href="#event-${EVENTS[i + 1].id}"]`)!;
+  expect(eventLabel(p173!)).toMatch(/^.+\d+箱$/); // previous Leo/need box, not the previous event id
+  const prevLink = drawer().querySelector(`a[href="#event-${p173!.id}"]`)!;
   expect(prevLink.textContent).toContain('上一期');
-  expect(prevLink.textContent).toContain(eventLabel(EVENTS[i + 1]));
-  expect(prevLink.textContent).not.toContain(EVENTS[i + 1].name);
-  expect(root.querySelector(`.evnav a[href="#event-${EVENTS[i + 1].id}"]`)!.textContent).not.toContain(EVENTS[i + 1].name);
-  expect(root.querySelector(`.evnav a[href="#event-${EVENTS[i + 1].id}"]`)!.textContent).toContain(eventLabel(EVENTS[i + 1]));
-  expect(neighbours(165).next!.id).toBe(167);
+  expect(prevLink.textContent).toContain(eventLabel(p173!));
+  expect(prevLink.textContent).not.toContain(p173!.name);
+  expect(root.querySelector(`.evnav a[href="#event-${p173!.id}"]`)!.textContent).not.toContain(p173!.name);
+  expect(root.querySelector(`.evnav a[href="#event-${p173!.id}"]`)!.textContent).toContain(eventLabel(p173!));
 });
 test('活動頁：沒進度時從第 1 話開始；沒可讀話數就沒有按鈕', () => {
   let root = mount(viewEvent(173, { bg: [], sd: [], episodes: ['event_173_01'] }));

@@ -59,9 +59,21 @@ export function eventShort(e: EventInfo): string {
 export function charsOf(e: EventInfo): CharacterInfo[] {
   return (e.chars ?? []).map(id => charById.get(id)).filter((c): c is CharacterInfo => !!c);
 }
-/** Adjacent rows in index order (newest first): `next` is newer, `prev` is older. */
+// Box events of each unit, oldest first; a box event's 上一期／下一期 is the unit's previous/next box (owner,
+// 2026-11-07: 真冬1箱 → 繪名1箱), not the event before/after it in the index.
+const UNIT_BOXES = new Map<string, EventInfo[]>();
+for (const e of [...EVENTS].sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id)) {
+  if (BOX.has(e.id)) UNIT_BOXES.set(e.unit, [...(UNIT_BOXES.get(e.unit) ?? []), e]);
+}
+/** `prev` is older, `next` is newer. Box events step through their unit's boxes; other events use index order. */
 export function neighbours(id: number): { prev: EventInfo | null; next: EventInfo | null } {
-  const i = EVENTS.findIndex(e => e.id === id);
+  const e = eventById.get(id);
+  if (e && BOX.has(id)) {
+    const chain = UNIT_BOXES.get(e.unit)!;
+    const k = chain.indexOf(e);
+    return { prev: chain[k - 1] ?? null, next: chain[k + 1] ?? null };
+  }
+  const i = EVENTS.findIndex(x => x.id === id);
   if (i < 0) return { prev: null, next: null };
   return { prev: EVENTS[i + 1] ?? null, next: EVENTS[i - 1] ?? null };
 }
