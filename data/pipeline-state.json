@@ -5,7 +5,7 @@
   "2026-11-04": 0.835148,
   "2026-11-05": 40.804868,
   "2026-11-06": 78.130314,
-  "2026-11-07": 2.344182
+  "2026-11-07": 1.768932
  },
  "events": {
   "1": {
@@ -14,11 +14,11 @@
    "failures": 0,
    "eps": {
     "event_01_01": {
-     "s": "batch",
+     "s": "fallback",
      "tries": 2
     },
     "event_01_02": {
-     "s": "batch",
+     "s": "fallback",
      "tries": 2
     },
     "event_01_03": {
@@ -34,7 +34,7 @@
      "tries": 1
     },
     "event_01_06": {
-     "s": "batch",
+     "s": "fallback",
      "tries": 2
     },
     "event_01_07": {
@@ -58,7 +58,7 @@
      "tries": 1
     },
     "event_02_02": {
-     "s": "batch",
+     "s": "fallback",
      "tries": 2
     },
     "event_02_03": {
@@ -70,7 +70,7 @@
      "tries": 1
     },
     "event_02_05": {
-     "s": "batch",
+     "s": "fallback",
      "tries": 2
     },
     "event_02_06": {
@@ -7424,7 +7424,7 @@
      "tries": 0
     }
    },
-   "jpCheckedAt": "2026-11-06T02:31:41.926Z"
+   "jpCheckedAt": "2026-11-07T02:24:41.586Z"
   },
   "183": {
    "kind": "old",
@@ -7508,29 +7508,7 @@
    "jpCheckedAt": "2026-11-07T00:24:45.513Z"
   }
  },
- "batches": [
-  {
-   "id": "msgbatch_01KBkuC7VDvLp1ZZTuWRuq2k",
-   "day": "2026-11-07",
-   "eventId": 2,
-   "sids": [
-    "event_02_02",
-    "event_02_05"
-   ],
-   "estUsd": 0.339716
-  },
-  {
-   "id": "msgbatch_01P8MrDT2WC1gwpkosjZJ9sZ",
-   "day": "2026-11-07",
-   "eventId": 1,
-   "sids": [
-    "event_01_01",
-    "event_01_02",
-    "event_01_06"
-   ],
-   "estUsd": 0.50949
-  }
- ],
+ "batches": [],
  "knownBatches": {
   "msgbatch_019NZj12dSfVNmjjvNRg3HzJ": "2026-11-04",
   "msgbatch_01JbfNt2acE6QhAYYXQBWzED": "2026-11-04",
