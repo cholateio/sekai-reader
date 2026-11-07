@@ -6514,7 +6514,7 @@
   },
   "161": {
    "kind": "old",
-   "assets": "pending",
+   "assets": "done",
    "failures": 0,
    "eps": {
     "event_161_01": {
@@ -6550,7 +6550,8 @@
      "tries": 1
     }
    },
-   "scriptsAt": "2026-11-05T17:24:23.417Z"
+   "scriptsAt": "2026-11-05T17:24:23.417Z",
+   "assetsAt": "2026-11-07T12:24:59.568Z"
   },
   "162": {
    "kind": "old",
@@ -7048,7 +7049,8 @@
      "tries": 2
     }
    },
-   "assetsAt": "2026-11-04T14:49:33.605Z"
+   "assetsAt": "2026-11-04T14:49:33.605Z",
+   "banner": "done"
   },
   "174": {
    "kind": "old",
@@ -7089,7 +7091,8 @@
     }
    },
    "scriptsAt": "2026-11-05T16:31:40.079Z",
-   "assetsAt": "2026-11-06T17:32:14.720Z"
+   "assetsAt": "2026-11-06T17:32:14.720Z",
+   "banner": "done"
   },
   "175": {
    "kind": "old",
@@ -7130,7 +7133,8 @@
     }
    },
    "scriptsAt": "2026-11-05T16:31:40.079Z",
-   "assetsAt": "2026-11-06T16:24:52.735Z"
+   "assetsAt": "2026-11-06T16:24:52.735Z",
+   "banner": "done"
   },
   "176": {
    "kind": "old",
@@ -7183,7 +7187,8 @@
     }
    },
    "scriptsAt": "2026-11-05T16:31:40.079Z",
-   "assetsAt": "2026-11-06T15:24:49.135Z"
+   "assetsAt": "2026-11-06T15:24:49.135Z",
+   "banner": "done"
   },
   "177": {
    "kind": "old",
@@ -7815,5 +7820,5 @@
   "msgbatch_01KBkuC7VDvLp1ZZTuWRuq2k": "2026-11-07",
   "msgbatch_01P8MrDT2WC1gwpkosjZJ9sZ": "2026-11-07"
  },
- "pendingDeploy": false
+ "pendingDeploy": true
 }
