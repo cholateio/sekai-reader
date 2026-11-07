@@ -1,7 +1,6 @@
 import { h } from '../../render/dom';
 import { eventById, eventShort } from '../catalog';
 import { recentList } from '../recent';
-import { prefs } from '../storage';
 
 export const go = (hash: string) => { location.hash = hash; };
 
@@ -21,12 +20,10 @@ export function navLink(href: string, label: string, extra?: HTMLElement | strin
 function recentSection(): HTMLElement[] {
   const items = recentList();
   if (!items.length) return [];
+  // Readers remember 「繪名5箱」, not event or episode titles; no progress figures (owner, 2026-11-07).
   return [h('p', { class: 'drawer-label' }, '最近閱讀'), ...items.map(r => {
-    const pos = prefs.get(`pos:${r.sid}`, 0);
-    const prog = pos > 0.97 ? '讀完' : pos > 0.02 ? `讀到 ${Math.round(pos * 100)}%` : '';
-    // Readers remember 「繪名5箱」, not event or episode titles (owner, 2026-11-07).
     const ev = eventById.get(r.id);
-    return navLink(`#read-${r.id}-${r.no}`, `${ev ? eventShort(ev) : `第 ${r.id} 期`} 第 ${r.no} 話`, prog);
+    return navLink(`#read-${r.id}-${r.no}`, `${ev ? eventShort(ev) : `第 ${r.id} 期`} 第 ${r.no} 話`);
   })];
 }
 

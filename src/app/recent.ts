@@ -3,20 +3,26 @@ import { prefs } from './storage';
 
 export interface RecentItem { sid: string; id: number; no: number; title: string }
 
-const KEEP = 5;
-const SHOW = 3;
+const KEEP = 10;
 
 function stored(): RecentItem[] {
   const v = prefs.get<unknown>('recent', []);
   return Array.isArray(v) ? v.filter((x): x is RecentItem => !!x && typeof x === 'object' && typeof (x as RecentItem).sid === 'string') : [];
 }
 
-/** Moves `item` to the front (deduped by sid) and keeps the newest KEEP entries. */
+/**
+ * Moves `item` to the front (deduped by sid) and keeps the newest KEEP entries. Resume positions are kept
+ * only for those entries (owner, 2026-11-07: no progress display, only the recent list), so storage stays
+ * bounded at KEEP small keys however much is read.
+ */
 export function pushRecent(item: RecentItem): void {
-  prefs.set('recent', [item, ...stored().filter(r => r.sid !== item.sid)].slice(0, KEEP));
+  const list = [item, ...stored().filter(r => r.sid !== item.sid)].slice(0, KEEP);
+  prefs.set('recent', list);
+  const keep = new Set(list.map(r => `pos:${r.sid}`));
+  for (const k of prefs.keys()) if (k.startsWith('pos:') && !keep.has(k)) prefs.remove(k as `pos:${string}`);
 }
 
 /** Newest first, skipping episodes the current index no longer lists. */
 export function recentList(): RecentItem[] {
-  return stored().filter(r => eventById.get(r.id)?.eps.some(x => x[2] === r.sid)).slice(0, SHOW);
+  return stored().filter(r => eventById.get(r.id)?.eps.some(x => x[2] === r.sid));
 }

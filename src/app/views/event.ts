@@ -1,7 +1,6 @@
 import { h } from '../../render/dom';
 import { charsOf, eventById, eventLabel, neighbours, unitOf, type EventInfo } from '../catalog';
 import { bannerUrl, type Manifest } from '../load';
-import { prefs } from '../storage';
 import { navLink, siteFooter, siteHeader, viewMissing } from './common';
 
 const CAST_MAX = 8;
@@ -21,19 +20,13 @@ export function viewEvent(id: number, manifest: Manifest): HTMLElement[] {
   if (!e) return viewMissing('找不到這期活動，回到活動列表重新選擇。');
   const available = new Set(manifest.episodes);
   const readable = e.eps.filter(x => available.has(x[2]));
-  const posOf = (sid: string) => prefs.get(`pos:${sid}`, 0);
-
   // A readable episode is one link covering the whole cell (long-press / new tab); unavailable cells stay inert
   // and muted, and 「尚未提供」 is said once in the head instead of on every cell.
   const eps = h('ol', { class: 'eps' }, e.eps.map(([no, title, sid]) => {
-    const pos = posOf(sid);
     const ok = available.has(sid);
-    const state = pos > 0.97 ? '讀完' : pos > 0.02 ? `讀到 ${Math.round(pos * 100)}%` : '開始閱讀';
     return h('li', {}, h(ok ? 'a' : 'div', { class: ok ? 'ep' : 'ep na', href: ok ? `#read-${e.id}-${no}` : null },
       h('span', { class: 'no' }, no),
-      h('span', { class: 't' }, title),
-      ok ? h('span', { class: 'prog' }, state) : null,
-      ok && pos > 0.02 ? h('i', { class: 'bar', style: `--p:${Math.min(1, pos)}`, 'aria-hidden': 'true' }) : null));
+      h('span', { class: 't' }, title)));
   }));
   const { prev, next } = neighbours(e.id);
   const evLink = (x: typeof prev, label: string, cls: string) => x

@@ -11,6 +11,17 @@ export const prefs = {
       return v == null ? d : (JSON.parse(v) as T);
     } catch { return d; }
   },
+  remove(k: PrefKey): void {
+    try { localStorage.removeItem(STORE + k); } catch { /* storage unavailable */ }
+  },
+  /** Stored pref keys (without the site prefix). */
+  keys(): string[] {
+    try {
+      const out: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k?.startsWith(STORE)) out.push(k.slice(STORE.length)); }
+      return out;
+    } catch { return []; }
+  },
   set(k: PrefKey, v: unknown): void {
     if (!ALLOWED.test(k)) throw new Error(`unknown pref key ${k}`);
     try { localStorage.setItem(STORE + k, JSON.stringify(v)); } catch { /* storage unavailable: prefs are best-effort */ }

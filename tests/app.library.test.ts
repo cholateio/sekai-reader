@@ -63,17 +63,11 @@ test('空結果有清除連結', () => {
   mount(viewLibrary(emptyManifest, { ...EMPTY_QUERY, q: 'zzzz-nothing' }));
   expect(document.querySelector('.empty a.clear-all')).not.toBeNull();
 });
-test('進度：讀到第 k 話、讀完；不顯示可讀數或話數', () => {
-  prefs.set('pos:event_173_02', 0.4);
+test('列表不顯示閱讀進度，也不顯示可讀數或話數', () => {
+  for (let i = 1; i <= 8; i++) prefs.set(`pos:event_173_0${i}`, i === 2 ? 0.4 : 0.99);
   const m = { bg: [], sd: [], episodes: ['event_173_01', 'event_173_02'] };
-  let meta = mount(viewLibrary(m, EMPTY_QUERY)).querySelector('a.ev[href="#event-173"] .meta')!.textContent!;
-  expect(meta).toContain('讀到第 2 話');
-  expect(meta).not.toContain('可讀');
-  expect(meta.replace('讀到第 2 話', '')).not.toContain('話');
-  for (let i = 1; i <= 8; i++) prefs.set(`pos:event_173_0${i}`, 0.99);
-  meta = mount(viewLibrary(m, EMPTY_QUERY)).querySelector('a.ev[href="#event-173"] .meta')!.textContent!;
-  expect(meta).toContain('讀完');
-  expect(meta).not.toContain('話');
+  const meta = mount(viewLibrary(m, EMPTY_QUERY)).querySelector('a.ev[href="#event-173"] .meta')!.textContent!;
+  expect(meta).not.toMatch(/讀完|讀到|可讀|話/);
 });
 test('頁面不含 sekai.best，常駐操作只有一個搜尋框與六顆團體晶片，沒有「全部」也沒有面板', () => {
   mount(viewLibrary(emptyManifest, EMPTY_QUERY));

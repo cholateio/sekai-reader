@@ -17,7 +17,7 @@ A static web reader that turns Project SEKAI Traditional Chinese event stories i
 - `src/storyboard/` — storyboard types, validation, rule-based fallback board, bundled boards
 - `src/render/` — comic renderer (`comic/`: panels, bubble shape rules `shape.ts`, SVG outlines `bubbleSvg.ts`, backgrounds and effect layers, slanted layout)
 - `src/art/` — `CharacterArt` seam (static chibi now, Spine later) and fallback name circles
-- `src/app/` — hash router, data loading, prefs (`storage.ts`: `bw`, `recent`, `pos:*`), unit easter eggs (`units.ts`), library query model (`filter.ts`: `#library?unit=&q=`), recent episodes (`recent.ts`), views (`views/`: library, event, reader, shared header/drawer)
+- `src/app/` — hash router, data loading, prefs (`storage.ts`: `bw`, `recent`, `pos:*` kept only for the 10 recent episodes), unit easter eggs (`units.ts`), library query model (`filter.ts`: `#library?unit=&q=`), recent episodes (`recent.ts`), views (`views/`: library, event, reader, shared header/drawer)
 - `data/` — event index (`tc-event-index.json`: events with episodes, `unit` (card-derived for events the master data leaves `none`) and featured character ids `chars`, character table), pipeline state (`pipeline-state.json`, edited only by the pipeline)
 - `storyboards/` — AI-director storyboards, line numbers only (committed)
 - `prompts/` — storyboard director prompt

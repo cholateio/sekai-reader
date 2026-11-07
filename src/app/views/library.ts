@@ -2,24 +2,11 @@ import { h } from '../../render/dom';
 import { BUILT, EVENTS, eventLabel, UNIT_SHORT, UNITS, unitOf, type EventInfo } from '../catalog';
 import { EMPTY_QUERY, filterEvents, isFiltered, toHash, type LibraryQuery } from '../filter';
 import { bannerUrl, type Manifest } from '../load';
-import { prefs } from '../storage';
 import { siteFooter, siteHeader } from './common';
 
-function progressOf(e: EventInfo): string {
-  let last = 0, done = 0;
-  for (const [no, , sid] of e.eps) {
-    const p = prefs.get(`pos:${sid}`, 0);
-    if (p > 0.02) last = Math.max(last, no);
-    if (p > 0.97) done++;
-  }
-  if (done === e.eps.length && e.eps.length) return '讀完';
-  return last ? `讀到第 ${last} 話` : '';
-}
-
-/** Second row of a library entry: date · box label · progress. Episode counts live on the event page. */
+/** Second row of a library entry: date · box label. No reading progress (owner, 2026-11-07). */
 export function eventMeta(e: EventInfo): HTMLElement[] {
-  return [e.date, eventLabel(e), progressOf(e) || null]
-    .filter((x): x is string => !!x).map(x => h('span', {}, x));
+  return [e.date, eventLabel(e)].map(x => h('span', {}, x));
 }
 
 // Every row keeps the same box (a tinted block when there is no banner) so titles stay aligned.

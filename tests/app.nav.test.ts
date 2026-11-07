@@ -11,12 +11,24 @@ const open = () => (document.querySelector('.menu') as HTMLElement).click();
 beforeEach(() => { localStorage.clear(); document.body.className = ''; history.replaceState(null, '', '/'); });
 afterEach(() => vi.unstubAllGlobals());
 
-test('pushRecent 去重置頂最多 5；recentList 跳過索引沒有的話', () => {
-  for (const n of [1, 2, 3, 4, 5, 6]) pushRecent({ sid: `event_173_0${n}`, id: 173, no: n, title: `t${n}` });
+test('pushRecent 去重置頂最多 10；recentList 全部列出並跳過索引沒有的話', () => {
+  const sids = [...[1, 2, 3, 4, 5, 6, 7, 8].map(n => `event_173_0${n}`), 'event_172_01', 'event_172_02', 'event_172_03'];
+  for (const sid of sids) pushRecent({ sid, id: Number(sid.split('_')[1]), no: Number(sid.split('_')[2]), title: 't' });
   pushRecent({ sid: 'event_173_02', id: 173, no: 2, title: 't2' });
   pushRecent({ sid: 'event_1_09', id: 1, no: 9, title: 'gone' });
-  expect(prefs.get('recent', [] as RecentItem[]).length).toBe(5);
-  expect(recentList().map(r => r.sid)).toEqual(['event_173_02', 'event_173_06', 'event_173_05']);
+  expect(prefs.get('recent', [] as RecentItem[]).length).toBe(10);
+  expect(recentList().map(r => r.sid)).toEqual(
+    ['event_173_02', 'event_172_03', 'event_172_02', 'event_172_01', 'event_173_08', 'event_173_07', 'event_173_06', 'event_173_05', 'event_173_04']);
+});
+test('續讀位置只留給最近閱讀裡的話：被擠出清單的話連同位置一起刪掉', () => {
+  // As in the app: an episode is pushed when opened, then scrolling writes its position.
+  const read = (sid: string, id: number, no: number) => { pushRecent({ sid, id, no, title: 't' }); prefs.set(`pos:${sid}`, 0.5); };
+  for (let n = 1; n <= 8; n++) read(`event_173_0${n}`, 173, n);
+  prefs.set('pos:event_99_01', 0.3); // left over from before the cap
+  for (const n of [1, 2, 3]) read(`event_172_0${n}`, 172, n);
+  const kept = Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i)!).filter(k => k.startsWith('sekai-reader:pos:')).sort();
+  expect(kept).toEqual([...[1, 2, 3].map(n => `sekai-reader:pos:event_172_0${n}`), ...[2, 3, 4, 5, 6, 7, 8].map(n => `sekai-reader:pos:event_173_0${n}`)]);
+  expect(localStorage.getItem('sekai-reader:recent')).not.toBeNull();
 });
 test('recentList 容忍壞掉的儲存值', () => {
   localStorage.setItem('sekai-reader:recent', '{"x":1}');
@@ -39,7 +51,7 @@ test('側邊欄：最近閱讀是連結、用「繪名5箱 第 N 話」不用標
   expect(a.textContent).toMatch(/\d箱 第 1 話/);
   expect(a.textContent).not.toContain('令人開心的消息');
   expect(a.textContent).not.toContain('第 173 期');
-  expect(a.textContent).toContain('40%');
+  expect(a.textContent).not.toMatch(/%|讀完|讀到/); // no progress figures anywhere (owner, 2026-11-07)
   a.dispatchEvent(new MouseEvent('click', { bubbles: true }));
   expect(drawer().hidden).toBe(true);
 });
@@ -81,7 +93,8 @@ test('活動頁：上一期／下一期與話數都是連結，標題區沒有�
   expect([...root.querySelectorAll('.evmeta span')].map(x => x.textContent)).toEqual([`${e173.date} 開始`, eventLabel(e173)]);
   expect(root.querySelector('.evhead')!.textContent).toContain('其餘尚未提供');
   expect(root.querySelector('.eps')!.textContent).not.toContain('尚未提供'); // said once in the head, not per row
-  expect(root.querySelector('a.ep[href="#read-173-2"]')!.textContent).toContain('讀到 40%');
+  expect(root.querySelector('.eps')!.textContent).not.toMatch(/%|讀完|讀到|開始閱讀/);
+  expect(root.querySelector('.eps .bar')).toBeNull();
   expect(eventLabel(p173!)).toMatch(/^.+\d+箱$/); // previous Leo/need box, not the previous event id
   const prevLink = drawer().querySelector(`a[href="#event-${p173!.id}"]`)!;
   expect(prevLink.textContent).toContain('上一期');
