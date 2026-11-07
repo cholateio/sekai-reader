@@ -76,8 +76,9 @@ test('活動頁：繼續閱讀指向最後有進度且未讀完的話，上一�
   expect(root.querySelector('.evhead .cast')).not.toBeNull();
   expect(root.querySelector('.evhead')!.textContent).toContain('可讀 2/8');
   expect(root.querySelector('.site-header .page-title')!.textContent).toBe('第 173 期');
-  expect(root.querySelector('.evhead .evbox')!.textContent).toBe(eventLabel(EVENTS.find(e => e.id === 173)!));
-  expect(root.querySelector('.evhead .evname')!.textContent).toBe(EVENTS.find(e => e.id === 173)!.name);
+  // The page body is titled by the event name; the box label (「穗波6箱」) is for navigation only.
+  expect(root.querySelector('.evhead h1')!.textContent).toBe(EVENTS.find(e => e.id === 173)!.name);
+  expect(root.querySelector('.evhead')!.textContent).not.toContain(eventLabel(EVENTS.find(e => e.id === 173)!));
   expect(root.querySelector('.evhead')!.textContent).toContain('其餘尚未提供');
   expect(root.querySelector('.eps')!.textContent).not.toContain('尚未提供'); // said once in the head, not per row
   expect(root.querySelector('a.ep[href="#read-173-2"]')!.textContent).toContain('讀到 40%');
