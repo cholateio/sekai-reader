@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import {
-  BATCH_USD_PER_MTOK, MAX_TOKENS, MODEL, actualUsd, buildRequest, collectBatches, normalizePanels, parseBoardText, reconcile, reserveUsd, submitDue,
+  BATCH_USD_PER_MTOK, MAX_TOKENS, MAX_TRIES, MODEL, PROMPT_VERSION, actualUsd, buildRequest, collectBatches, normalizePanels, parseBoardText, reconcile, requeueForPrompt, reserveUsd, submitDue,
   wrapBoard, type DirectorDeps,
 } from '../scripts/pipeline/director';
 import { seedState, recordFetch, authorizeDirect, type IndexEvent, type IndexFile, type PipelineState } from '../scripts/pipeline/state';
@@ -28,6 +28,8 @@ const failure = (sid: string, kind: string): Result => {
   if (kind === 'refusal') return msg('refusal', '');
   if (kind === 'max_tokens') return msg('max_tokens', '{"panels":[');
   if (kind === 'bad-json') return msg('end_turn', 'not json');
+  if (kind === 'dialogue-type') return msg('end_turn', JSON.stringify({ panels: [{ t: '再一下下就好', l: [0], 'I love you': 1 }] }));
+  if (kind === 'ascii-type') return msg('end_turn', JSON.stringify({ panels: [{ t: 'I love you', l: [0], shape: ['I love you'], cam: { focus: [0, 0], zoom: 1, 'I love you': '中文' } }] }));
   return msg('end_turn', JSON.stringify({ panels: [{ t: 'talk', l: [0], bg: '教室' }] }));
 };
 
@@ -136,7 +138,7 @@ test('submitDue 在 create 之後立刻 persist 了 id', async () => {
   expect(r.submitted).toEqual(['event_174_01', 'event_174_02']);
   expect(r.batchIds).toEqual(['msgbatch_1']);
   const snap = t.snaps.at(-1)!;
-  expect(snap.batches).toEqual([{ id: 'msgbatch_1', day: '2026-11-04', eventId: 174, sids: ['event_174_01', 'event_174_02'], estUsd: expect.closeTo(2 * RESERVE) }]);
+  expect(snap.batches).toEqual([{ id: 'msgbatch_1', day: '2026-11-04', eventId: 174, sids: ['event_174_01', 'event_174_02'], estUsd: expect.closeTo(2 * RESERVE), promptVersion: PROMPT_VERSION }]);
   expect(snap.knownBatches['msgbatch_1']).toBe('2026-11-04');
   expect(snap.events['174'].eps['event_174_01']).toEqual({ s: 'batch', tries: 1 });
   expect(snap.spend['2026-11-04']).toBeCloseTo(2 * RESERVE);
@@ -206,7 +208,7 @@ test('runner 消失模擬：create 後丟棄狀態 → 下次 reconcile 認領 �
   expect(c.done).toEqual(['event_174_01']);
   expect(c.retry).toEqual(['event_174_02']);
   expect(t.state.s.events['174'].eps['event_174_01']).toEqual({ s: 'done', tries: 1 });
-  expect(t.state.s.events['174'].eps['event_174_02']).toEqual({ s: 'none', tries: 1 });
+  expect(t.state.s.events['174'].eps['event_174_02']).toMatchObject({ s: 'none', tries: 1 });
   expect(t.state.s.batches).toEqual([]);
   expect(t.state.s.spend['2026-11-04']).toBeCloseTo(actualUsd({ input_tokens: 4000, output_tokens: 3000 }) + actualUsd({ input_tokens: 4000, output_tokens: 100 }));
   const again = await submitDue(t.deps, t.state.s, INDEX, { dailyCapUsd: t.cap });
@@ -232,7 +234,7 @@ test('collectBatches 成功結果通過驗證就寫檔並標 done', async () => 
   expect(eps(t.state.s, 174)).toEqual({ event_174_01: 'done', event_174_02: 'done' });
   expect(t.state.s.pendingDeploy).toBe(true);
   const b = t.boards.get('event_174_01') as { meta: Record<string, unknown> };
-  expect(b.meta).toEqual({ director: 'ai', promptVersion: 'v3-manga', model: 'claude-opus-5-5', generatedAt: '2026-11-04' });
+  expect(b.meta).toEqual({ director: 'ai', promptVersion: 'v4-caps', model: 'claude-opus-5-5', generatedAt: '2026-11-04' });
   expect(t.state.s.knownBatches['msgbatch_1']).toBe('2026-11-04');
 });
 
@@ -242,21 +244,127 @@ test.each(['errored', 'expired', 'refusal', 'max_tokens', 'bad-json', 'invalid-b
   t.fake.finish('msgbatch_1', [ok('event_174_01'), failure('event_174_02', kind)]);
   const c = await collectBatches(t.deps, t.state.s);
   expect(c.retry).toEqual(['event_174_02']);
-  expect(t.state.s.events['174'].eps['event_174_02']).toEqual({ s: 'none', tries: 1 });
+  const ep = t.state.s.events['174'].eps['event_174_02'];
+  expect(ep).toMatchObject({ s: 'none', tries: 1 });
+  expect(typeof ep.err).toBe('string');
   expect(t.boards.has('event_174_02')).toBe(false);
+  // The retry carries the rejection reason (structure only: codes and numbers), after the script.
+  await submitDue(t.deps, t.state.s, INDEX, { dailyCapUsd: t.cap });
+  const retry = t.fake.created[1][0];
+  expect(retry.custom_id).toBe('event_174_02');
+  const msgs = (retry.params as { messages: { role: string; content: string }[] }).messages;
+  expect(msgs[0].content.startsWith('BG:bg_a\n0|一歌|||event_174_02\n\n')).toBe(true); // script first, feedback after
+  expect(msgs[0].content).toContain(ep.err);
+  expect(msgs[0].content.split('拒絕').length).toBe(2);
+  const first = (t.fake.created[0][1].params as { messages: { content: string }[] }).messages[0].content;
+  expect(first).not.toContain('拒絕');
 });
 
-test('collectBatches 第二次失敗 → fallback', async () => {
+test('judge 的錯誤訊息只有 ASCII：驗證訊息引用的模型輸出（unknown type X）不會把中文帶進狀態檔或重送', async () => {
+  const t = setup();
+  await submitDue(t.deps, t.state.s, INDEX, { dailyCapUsd: t.cap });
+  t.fake.finish('msgbatch_1', [failure('event_174_01', 'dialogue-type'), failure('event_174_02', 'ascii-type')]);
+  await collectBatches(t.deps, t.state.s);
+  const e1 = t.state.s.events['174'].eps['event_174_01'].err!;
+  expect(e1).toContain('unknown type');
+  expect(e1).toMatch(/^[\x20-\x7e]+$/);
+  expect(e1).not.toContain('love');
+  expect(t.state.s.events['174'].eps['event_174_02'].err).not.toContain('love'); // ASCII dialogue is not quoted either
+  expect(JSON.stringify(t.state.s)).not.toMatch(/love|再一下下/);
+  await submitDue(t.deps, t.state.s, INDEX, { dailyCapUsd: t.cap });
+  for (const r of t.fake.created[1]) {
+    const content = (r.params as { messages: { content: string }[] }).messages[0].content;
+    const reason = /原因：([^\n]*)/.exec(content)![1]; // the quoted validator text itself is ASCII only
+    expect(reason).toMatch(/^[\x20-\x7e]+$/);
+    expect(reason).not.toContain('love');
+  }
+});
+
+test('cast 只能是這話的說話者：台詞混進 cast（即使寫成字串）被退回，說話者名單通過', async () => {
+  const speakers = [...new Set(syntheticEpisode().lines.map(l => l.who).filter(Boolean))];
+  expect(speakers.length).toBeGreaterThan(1);
+  const withCast = (cast: unknown) => syntheticBoard().panels.map((p, i) => (i === 0 ? { ...p, cast } : p));
+  const t = setup();
+  await submitDue(t.deps, t.state.s, INDEX, { dailyCapUsd: t.cap });
+  t.fake.finish('msgbatch_1', [ok('event_174_01', withCast('再一下下就好')), ok('event_174_02', withCast(speakers.slice(0, 2).join('、')))]);
+  const c = await collectBatches(t.deps, t.state.s);
+  expect(c.retry).toEqual(['event_174_01']);
+  expect(c.done).toEqual(['event_174_02']);
+  expect(t.boards.has('event_174_01')).toBe(false);
+  expect(t.state.s.events['174'].eps['event_174_01'].err).toContain('cast must be speaker names');
+  const b = t.boards.get('event_174_02') as { panels: { cast?: string[] }[] };
+  expect(b.panels[0].cast).toEqual(speakers.slice(0, 2));
+});
+
+test('舊版提示詞的 batch：結果標舊版本；用盡次數也不記 fallback，改歸零重排給新版', async () => {
+  const t = setup();
+  t.state.s.events['174'].eps['event_174_02'].tries = 2;
+  await submitDue(t.deps, t.state.s, INDEX, { dailyCapUsd: t.cap });
+  expect(t.state.s.batches[0].promptVersion).toBe(PROMPT_VERSION);
+  t.state.s.batches[0].promptVersion = 'v3-manga';
+  t.fake.finish('msgbatch_1', [ok('event_174_01'), failure('event_174_02', 'bad-json')]);
+  const c = await collectBatches(t.deps, t.state.s);
+  expect(c.retry).toEqual(['event_174_02']);
+  expect(t.state.s.events['174'].eps['event_174_02']).toEqual({ s: 'none', tries: 0 });
+  expect((t.boards.get('event_174_01') as { meta: { promptVersion: string } }).meta.promptVersion).toBe('v3-manga');
+  await submitDue(t.deps, t.state.s, INDEX, { dailyCapUsd: t.cap });
+  expect((t.fake.created[1][0].params as { messages: { content: string }[] }).messages[0].content).not.toContain('拒絕'); // clean start
+});
+
+test('requeueForPrompt 把沒記版本的舊 batch 標成被換掉的版本；認領的 batch 不動', () => {
+  const t = setup();
+  t.state.s.batches = [
+    { id: 'legacy', day: '2026-11-06', eventId: 173, sids: ['event_173_01'], estUsd: 0.3 },
+    { id: 'adopted', day: '2026-11-06', sids: [], estUsd: 0, adopted: true },
+  ];
+  delete t.state.s.promptVersion;
+  requeueForPrompt(t.state.s);
+  expect(t.state.s.batches[0].promptVersion).toBe('v3-manga');
+  expect(t.state.s.batches[1].promptVersion).toBeUndefined();
+  expect(t.state.s.promptVersion).toBe(PROMPT_VERSION);
+});
+
+test('collectBatches 第三次失敗 → fallback，保留最後的錯誤原因', async () => {
+  expect(MAX_TRIES).toBe(3);
   const t = setup();
   await submitDue(t.deps, t.state.s, INDEX, { dailyCapUsd: t.cap });
   t.fake.finish('msgbatch_1', [ok('event_174_01'), failure('event_174_02', 'errored')]);
   await collectBatches(t.deps, t.state.s);
   await submitDue(t.deps, t.state.s, INDEX, { dailyCapUsd: t.cap });
   t.fake.finish('msgbatch_2', [failure('event_174_02', 'refusal')]);
-  const c = await collectBatches(t.deps, t.state.s);
+  let c = await collectBatches(t.deps, t.state.s);
+  expect(c.retry).toEqual(['event_174_02']);
+  await submitDue(t.deps, t.state.s, INDEX, { dailyCapUsd: t.cap });
+  t.fake.finish('msgbatch_3', [failure('event_174_02', 'max_tokens')]);
+  c = await collectBatches(t.deps, t.state.s);
   expect(c.fallback).toEqual(['event_174_02']);
-  expect(t.state.s.events['174'].eps['event_174_02']).toEqual({ s: 'fallback', tries: 2 });
+  expect(t.state.s.events['174'].eps['event_174_02']).toEqual({ s: 'fallback', tries: 3, err: 'stop_reason max_tokens' });
   expect((await submitDue(t.deps, t.state.s, INDEX, { dailyCapUsd: t.cap })).submitted).toEqual([]);
+});
+
+test('requeueForPrompt：提示詞版本變了就把 fallback 的話重新排隊；同版本不動', () => {
+  const t = setup();
+  t.state.s.events['174'].eps['event_174_01'] = { s: 'fallback', tries: 3, err: 'x' };
+  t.state.s.events['174'].eps['event_174_02'] = { s: 'done', tries: 1 };
+  t.state.s.promptVersion = 'v3-manga';
+  expect(requeueForPrompt(t.state.s)).toEqual(['event_174_01']);
+  expect(t.state.s.events['174'].eps['event_174_01']).toEqual({ s: 'none', tries: 0 });
+  expect(t.state.s.events['174'].eps['event_174_02']).toEqual({ s: 'done', tries: 1 });
+  expect(t.state.s.promptVersion).toBe(PROMPT_VERSION);
+  t.state.s.events['174'].eps['event_174_01'] = { s: 'fallback', tries: 3 };
+  expect(requeueForPrompt(t.state.s)).toEqual([]);
+  expect(t.state.s.events['174'].eps['event_174_01'].s).toBe('fallback');
+});
+
+test('成功後清掉先前的錯誤原因', async () => {
+  const t = setup();
+  await submitDue(t.deps, t.state.s, INDEX, { dailyCapUsd: t.cap });
+  t.fake.finish('msgbatch_1', [ok('event_174_01'), failure('event_174_02', 'errored')]);
+  await collectBatches(t.deps, t.state.s);
+  await submitDue(t.deps, t.state.s, INDEX, { dailyCapUsd: t.cap });
+  t.fake.finish('msgbatch_2', [ok('event_174_02')]);
+  await collectBatches(t.deps, t.state.s);
+  expect(t.state.s.events['174'].eps['event_174_02']).toEqual({ s: 'done', tries: 2 });
 });
 
 test('collectBatches 的校正記回送出那天：昨天預留、今天收取，今天額度不變', async () => {
@@ -344,6 +452,14 @@ test('normalizePanels 把不在 l 裡的 cut 丟掉（裝飾記號不值得整�
   expect(normalizePanels([{ t: 'talk', l: [3, 4], cut: [4, 9] }])).toEqual([{ t: 'talk', l: [3, 4], cut: [4] }]);
   expect(normalizePanels([{ t: 'talk', l: [3], cut: [9] }])).toEqual([{ t: 'talk', l: [3] }]);
   expect(normalizePanels([{ t: 'trans', cut: [1] }])).toEqual([{ t: 'trans' }]);
+});
+
+test('normalizePanels 把寫成一個字串的 cast 拆成陣列（實際看過 "彰人、冬彌"、"眾人"）', () => {
+  expect(normalizePanels([{ t: 'shout', l: [0], cast: '彰人、冬彌' }])).toEqual([{ t: 'shout', l: [0], cast: ['彰人', '冬彌'] }]);
+  expect(normalizePanels([{ t: 'shout', l: [0], cast: '實乃理, 遙 / 愛莉，雫' }])).toEqual([{ t: 'shout', l: [0], cast: ['實乃理', '遙', '愛莉', '雫'] }]);
+  expect(normalizePanels([{ t: 'shout', l: [0], cast: '眾人' }])).toEqual([{ t: 'shout', l: [0], cast: ['眾人'] }]);
+  expect(normalizePanels([{ t: 'shout', l: [0], cast: ' ' }])).toEqual([{ t: 'shout', l: [0] }]);
+  expect(normalizePanels([{ t: 'shout', l: [0], cast: ['杏'] }])).toEqual([{ t: 'shout', l: [0], cast: ['杏'] }]);
 });
 
 test('normalizePanels 把寫成單一整數的 l / caps / cut 包成陣列（實際看過 cut: 63）', () => {

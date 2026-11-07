@@ -448,3 +448,17 @@ test('橫幅通道呼叫前已把本輪狀態寫回檔案（fetch_episode 會用
   await runOnce(t.deps, { phase: 'fetch' });
   expect(onDisk).toBe('done');
 });
+
+test('direct：提示詞版本變了就把 fallback 的話重新送出', async () => {
+  const t = setup({ withDirector: true });
+  await runOnce(t.deps, { phase: 'fetch' });
+  const s0 = t.state();
+  s0.events['173'].assets = 'done';
+  s0.events['173'].eps['event_173_01'] = { s: 'fallback', tries: 2, err: 'missing caption 3' };
+  s0.promptVersion = 'v3-manga';
+  fs.writeFileSync(t.deps.statePath, JSON.stringify(s0));
+  const r = await runOnce(t.deps, { phase: 'direct' });
+  expect(r.submitted).toContain('event_173_01');
+  expect(t.state().promptVersion).toBe('v4-caps');
+  expect(t.calls.some(c => c.startsWith('create:') && c.includes('event_173_01'))).toBe(true);
+});

@@ -15,10 +15,12 @@ const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object
 const isIntArray = (v: unknown): v is number[] => Array.isArray(v) && v.every(n => Number.isInteger(n));
 const inUnit = (n: unknown) => typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= 1;
 
+// Paths in messages carry only these structural names; any other (model-written) key is reported as `unknown`.
+const PATH_KEYS = new Set([...PANEL_KEYS, 'focus', 'zoom', 'blur', 'director', 'promptVersion', 'model', 'generatedAt']);
 function findCjk(v: unknown, path: string, errors: string[]) {
   if (typeof v === 'string') { if (CJK.test(v)) errors.push(`CJK text in ${path}`); }
   else if (Array.isArray(v)) v.forEach((x, i) => findCjk(x, `${path}[${i}]`, errors));
-  else if (isObj(v)) for (const [k, x] of Object.entries(v)) findCjk(x, `${path}.${k}`, errors);
+  else if (isObj(v)) for (const [k, x] of Object.entries(v)) findCjk(x, `${path}.${PATH_KEYS.has(k) ? k : 'unknown'}`, errors);
 }
 
 export function validateStoryboard(input: unknown, ep: Episode): ValidationResult {
@@ -40,8 +42,10 @@ export function validateStoryboard(input: unknown, ep: Episode): ValidationResul
   input.panels.forEach((p: unknown, i: number) => {
     const at = `panel ${i}`;
     if (!isObj(p)) { errors.push(`${at}: not an object`); return; }
-    for (const k of Object.keys(p)) if (!PANEL_KEYS.has(k)) errors.push(`${at}: unknown field ${k}`);
-    if (!PANEL_TYPES.includes(p.t as never)) errors.push(`${at}: unknown type ${String(p.t)}`);
+    // Messages never quote model-written values (field names, t, shape): the pipeline feeds them back to the
+    // model and keeps them in committed state, which must stay free of anything that could be dialogue.
+    for (const k of Object.keys(p)) if (!PANEL_KEYS.has(k)) errors.push(`${at}: unknown field`);
+    if (!PANEL_TYPES.includes(p.t as never)) errors.push(`${at}: unknown type`);
     if (p.t === 'impact') impacts++;
 
     if (p.l !== undefined) {
@@ -64,7 +68,7 @@ export function validateStoryboard(input: unknown, ep: Episode): ValidationResul
       if (!Array.isArray(p.shape)) errors.push(`${at}: shape must be an array`);
       else {
         if (p.shape.length !== nLines) errors.push(`${at}: shape length ${p.shape.length} != l length ${nLines}`);
-        for (const s of p.shape) if (!BUBBLE_SHAPES.includes(s as never)) errors.push(`${at}: invalid shape ${String(s)}`);
+        for (const s of p.shape) if (!BUBBLE_SHAPES.includes(s as never)) errors.push(`${at}: invalid shape`);
       }
     }
     if (p.caps !== undefined && p.t !== 'est' && p.t !== 'trans' && Array.isArray(p.caps) && p.caps.length)

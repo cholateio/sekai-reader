@@ -7,10 +7,13 @@ import {
 } from './state';
 
 export const MODEL = 'claude-opus-5-5';
-export const PROMPT_VERSION = 'v3-manga';
+export const PROMPT_VERSION = 'v4-caps';
 export const MAX_TOKENS = 16000;
 export const BATCH_USD_PER_MTOK = { input: 2, output: 10 };
-export const MAX_TRIES = 2;
+export const MAX_TRIES = 3;
+const FEEDBACK_MAX = 400;
+/** Prompt version of batches recorded before BatchState.promptVersion existed (state files from 2026-11-04..07). */
+const LEGACY_PROMPT_VERSION = 'v3-manga';
 
 export interface DirectorDeps {
   client: { messages: Pick<Anthropic['messages'], 'countTokens' | 'batches'> };
@@ -30,12 +33,14 @@ type BatchRequest = Anthropic.Messages.BatchCreateParams['requests'][number];
  * No output_config.format: measured 2026-11-05, the grammar made Opus close the panels array after one
  * panel (and took 4x longer); plain JSON in a fence came back complete. validateStoryboard is the gate.
  */
-export function buildRequest(sid: string, compactText: string, prompt: string): BatchRequest {
+export function buildRequest(sid: string, compactText: string, prompt: string, feedback?: string): BatchRequest {
+  // A retry tells the model why the last board was rejected; the messages hold only validator codes and numbers.
+  const content = feedback ? `${compactText}\n\n上一次的輸出被程式拒絕，原因：${feedback}\n請修正後重新輸出完整的 JSON。` : compactText;
   return {
     custom_id: sid,
     params: {
       model: MODEL, max_tokens: MAX_TOKENS, system: prompt,
-      messages: [{ role: 'user', content: compactText }],
+      messages: [{ role: 'user', content }],
       output_config: { effort: 'medium' },
     },
   };
@@ -69,6 +74,8 @@ export function normalizePanels(panels: unknown): unknown {
     const rec = { ...(p as Record<string, unknown>) };
     // Seen in practice: `cut: 63` for a single line; the same slip is plausible for l and caps.
     for (const k of INT_LISTS) if (Number.isInteger(rec[k])) rec[k] = [rec[k]];
+    // Seen in practice: `cast: "彰人、冬彌"`; split on the separators the model uses.
+    if (typeof rec.cast === 'string') rec.cast = rec.cast.split(/[、，,/\s]+/).filter(Boolean);
     const lines = Array.isArray(rec.l) ? rec.l : [];
     for (const [k, v] of Object.entries(rec)) {
       let val = v;
@@ -81,13 +88,45 @@ export function normalizePanels(panels: unknown): unknown {
   });
 }
 
-export function wrapBoard(panels: unknown, now: Date): unknown {
-  return { meta: { director: 'ai', promptVersion: PROMPT_VERSION, model: MODEL, generatedAt: dayOf(now) }, panels };
+export function wrapBoard(panels: unknown, now: Date, promptVersion = PROMPT_VERSION): unknown {
+  return { meta: { director: 'ai', promptVersion, model: MODEL, generatedAt: dayOf(now) }, panels };
+}
+
+/** Validator messages quote model output (unknown type X); only ASCII survives so no dialogue reaches state or a retry. */
+export const sanitizeFeedback = (why: string) => why.replace(/[^\x20-\x7e]+/g, '?').slice(0, FEEDBACK_MAX);
+
+/** Pipeline-only gate (committed boards are not re-judged): cast names must be speakers of the episode. */
+export function castErrors(panels: unknown, ep: Episode): string[] {
+  const speakers = new Set(ep.lines.map(l => l.who).filter(Boolean));
+  const out: string[] = [];
+  if (!Array.isArray(panels)) return out;
+  panels.forEach((p, i) => {
+    const cast = (p as { cast?: unknown })?.cast;
+    if (Array.isArray(cast) && cast.some(c => typeof c !== 'string' || !speakers.has(c))) out.push(`panel ${i}: cast must be speaker names`);
+  });
+  return out;
 }
 
 function findEp(s: PipelineState, sid: string): EpState | undefined {
   for (const e of Object.values(s.events)) if (e.eps[sid]) return e.eps[sid];
   return undefined;
+}
+
+/** A new prompt version gets another full set of tries for every episode the old one gave up on. */
+export function requeueForPrompt(s: PipelineState): string[] {
+  const out: string[] = [];
+  if (s.promptVersion !== PROMPT_VERSION) {
+    // Batches submitted by code that did not record a version belong to the version being replaced;
+    // adopted ones stay unversioned (built by a lost runner of the current code, treated as current).
+    for (const b of s.batches) if (!b.adopted && b.promptVersion === undefined) b.promptVersion = s.promptVersion ?? LEGACY_PROMPT_VERSION;
+    for (const e of Object.values(s.events)) for (const [sid, ep] of Object.entries(e.eps)) {
+      if (ep.s !== 'fallback') continue;
+      e.eps[sid] = { s: 'none', tries: 0 };
+      out.push(sid);
+    }
+    s.promptVersion = PROMPT_VERSION;
+  }
+  return out;
 }
 
 /** The Anthropic account is the source of truth: any recent batch the state file does not know is adopted. */
@@ -129,7 +168,7 @@ export async function submitDue(
     let est = 0;
     for (const sid of sids) {
       if (capped) { out.skipped.push(sid); continue; }
-      const req = buildRequest(sid, await d.compact(sid), d.prompt);
+      const req = buildRequest(sid, await d.compact(sid), d.prompt, findEp(s, sid)?.err);
       const { model, system, messages, output_config } = req.params;
       const { input_tokens } = await d.client.messages.countTokens({ model, system, messages, output_config: output_config ?? undefined });
       const r = reserveUsd(input_tokens);
@@ -145,7 +184,7 @@ export async function submitDue(
     if (!requests.length) continue;
     const batch = await d.client.messages.batches.create({ requests });
     const sent = requests.map(r => r.custom_id);
-    s.batches.push({ id: batch.id, day: today, eventId, sids: sent, estUsd: est });
+    s.batches.push({ id: batch.id, day: today, eventId, sids: sent, estUsd: est, promptVersion: PROMPT_VERSION });
     rememberBatch(s, batch.id, today);
     for (const sid of sent) { const ep = findEp(s, sid)!; ep.s = 'batch'; ep.tries += 1; }
     addSpend(s, today, est);
@@ -158,7 +197,7 @@ export async function submitDue(
   return out;
 }
 
-type Verdict = { sid: string; verdict: 'done' | 'retry' | 'fallback'; tries: number; board?: unknown };
+type Verdict = { sid: string; verdict: 'done' | 'retry' | 'fallback'; tries: number; board?: unknown; err?: string };
 
 function judge(s: PipelineState, b: BatchState, r: Anthropic.Messages.MessageBatchIndividualResponse, d: DirectorDeps): Verdict | null {
   const sid = r.custom_id;
@@ -166,9 +205,13 @@ function judge(s: PipelineState, b: BatchState, r: Anthropic.Messages.MessageBat
   if (!ep) return null;
   // An adopted batch was created by a run whose state never reached disk, so its try was not counted yet.
   const tries = ep.tries + (b.adopted && ep.s === 'none' ? 1 : 0);
+  // A batch built with an older prompt never settles an episode as fallback: the new prompt gets its own tries.
+  const stale = b.promptVersion !== undefined && b.promptVersion !== PROMPT_VERSION;
   const failed = (why: string): Verdict => {
     d.log(`${sid}: ${why}`);
-    return { sid, verdict: tries < MAX_TRIES ? 'retry' : 'fallback', tries };
+    const err = sanitizeFeedback(why);
+    if (tries < MAX_TRIES) return { sid, verdict: 'retry', tries, err };
+    return stale ? { sid, verdict: 'retry', tries: 0 } : { sid, verdict: 'fallback', tries, err };
   };
   if (r.result.type !== 'succeeded') return failed(r.result.type);
   const m = r.result.message;
@@ -178,11 +221,13 @@ function judge(s: PipelineState, b: BatchState, r: Anthropic.Messages.MessageBat
   let raw: unknown;
   try { raw = parseBoardText(text.text); } catch { return failed('bad json'); }
   const panels = normalizePanels(raw);
-  const board = wrapBoard(panels, d.now());
-  const v = validateStoryboard(board, d.readEpisode(sid));
-  if (!v.ok) {
+  const board = wrapBoard(panels, d.now(), b.promptVersion);
+  const ep2 = d.readEpisode(sid);
+  const v = validateStoryboard(board, ep2);
+  const errors = v.ok ? castErrors(panels, ep2) : v.errors;
+  if (errors.length) {
     d.log(`rejected ${sid}: ${JSON.stringify({ panels })}`);
-    return failed(`invalid board: ${v.errors.slice(0, 5).join('; ')}`);
+    return failed(`invalid board: ${errors.slice(0, 8).join('; ')}`);
   }
   return { sid, verdict: 'done', tries, board };
 }
@@ -214,6 +259,7 @@ export async function collectBatches(
       const ep = findEp(s, v.sid)!;
       ep.tries = v.tries;
       ep.s = v.verdict === 'done' ? 'done' : v.verdict === 'retry' ? 'none' : 'fallback';
+      if (v.err) ep.err = v.err; else delete ep.err;
       out[v.verdict].push(v.sid);
     }
     addSpend(s, b.day, usageUsd - b.estUsd);

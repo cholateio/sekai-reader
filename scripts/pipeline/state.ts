@@ -4,7 +4,8 @@ import fs from 'node:fs';
 export type AssetStatus = 'pending' | 'jp' | 'missing' | 'done' | 'error';
 /** none = waiting to be sent (new event, authorized old event, or retry). */
 export type EpStatus = 'none' | 'manual' | 'batch' | 'done' | 'fallback';
-export interface EpState { s: EpStatus; tries: number }
+/** err: why the director's last output was rejected (validator messages: codes and numbers, never dialogue). */
+export interface EpState { s: EpStatus; tries: number; err?: string }
 export interface EventState {
   kind: 'old' | 'new'; assets: AssetStatus; assetsAt?: string; failures: number; lastError?: string;
   /** Last daily recheck of a jp or missing event. */
@@ -18,13 +19,16 @@ export interface EventState {
   eps: Record<string, EpState>;
 }
 /** adopted = found by reconcile on the Anthropic account; sids stay empty until its results are readable. */
-export interface BatchState { id: string; day: string; eventId?: number; sids: string[]; estUsd: number; adopted?: boolean }
+/** promptVersion: what the batch was built with; results are labelled with it, and an exhausted stale one requeues. */
+export interface BatchState { id: string; day: string; eventId?: number; sids: string[]; estUsd: number; adopted?: boolean; promptVersion?: string }
 export interface PipelineState {
   version: 1; seededAt: string; spend: Record<string, number>; events: Record<string, EventState>;
   batches: BatchState[];
   /** batch id -> creation day, kept 35 days so reconcile never adopts a batch twice. */
   knownBatches: Record<string, string>;
   pendingDeploy: boolean;
+  /** Director prompt version the fallback episodes were last tried with; a change requeues them. */
+  promptVersion?: string;
 }
 export interface IndexEvent { id: number; name: string; date: string; bundle: string; eps: [number, string, string][] }
 export interface IndexFile { events: IndexEvent[]; built: string }

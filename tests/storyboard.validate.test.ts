@@ -59,3 +59,18 @@ test('shape 長度須等於 l', () => { const b = syntheticBoard(); b.panels[1].
 test('shape 值必須在列舉內', () => { const b = syntheticBoard(); (b.panels[1] as any).shape = ['star']; fails(b, 'invalid shape'); });
 test('shape 不得含中文', () => { const b = syntheticBoard(); (b.panels[1] as any).shape = ['圓']; fails(b, 'CJK'); expect(validateStoryboard(b, ep)).not.toMatchObject({ errors: expect.arrayContaining([expect.stringContaining('unknown field')]) }); });
 test('shape 必須是陣列', () => { const b = syntheticBoard(); (b.panels[1] as any).shape = 'round'; fails(b, 'shape must be an array'); });
+
+test('錯誤訊息不引用模型寫的值（欄位名、t、shape）：台詞無法經由驗證訊息外流', () => {
+  const b = syntheticBoard();
+  (b.panels[1] as any)['I love you'] = 1;
+  (b.panels[2] as any).t = 'I love you';
+  (b.panels[3] as any).shape = ['I love you'];
+  (b.panels[4] as any)['我喜歡你'] = '我喜歡你';
+  (b.panels[5] as any).cam = { focus: [0, 0], zoom: 1, 'I love you': '中文' };
+  const r = validateStoryboard(b, ep);
+  expect(r.ok).toBe(false);
+  if (!r.ok) {
+    expect(r.errors.join('\n')).not.toMatch(/love|喜歡/);
+    expect(r.errors).toEqual(expect.arrayContaining(['panel 1: unknown field', 'panel 2: unknown type', 'panel 3: invalid shape', 'panel 4: unknown field', 'CJK text in panel 4.unknown', 'CJK text in panel 5.cam.unknown']));
+  }
+});

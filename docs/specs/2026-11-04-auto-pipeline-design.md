@@ -92,6 +92,7 @@
 ### 4.7 分鏡：Claude Opus 5.5、Batch API（使用者）
 - 模型固定 `claude-opus-5-5`，走 Message Batches（半價）。提示為 `prompts/storyboard_director.md`（v3-manga），輸入是 `scripts/compact_script.py` 產生的精簡劇本（提示詞只對這個格式驗證過），輸出用結構化輸出綁定分鏡 JSON schema。
 - 送出與收取分開：某次工作送出一期 8 話的 batch 並記下 batch id，之後的工作輪詢；完成就逐話跑 `validateStoryboard`，過的寫進 `storyboards/{sid}.json`（`meta.model`、`promptVersion`、`generatedAt` 照現有格式），不過的重送一次，再不過就記 fallback，閱讀器照既有行為用規則分鏡。
+- 2026-11-07 補充（owner：「我希望 100% 都是 AI 分鏡」）。查 GitHub 執行紀錄，171 話 fallback 中 165 話有紀錄：132 話只因 `missing caption`、17 話只因 `cast must be strings`、14 話兩者皆有、2 話輸出被截斷。根因：閱讀器把 FX8、FX18 與 FX20（進入「世界」）都算成場景字幕，提示詞卻只說「第幾個 FX8」，模型照提示詞算一定少；`cast` 沒寫明要陣列。改法：(1) `compact_script.py` 把字幕直接標成 `CAP<n>:`，編號與 `parse.ts` 一致，提示詞改成填 CAP 編號（v4-caps）；(2) 提示詞寫明 `cast` 是字串陣列，`normalizePanels` 把寫成一個字串的 `cast` 拆開；(3) 重送時把拒絕原因（驗證訊息，只有代碼與編號，不含台詞）附在劇本後，最多三次；(4) 狀態檔記 `promptVersion`，提示詞改版時所有 fallback 的話歸零重排。每話狀態多一個 `err`（最後一次拒絕原因；驗證訊息不再引用模型寫的值（欄位名、`t`、`shape`），存入前再只保留 ASCII）。流水線另加一道只在流水線執行的閘門：`cast` 的每個名字必須是這話的說話者，否則退回重送（已提交的分鏡不重判）。每個 batch 記下送出時的提示詞版本（更早沒記版本的 batch 在改版時補標成被換掉的版本）：結果照該版本標示，舊版 batch 用盡次數也不記 fallback，改歸零交給新版。
 - 新活動：素材到齊後自動送分鏡。
 - 舊活動：只在使用者手動觸發時做，參數為「這次最多幾期」；使用者計畫 11 月送一半、12 月送一半。每日花費上限適用於兩者。
 - 每日上限的入帳時點：送出時用估算入帳（輸入用 token 計數端點算，輸出用 3,000 token 估），收取時用實際用量校正。手動觸發的期數超過當日剩餘額度時，截到額度內送出，剩下的不送並在執行摘要寫明，不整次拒絕。

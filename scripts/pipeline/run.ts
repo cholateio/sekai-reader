@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url';
 import Anthropic from '@anthropic-ai/sdk';
 import { parseScenario } from '../../src/scenario/parse';
 import type { RawScenario } from '../../src/scenario/types';
-import { collectBatches, reconcile, submitDue, type DirectorDeps } from './director';
+import { collectBatches, reconcile, requeueForPrompt, submitDue, type DirectorDeps } from './director';
 import {
   authorizeDirect, bannerLane, dayOf, loadState, pickEvent, recordBanner, recordFetch, recordScripts, saveState, scriptsLane, seedState, spentToday, syncIndex,
   type FetchStatus, type IndexFile, type PipelineState,
@@ -197,6 +197,8 @@ async function bannerPhase(d: RunDeps, s: PipelineState, index: IndexFile, sum: 
 async function directPhase(d: RunDeps, s: PipelineState, index: IndexFile, sum: RunSummary) {
   if (!d.director) { d.log('no ANTHROPIC_API_KEY; storyboards not requested'); return; }
   const dd: DirectorDeps = { ...d.director, persist: () => saveState(d.statePath, s) };
+  const requeued = requeueForPrompt(s);
+  if (requeued.length) d.log(`prompt changed; ${requeued.length} fallback episodes requeued`);
   sum.reconciled = await reconcile(dd, s);
   sum.collected = await collectBatches(dd, s);
   const r = await submitDue(dd, s, index, { dailyCapUsd: d.env.dailyCapUsd });
