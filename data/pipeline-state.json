@@ -5,7 +5,7 @@
   "2026-11-04": 0.835148,
   "2026-11-05": 40.804868,
   "2026-11-06": 78.130314,
-  "2026-11-07": 4.089576
+  "2026-11-07": 2.344182
  },
  "events": {
   "1": {
@@ -15,34 +15,34 @@
    "eps": {
     "event_01_01": {
      "s": "batch",
-     "tries": 1
+     "tries": 2
     },
     "event_01_02": {
      "s": "batch",
-     "tries": 1
+     "tries": 2
     },
     "event_01_03": {
-     "s": "batch",
+     "s": "done",
      "tries": 1
     },
     "event_01_04": {
-     "s": "batch",
+     "s": "done",
      "tries": 1
     },
     "event_01_05": {
-     "s": "batch",
+     "s": "done",
      "tries": 1
     },
     "event_01_06": {
      "s": "batch",
-     "tries": 1
+     "tries": 2
     },
     "event_01_07": {
-     "s": "batch",
+     "s": "done",
      "tries": 1
     },
     "event_01_08": {
-     "s": "batch",
+     "s": "done",
      "tries": 1
     }
    },
@@ -54,35 +54,35 @@
    "failures": 0,
    "eps": {
     "event_02_01": {
-     "s": "batch",
+     "s": "done",
      "tries": 1
     },
     "event_02_02": {
      "s": "batch",
-     "tries": 1
+     "tries": 2
     },
     "event_02_03": {
-     "s": "batch",
+     "s": "done",
      "tries": 1
     },
     "event_02_04": {
-     "s": "batch",
+     "s": "done",
      "tries": 1
     },
     "event_02_05": {
      "s": "batch",
-     "tries": 1
+     "tries": 2
     },
     "event_02_06": {
-     "s": "batch",
+     "s": "done",
      "tries": 1
     },
     "event_02_07": {
-     "s": "batch",
+     "s": "done",
      "tries": 1
     },
     "event_02_08": {
-     "s": "batch",
+     "s": "done",
      "tries": 1
     }
    },
@@ -94,35 +94,35 @@
    "failures": 0,
    "eps": {
     "event_03_01": {
-     "s": "batch",
+     "s": "done",
      "tries": 1
     },
     "event_03_02": {
-     "s": "batch",
+     "s": "done",
      "tries": 1
     },
     "event_03_03": {
-     "s": "batch",
+     "s": "done",
      "tries": 1
     },
     "event_03_04": {
-     "s": "batch",
+     "s": "done",
      "tries": 1
     },
     "event_03_05": {
-     "s": "batch",
+     "s": "done",
      "tries": 1
     },
     "event_03_06": {
-     "s": "batch",
+     "s": "done",
      "tries": 1
     },
     "event_03_07": {
-     "s": "batch",
+     "s": "done",
      "tries": 1
     },
     "event_03_08": {
-     "s": "batch",
+     "s": "done",
      "tries": 1
     }
    },
@@ -7464,7 +7464,7 @@
      "tries": 0
     }
    },
-   "jpCheckedAt": "2026-11-06T01:24:25.292Z"
+   "jpCheckedAt": "2026-11-07T01:24:39.078Z"
   },
   "184": {
    "kind": "new",
@@ -7510,52 +7510,25 @@
  },
  "batches": [
   {
-   "id": "msgbatch_016nnuGSsMQvffxgZnaYGScM",
-   "day": "2026-11-07",
-   "eventId": 3,
-   "sids": [
-    "event_03_01",
-    "event_03_02",
-    "event_03_03",
-    "event_03_04",
-    "event_03_05",
-    "event_03_06",
-    "event_03_07",
-    "event_03_08"
-   ],
-   "estUsd": 1.3654100000000002
-  },
-  {
-   "id": "msgbatch_014SxHAQubtAtBr22LeCax7h",
+   "id": "msgbatch_01KBkuC7VDvLp1ZZTuWRuq2k",
    "day": "2026-11-07",
    "eventId": 2,
    "sids": [
-    "event_02_01",
     "event_02_02",
-    "event_02_03",
-    "event_02_04",
-    "event_02_05",
-    "event_02_06",
-    "event_02_07",
-    "event_02_08"
+    "event_02_05"
    ],
-   "estUsd": 1.362632
+   "estUsd": 0.339716
   },
   {
-   "id": "msgbatch_01B7QPfLBpWN5N7pX3KAW2Qn",
+   "id": "msgbatch_01P8MrDT2WC1gwpkosjZJ9sZ",
    "day": "2026-11-07",
    "eventId": 1,
    "sids": [
     "event_01_01",
     "event_01_02",
-    "event_01_03",
-    "event_01_04",
-    "event_01_05",
-    "event_01_06",
-    "event_01_07",
-    "event_01_08"
+    "event_01_06"
    ],
-   "estUsd": 1.361534
+   "estUsd": 0.50949
   }
  ],
  "knownBatches": {
@@ -7850,7 +7823,9 @@
   "msgbatch_01MnM9hgpQPXQjmhYxLR7eb4": "2026-11-06",
   "msgbatch_016nnuGSsMQvffxgZnaYGScM": "2026-11-07",
   "msgbatch_014SxHAQubtAtBr22LeCax7h": "2026-11-07",
-  "msgbatch_01B7QPfLBpWN5N7pX3KAW2Qn": "2026-11-07"
+  "msgbatch_01B7QPfLBpWN5N7pX3KAW2Qn": "2026-11-07",
+  "msgbatch_01KBkuC7VDvLp1ZZTuWRuq2k": "2026-11-07",
+  "msgbatch_01P8MrDT2WC1gwpkosjZJ9sZ": "2026-11-07"
  },
- "pendingDeploy": false
+ "pendingDeploy": true
 }
