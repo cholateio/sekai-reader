@@ -5,7 +5,8 @@
   "2026-11-04": 0.835148,
   "2026-11-05": 40.804868,
   "2026-11-06": 78.130314,
-  "2026-11-07": 15.220718
+  "2026-11-07": 15.220718,
+  "2026-11-08": 0.337876
  },
  "events": {
   "1": {
@@ -7395,12 +7396,12 @@
    "failures": 0,
    "eps": {
     "wl_finale_01": {
-     "s": "manual",
-     "tries": 0
+     "s": "batch",
+     "tries": 1
     },
     "wl_finale_02": {
-     "s": "manual",
-     "tries": 0
+     "s": "batch",
+     "tries": 1
     }
    },
    "assetsAt": "2026-11-05T15:24:15.175Z",
@@ -7568,7 +7569,19 @@
    "jpCheckedAt": "2026-11-08T00:24:44.613Z"
   }
  },
- "batches": [],
+ "batches": [
+  {
+   "id": "msgbatch_01N1wCTz7vqkyeq9JWGb6aYi",
+   "day": "2026-11-08",
+   "eventId": 180,
+   "sids": [
+    "wl_finale_01",
+    "wl_finale_02"
+   ],
+   "estUsd": 0.33787599999999995,
+   "promptVersion": "v4-caps"
+  }
+ ],
  "knownBatches": {
   "msgbatch_019NZj12dSfVNmjjvNRg3HzJ": "2026-11-04",
   "msgbatch_01JbfNt2acE6QhAYYXQBWzED": "2026-11-04",
@@ -7961,7 +7974,8 @@
   "msgbatch_01XxyQgxCop6qGuY75TEwC5z": "2026-11-07",
   "msgbatch_01HqDJXEsiCV6sNz3PPFZQBu": "2026-11-07",
   "msgbatch_01Cson7HL8jpk25WtndLjptP": "2026-11-07",
-  "msgbatch_013NJy4b3mKWgMXEZGqJaVN3": "2026-11-07"
+  "msgbatch_013NJy4b3mKWgMXEZGqJaVN3": "2026-11-07",
+  "msgbatch_01N1wCTz7vqkyeq9JWGb6aYi": "2026-11-08"
  },
  "pendingDeploy": false,
  "promptVersion": "v4-caps"
