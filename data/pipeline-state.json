@@ -5227,7 +5227,7 @@
   },
   "130": {
    "kind": "old",
-   "assets": "pending",
+   "assets": "done",
    "failures": 0,
    "eps": {
     "wl_idol_01_01": {
@@ -5271,7 +5271,9 @@
      "tries": 1
     }
    },
-   "scriptsAt": "2026-11-05T21:24:17.412Z"
+   "scriptsAt": "2026-11-05T21:24:17.412Z",
+   "assetsAt": "2026-11-08T23:25:01.728Z",
+   "banner": "done"
   },
   "131": {
    "kind": "old",
@@ -7991,6 +7993,6 @@
   "msgbatch_013NJy4b3mKWgMXEZGqJaVN3": "2026-11-07",
   "msgbatch_01N1wCTz7vqkyeq9JWGb6aYi": "2026-11-08"
  },
- "pendingDeploy": false,
+ "pendingDeploy": true,
  "promptVersion": "v4-caps"
 }
