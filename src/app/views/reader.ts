@@ -14,9 +14,9 @@ export interface ReaderCtx {
   back: string;
   manifest: Manifest;
   /** Neighbouring episodes in the same event; href (a complete `#…`) is null when not available yet.
-   *  The drawer shows only 上一話／下一話; `title` is for the end card. */
-  prev?: { title: string; href: string | null } | null;
-  next: { title: string; href: string | null } | null;
+   *  Only `next` is shown (end of the page); the drawer has no episode stepping (owner, 2026-11-08). */
+  prev?: { no: number; title: string; href: string | null } | null;
+  next: { no: number; title: string; href: string | null } | null;
   /** Unit easter egg for the comic; null/undefined for mixed events. */
   unit?: UnitFlavor | null;
 }
@@ -45,22 +45,23 @@ export function viewReader(ep: Episode, board: Storyboard, ctx: ReaderCtx): HTML
       applyPrefs();
     },
   }, h('span', {}, '黑白'), h('i', { class: 'switch', 'aria-hidden': 'true' }));
-  const epLink = (x: ReaderCtx['next'], label: string) => !x ? null : x.href
-    ? navLink(x.href, label) : h('span', { class: 'drawer-item na' }, h('span', {}, label), h('small', {}, '尚未提供'));
   const header = siteHeader({
     title: ctx.title, sub: ctx.sub, progress: true,
-    items: [epLink(ctx.prev ?? null, '上一話'), epLink(ctx.next, '下一話'), navLink(ctx.back, '這期的話數列表')]
-      .filter((x): x is HTMLElement => !!x),
+    items: [navLink(ctx.back, '這期的話數列表')],
     settings: [bwBtn],
   });
 
-  const end = h('div', { class: 'end' });
-  if (ctx.next) {
-    end.append(h('b', {}, `下一話：${ctx.next.title}`), ctx.next.href
-      ? h('a', { class: 'primary', href: ctx.next.href }, '繼續閱讀')
-      : h('span', { class: 'sub' }, '下一話尚未提供。'));
-  } else end.append(h('b', {}, '這期活動讀完了'));
-  end.append(h('a', { class: 'ghost', href: ctx.back }, '回到話數列表'));
+  // End of the episode: a 「完」 mark, then the next episode as one full-width row (or why there is none).
+  const n = ctx.next;
+  const nextRow = !n ? h('p', { class: 'end-last' }, '這期活動讀完了')
+    : h(n.href ? 'a' : 'div', { class: n.href ? 'end-next' : 'end-next na', href: n.href },
+      h('small', {}, n.href ? `下一話 · 第 ${n.no} 話` : `下一話 · 第 ${n.no} 話 · 尚未提供`),
+      h('span', { class: 'end-title' }, n.title),
+      n.href ? h('i', { class: 'end-arrow', 'aria-hidden': 'true' }, '→') : null);
+  const end = h('nav', { class: 'end', 'aria-label': '這話結束' },
+    h('p', { class: 'end-mark' }, `${/^第 \d+ 話/.exec(ctx.title)?.[0] ?? '本話'} 完`),
+    nextRow,
+    h('a', { class: 'end-back', href: ctx.back }, '回到這期的話數列表'));
 
   return [...header, body, end];
 }

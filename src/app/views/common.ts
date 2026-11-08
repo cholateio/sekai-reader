@@ -1,6 +1,7 @@
 import { h } from '../../render/dom';
 import { eventById, eventShort } from '../catalog';
 import { recentList } from '../recent';
+import { darkToggle } from '../theme';
 
 export const go = (hash: string) => { location.hash = hash; };
 
@@ -52,7 +53,7 @@ export function siteHeader(o: HeaderOpts = {}): HTMLElement[] {
     h('a', { class: 'drawer-item', 'data-go': 'library', href: '#library' }, '首頁'),
     o.items ?? [],
     recentSection(),
-    o.settings?.length ? [h('hr', { class: 'drawer-sep' }), o.settings] : null);
+    [h('hr', { class: 'drawer-sep' }), ...(o.settings ?? []), darkToggle()]);
   const setOpen = (open: boolean) => {
     drawer.hidden = scrim.hidden = !open;
     menu.setAttribute('aria-expanded', String(open));

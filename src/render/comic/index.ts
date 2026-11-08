@@ -12,10 +12,7 @@ import './comic.css';
 export interface ComicOptions { bgUrl: (id: string) => string | null; unit?: UnitFlavor | null }
 
 export function renderComic(ep: Episode, board: Storyboard, art: CharacterArt, opts: ComicOptions): HTMLElement {
-  const out = h('div', { class: 'comic' },
-    h('div', { class: 'credit' },
-      h('span', {}, board.meta.director === 'ai' ? 'AI 導演分鏡' : '自動分鏡（規則產生）'),
-      h('span', {}, `${board.panels.length} 格`)));
+  const out = h('div', { class: 'comic' });
   const ctx: PanelCtx = {
     ep, art, lines: new Map(ep.lines.map(l => [l.r, l])), sides: speakerSide(),
     decorate: () => {},

@@ -49,7 +49,7 @@ async function route(r: string, manifest: Manifest): Promise<Page> {
     const ep = manifest.episodes.includes(sid) || !manifest.episodes.length ? await loadEpisode(sid) : null;
     if (!ep) return { nodes: viewMissing(`第 ${no} 話「${title}」尚未提供。`, `#event-${id}`), restore: 0 };
     const link = (x: typeof ev.eps[number] | undefined) => x
-      ? { title: x[1], href: manifest.episodes.includes(x[2]) ? `#read-${id}-${x[0]}` : null } : null;
+      ? { no: x[0], title: x[1], href: manifest.episodes.includes(x[2]) ? `#read-${id}-${x[0]}` : null } : null;
     posKey = sid;
     return {
       recent: { sid, id, no, title },

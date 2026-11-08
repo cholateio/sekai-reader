@@ -9,7 +9,17 @@
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-heavy: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
   --reader-size: 14px;
+  --knob: #ffffff; --knob-on: #ffffff;
   color-scheme: light;
+}
+/* Dark theme (owner, 2026-11-08): the same slate family as the light ink, lifted for contrast; set on <html>
+   by src/app/theme.ts and the inline script in index.html. The comic keeps its white panels and black frames. */
+:root[data-theme="dark"] {
+  --bg: #14181e; --surface: #1b2129; --sunk: #222a33; --ink: #e4e8ed; --text: #c3cad3; --muted: #8a949f; --line: #2b333d;
+  --accent: #d6dde5; --accent-ink: #14181e; --pill: #c9d1da; --scene: #0b0e12; --scene-ink: #e4e8ed;
+  --flash: #3a3326; --flash-ink: #efe1c2; --warn: #f0b45a; --warn-bg: #3a2c14;
+  --knob: #8a949f; --knob-on: #14181e;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -152,17 +162,28 @@ a.drawer-item { text-decoration: none; color: inherit; }
 .drawer-label { margin: 10px 4px 0; font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); }
 .drawer-sep { border: 0; border-top: 1px solid var(--line); margin: 8px 0; width: 100%; }
 .drawer-item .switch { width: 34px; height: 20px; border-radius: 999px; background: var(--line); position: relative; flex: none; transition: background .15s; }
-.drawer-item .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.drawer-item .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--knob); transition: transform .15s; }
 .drawer-item[aria-pressed="true"] .switch { background: var(--accent); }
-.drawer-item[aria-pressed="true"] .switch::after { transform: translateX(14px); }
-.end {
-  margin-top: 32px; padding: 20px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line);
-  display: grid; gap: 10px; justify-items: center; text-align: center;
+.drawer-item[aria-pressed="true"] .switch::after { transform: translateX(14px); background: var(--knob-on); }
+/* End of an episode: 「第 N 話 完」 between hairlines, the next episode as one full-width row, a quiet way back. */
+.end { margin-top: 40px; display: grid; gap: 16px; }
+.end-mark {
+  margin: 0; display: flex; align-items: center; gap: 14px; font-family: var(--font-mono); font-size: 12px; color: var(--muted); letter-spacing: .08em;
 }
-.end b { font-family: var(--font-display); font-size: 16px; }
-.primary { background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 10px; padding: 10px 18px; font-weight: 500; text-decoration: none; display: inline-block; }
-.ghost { background: none; border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; color: var(--muted); text-decoration: none; display: inline-block; }
-@media (prefers-reduced-motion: reduce) { .progress i, .drawer-item .switch, .drawer-item .switch::after { transition: none; } }
+.end-mark::before, .end-mark::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+.end-next {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; align-items: center;
+  padding: 16px 18px; border: 1px solid var(--line); border-left: 4px solid var(--ink); border-radius: 10px;
+  background: var(--surface); color: var(--ink); text-decoration: none;
+}
+.end-next small { grid-column: 1; font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+.end-title { grid-column: 1; font-family: var(--font-display); font-size: 19px; line-height: 1.4; overflow-wrap: anywhere; }
+.end-arrow { grid-column: 2; grid-row: 1 / span 2; font-style: normal; font-size: 22px; transition: transform .15s; }
+a.end-next:hover .end-arrow { transform: translateX(4px); }
+.end-next.na { border-left-color: var(--line); color: var(--muted); }
+.end-last { margin: 0; text-align: center; font-family: var(--font-display); font-size: 18px; color: var(--ink); }
+.end-back { justify-self: center; font-size: 13px; color: var(--muted); text-underline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .progress i, .drawer-item .switch, .drawer-item .switch::after, .end-arrow { transition: none; } }
 
 /* Opening curtain (see src/app/curtain.ts): hidden unless data-play is set on the first load of a session. */
 .curtain { display: none; }
