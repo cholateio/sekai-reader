@@ -261,11 +261,30 @@ class EventTest(unittest.TestCase):
         r = fe.run_event(self.EVENT, self.index, self.out, self.fetcher(opener))
         self.assertEqual(r, {'status': 'missing', 'requests': 4, 'sids': ['event_9_01']})
 
-    def test_background_404_is_still_an_error(self):
+    def test_background_404_is_recorded_as_missing_and_the_event_still_completes(self):
+        # Owner, 2026-11-08: events 162 and 171 each lack one background on the mirror; the episode is built
+        # with a plain panel there instead of the whole event failing. The marker stops further requests.
         opener = self.opener()
         opener.missing.add(fe.background_url('bg_a'))
+        r = fe.run_event(self.EVENT, self.index, self.out, self.fetcher(opener))
+        self.assertEqual(r['status'], 'done')
+        self.assertTrue(os.path.exists(os.path.join(self.out, 'bg', 'bg_a.missing')))
+        self.assertFalse(os.path.exists(os.path.join(self.out, 'bg', 'bg_a.webp')))
+        before = len(opener.requests)
+        fe.run_event(self.EVENT, self.index, self.out, self.fetcher(opener))
+        self.assertNotIn(fe.background_url('bg_a'), [q.full_url for q in opener.requests[before:]])
+
+    def test_background_server_error_is_still_an_error(self):
+        import urllib.error
+        opener = self.opener()
+        url = fe.background_url('bg_a')
+        inner = opener.__call__
+        def broken(req, timeout=None):
+            if req.full_url == url:
+                raise urllib.error.HTTPError(url, 500, 'boom', {}, None)
+            return inner(req, timeout)
         with self.assertRaises(Exception):
-            fe.run_event(self.EVENT, self.index, self.out, self.fetcher(opener))
+            fe.run_event(self.EVENT, self.index, self.out, self.fetcher(broken))
 
     def test_cli_missing_exit_code_5(self):
         import io

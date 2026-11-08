@@ -10,6 +10,7 @@ pipeline or by a person; never loop this over many events.
 --event prints a JSON result as its last line; exit codes: done 0, jp 3, partial 4, missing 5, error 1.
 missing = a script is not on the mirror yet (HTTP 404); the pipeline rechecks it daily.
 A Japanese first episode (kana ratio > 0.05) reports jp and keeps no script.
+A background the mirror lacks (404) is recorded as bg/<id>.missing and the episode is still built.
 --banners (spec 2026-11-07, owner-approved): the home banner only, at most 4 events, one request each, 5 s apart,
 and only events the pipeline state (--state) lists with assets done and no banner record.
 """
@@ -136,7 +137,19 @@ def _load(path):
 
 def _episode_assets(asset, index, out, fetcher):
     for bg in backgrounds(asset):
-        fetcher.get(background_url(bg), os.path.join(out, 'bg', bg + '.webp'))
+        # A background the mirror does not have (404) gets a .missing marker: build_episode draws plain panels
+        # there, and the marker keeps later runs from asking again (owner, 2026-11-08). Other errors still raise.
+        marker = os.path.join(out, 'bg', bg + '.missing')
+        if os.path.exists(marker):
+            continue
+        try:
+            fetcher.get(background_url(bg), os.path.join(out, 'bg', bg + '.webp'))
+        except urllib.error.HTTPError as e:
+            if e.code != 404:
+                raise
+            os.makedirs(os.path.dirname(marker), exist_ok=True)
+            open(marker, 'w').close()
+            fetcher.log('missing background', bg)
     for cid in character_ids(asset, index['chars']):
         fetcher.get(sd_url(cid), os.path.join(out, 'sd', 'chr_sd_%02d_01.webp' % cid))
     return not fetcher.exhausted

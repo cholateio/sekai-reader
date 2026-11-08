@@ -28,7 +28,8 @@ async function main(): Promise<number> {
   const missing: string[] = [];
   for (const id of needed) {
     const raw = join(RAW, 'bg', `${id}.webp`);
-    if (!existsSync(raw)) { missing.push(id); continue; }
+    // fetch_episode marks backgrounds the mirror lacks; those panels render plain (not in the manifest).
+    if (!existsSync(raw)) { if (existsSync(join(RAW, 'bg', `${id}.missing`))) console.log(`bg ${id}: missing on the mirror, plain panels`); else missing.push(id); continue; }
     const out = join(PUB, 'bg', `${id}.webp`);
     const info = await sharp(raw)
       .resize({ width: BG_LONG_EDGE, height: BG_LONG_EDGE, fit: 'inside', withoutEnlargement: true })
