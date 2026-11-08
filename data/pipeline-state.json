@@ -5994,7 +5994,7 @@
   },
   "148": {
    "kind": "old",
-   "assets": "pending",
+   "assets": "done",
    "failures": 0,
    "eps": {
     "event_148_01": {
@@ -6030,7 +6030,9 @@
      "tries": 2
     }
    },
-   "scriptsAt": "2026-11-05T19:24:21.619Z"
+   "scriptsAt": "2026-11-05T19:24:21.619Z",
+   "assetsAt": "2026-11-08T05:24:52.271Z",
+   "banner": "done"
   },
   "149": {
    "kind": "old",
@@ -7951,6 +7953,6 @@
   "msgbatch_01Cson7HL8jpk25WtndLjptP": "2026-11-07",
   "msgbatch_013NJy4b3mKWgMXEZGqJaVN3": "2026-11-07"
  },
- "pendingDeploy": false,
+ "pendingDeploy": true,
  "promptVersion": "v4-caps"
 }
