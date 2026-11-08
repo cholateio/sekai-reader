@@ -6962,8 +6962,8 @@
   },
   "171": {
    "kind": "old",
-   "assets": "error",
-   "failures": 3,
+   "assets": "done",
+   "failures": 0,
    "eps": {
     "wl_band_02_01": {
      "s": "done",
@@ -7011,7 +7011,8 @@
     }
    },
    "scriptsAt": "2026-11-05T16:31:40.079Z",
-   "lastError": "HTTPError: HTTP Error 404: Not Found"
+   "assetsAt": "2026-11-08T10:08:15.191Z",
+   "banner": "done"
   },
   "172": {
    "kind": "old",
@@ -7962,6 +7963,6 @@
   "msgbatch_01Cson7HL8jpk25WtndLjptP": "2026-11-07",
   "msgbatch_013NJy4b3mKWgMXEZGqJaVN3": "2026-11-07"
  },
- "pendingDeploy": false,
+ "pendingDeploy": true,
  "promptVersion": "v4-caps"
 }
