@@ -60,7 +60,20 @@ jobs:
       # sharp 0.34 ships prebuilt binaries as optional dependencies, so install scripts are not needed.
       - run: npm ci --ignore-scripts
 
-      - run: sudo apt-get update -qq && sudo apt-get install -y -qq rclone && rclone version
+      # Pinned release binary instead of apt: runner DNS for security.ubuntu.com failed for hours on 2026-11-11.
+      # The checksum is this zip's line in the release's SHA256SUMS; update both together.
+      - name: install rclone
+        env:
+          RCLONE_VER: v1.75.2
+          RCLONE_SHA256: 349ac8fba6ff65d6247043f1750cdcb518ec5d500ef91463a10d37c0ccdf3702
+        run: |
+          set -euo pipefail
+          zip="rclone-$RCLONE_VER-linux-amd64.zip"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/$zip" "https://github.com/rclone/rclone/releases/download/$RCLONE_VER/$zip"
+          echo "$RCLONE_SHA256  $RUNNER_TEMP/$zip" | sha256sum -c -
+          python3 -m zipfile -e "$RUNNER_TEMP/$zip" "$RUNNER_TEMP/rclone"
+          sudo install -m 0755 "$RUNNER_TEMP/rclone/${zip%.zip}/rclone" /usr/local/bin/rclone
+          rclone version
 
       - name: sync assets down
         env:
