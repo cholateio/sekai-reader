@@ -1875,7 +1875,7 @@
   },
   "47": {
    "kind": "old",
-   "assets": "pending",
+   "assets": "done",
    "failures": 0,
    "eps": {
     "event_47_01": {
@@ -1911,7 +1911,9 @@
      "tries": 1
     }
    },
-   "scriptsAt": "2026-11-06T06:24:34.639Z"
+   "scriptsAt": "2026-11-06T06:24:34.639Z",
+   "assetsAt": "2026-11-13T16:25:27.250Z",
+   "banner": "done"
   },
   "48": {
    "kind": "old",
