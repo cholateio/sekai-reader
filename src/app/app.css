@@ -54,8 +54,8 @@ a { color: var(--ink); }
 .site-header .page-title {
   flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.site-header .menu { width: 36px; min-width: 36px; height: 36px; padding: 0; border: 0; background: none; font-size: 20px; }
-.site-header .menu:hover, .site-header .menu[aria-expanded="true"] { background: var(--sunk); }
+.site-header .menu { width: 44px; min-width: 44px; height: 44px; padding: 0; border: 0; background: none; font-size: 20px; }
+.site-header .menu[aria-expanded="true"] { background: var(--sunk); }
 .site-header .progress { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; }
 .lib-sub { margin: 10px 0 0; font-family: var(--font-mono); font-size: 12px; }
 .iconbtn {
@@ -70,10 +70,12 @@ a { color: var(--ink); }
 
 /* library */
 .search { width: 100%; height: 44px; border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 0 14px; margin-top: 8px; }
-.chips { display: flex; gap: 6px; overflow-x: auto; padding-block: 10px; scrollbar-width: none; }
+/* Phones: a 3×2 grid so no chip is cut off at the edge; wider screens: one row. */
+.chips { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding-block: 10px; }
+@media (min-width: 560px) { .chips { grid-template-columns: repeat(6, auto); justify-content: start; } }
 .chip {
-  flex: none; border: 1px solid var(--line); background: var(--surface); border-radius: 999px;
-  padding: 4px 12px; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  flex: none; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; min-height: 40px;
+  padding: 4px 12px; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap;
 }
 .chip.small { padding: 1px 8px; font-size: 12px; }
 .chip[aria-pressed="true"] { background: var(--pill); color: var(--accent-ink); border-color: var(--pill); }
@@ -97,7 +99,6 @@ a { color: var(--ink); }
 .ev.na .stripe { opacity: .45; }
 .ev.na .nm { color: var(--muted); font-weight: 400; }
 a.ev { color: inherit; text-decoration: none; }
-a.ev:hover .nm { text-decoration: underline; }
 .cast { display: flex; flex-wrap: wrap; gap: 2px 8px; margin-top: 2px; font-size: 12px; color: var(--muted); }
 .cast .c { display: inline-flex; align-items: center; gap: 4px; }
 .cast .dot { width: 7px; height: 7px; }
@@ -133,7 +134,6 @@ a.ev:hover .nm { text-decoration: underline; }
 .ep .t { font-size: 15px; line-height: 1.5; font-weight: 500; overflow-wrap: anywhere;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .ep.na .t { color: var(--muted); font-weight: 400; }
-a.ep:hover .t { text-decoration: underline; text-underline-offset: 3px; }
 
 .evnav { margin-top: 36px; display: grid; grid-template-columns: 1fr 1fr; }
 .evnav > * { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 14px 0; min-height: 64px; }
@@ -142,7 +142,6 @@ a.ep:hover .t { text-decoration: underline; text-underline-offset: 3px; }
 .evnav .next { grid-column: 2; text-align: right; border-left: 1px solid var(--line); padding-left: 12px; }
 .evnav-link small { font-size: 12px; color: var(--muted); }
 .evnav-link span { font-family: var(--font-display); font-size: 17px; color: var(--ink); overflow-wrap: anywhere; }
-.evnav-link:hover span { text-decoration: underline; text-underline-offset: 3px; }
 .evnav-link.na span { color: var(--muted); }
 .evnav ~ .site-footer { margin-top: 16px; }
 .progress i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .15s; }
@@ -161,7 +160,6 @@ a.ep:hover .t { text-decoration: underline; text-underline-offset: 3px; }
   display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; text-align: left;
   border: 0; background: none; padding: 11px 4px; border-radius: 8px; font-size: 14px;
 }
-.drawer-item:hover { background: var(--sunk); }
 a.drawer-item { text-decoration: none; color: inherit; }
 .drawer-item small { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); flex: none; }
 .drawer-item.na { color: var(--muted); }
@@ -185,11 +183,27 @@ a.drawer-item { text-decoration: none; color: inherit; }
 .end-next small { grid-column: 1; font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
 .end-title { grid-column: 1; font-family: var(--font-display); font-size: 19px; line-height: 1.4; overflow-wrap: anywhere; }
 .end-arrow { grid-column: 2; grid-row: 1 / span 2; font-style: normal; font-size: 22px; transition: transform .15s; }
-a.end-next:hover .end-arrow { transform: translateX(4px); }
 .end-next.na { border-left-color: var(--line); color: var(--muted); }
 .end-last { margin: 0; text-align: center; font-family: var(--font-display); font-size: 18px; color: var(--ink); }
 .end-back { justify-self: center; font-size: 13px; color: var(--muted); text-underline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) { .progress i, .drawer-item .switch, .drawer-item .switch::after, .end-arrow { transition: none; } }
+
+/* Hover only where there is a pointer that hovers: on phones a tapped element would keep the style. */
+@media (hover: hover) {
+  .site-header .menu:hover, .drawer-item:hover { background: var(--sunk); }
+  a.ev:hover .nm { text-decoration: underline; }
+  a.ep:hover .t, .evnav-link:hover span { text-decoration: underline; text-underline-offset: 3px; }
+  a.end-next:hover .end-arrow { transform: translateX(4px); }
+}
+
+/* Event page: way back to the library above the title; missing pages: the ways out as buttons. */
+.back-link { display: inline-flex; align-items: center; min-height: 44px; margin-top: 6px; font-size: 13.5px; color: var(--muted); text-decoration: none; }
+.back-link + .evhead { margin-top: 10px; }
+.missing-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 0; }
+.btn {
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--surface); color: var(--ink); text-decoration: none; font-size: 14px;
+}
 
 /* Back-to-top: list pages only (hidden on the reader by the router), after 1.5 screens of scrolling. */
 .to-top {

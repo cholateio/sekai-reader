@@ -1,7 +1,7 @@
 import { h } from '../../render/dom';
 import { charsOf, eventById, eventLabel, neighbours, unitOf, type EventInfo } from '../catalog';
 import { bannerUrl, isReadable, type Manifest } from '../load';
-import { navLink, siteFooter, siteHeader, viewMissing } from './common';
+import { libraryLink, navLink, siteFooter, siteHeader, viewMissing } from './common';
 
 const CAST_MAX = 8;
 
@@ -50,6 +50,7 @@ export function viewEvent(id: number, manifest: Manifest): HTMLElement[] {
       items: [prev ? drawerLink(prev, '上一期') : null, next ? drawerLink(next, '下一期') : null]
         .filter((x): x is HTMLAnchorElement => !!x),
     }),
+    libraryLink('back-link', '← 活動目錄'),
     h('section', {
       class: banner ? 'evhead has-banner' : 'evhead',
       style: `--tone:${e.color || unitColor}` + (banner ? `;--banner:url("${banner}")` : ''),

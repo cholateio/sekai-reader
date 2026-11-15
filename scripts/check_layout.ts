@@ -116,6 +116,12 @@ async function libraryChecks(page: Page, check: Check): Promise<void> {
   check(page.url().endsWith('#library'), `bare URL opens the library ${page.url()}`);
   const thumbW = await page.evaluate(() => document.querySelector('.ev .thumb')!.getBoundingClientRect().width);
   check(thumbW === 128, `library thumbnail width ${thumbW}`);
+  const touch = await page.evaluate(() => ({
+    chips: [...document.querySelectorAll('.chip')].map(c => c.getBoundingClientRect()).map(r => ({ inside: r.left >= 0 && r.right <= innerWidth, h: r.height })),
+    menu: document.querySelector('.site-header .menu')!.getBoundingClientRect().height,
+  }));
+  check(touch.chips.length === 6 && touch.chips.every(c => c.inside && c.h >= 40) && touch.menu >= 44,
+    `filter chips fully visible and >= 40px, menu >= 44px ${JSON.stringify(touch)}`);
   await page.evaluate(() => scrollTo(0, 4000));
   await page.waitForTimeout(400);
   const shown = await page.evaluate(() => !(document.querySelector('.to-top') as HTMLElement).hidden);

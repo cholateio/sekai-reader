@@ -5,6 +5,28 @@ import { darkToggle } from '../theme';
 
 export const go = (hash: string) => { location.hash = hash; };
 
+/** Route (hash without `#`) this history entry was opened from; the router records it as `state.from`. */
+export function openedFrom(): string {
+  const st: unknown = history.state;
+  const f = st && typeof st === 'object' ? (st as { from?: unknown }).from : undefined;
+  return typeof f === 'string' ? f : '';
+}
+
+/**
+ * Link to the library. When this entry was opened straight from the library, a plain click steps back in
+ * history instead, so the library comes back with its filters and scroll position (saved in that entry).
+ * Modified clicks (new tab/window) keep the real link.
+ */
+export function libraryLink(cls: string, text: string): HTMLElement {
+  return h('a', {
+    class: cls, href: '#library',
+    onclick: (e: MouseEvent) => {
+      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      if (/^library(\?|$)/.test(openedFrom())) { e.preventDefault(); history.back(); }
+    },
+  }, text);
+}
+
 let pageCtrl = new AbortController();
 /** Aborted when the router replaces the page; pass it to document/window listeners a view adds. */
 export const pageSignal = (): AbortSignal => pageCtrl.signal;
@@ -79,5 +101,11 @@ export function siteFooter(): HTMLElement {
 
 export function viewMissing(message: string, back?: string): HTMLElement[] {
   const items = back ? [navLink(back, '這期的話數列表')] : [];
-  return [...siteHeader({ items }), h('p', { class: 'empty' }, message)];
+  return [
+    ...siteHeader({ items }),
+    h('p', { class: 'empty' }, message),
+    h('p', { class: 'missing-actions' },
+      back ? h('a', { class: 'btn', href: back }, '回到這期的話數列表') : null,
+      libraryLink('btn', '回到活動目錄')),
+  ];
 }

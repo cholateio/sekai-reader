@@ -97,12 +97,25 @@ async function route(r: string, manifest: Manifest): Promise<Page> {
   return { nodes: viewMissing('找不到這個頁面。'), restore: 0 };
 }
 
-/** Mounts the reader into `app`; resolves after the first render (tests await it). */
+let appCtrl: AbortController | null = null;
+
+/** Mounts the reader into `app`; resolves after the first render (tests await it). One app per document:
+ *  starting again removes the previous app's window listeners. */
 export async function startApp(app: HTMLElement): Promise<void> {
+  appCtrl?.abort();
+  const ctrl = appCtrl = new AbortController();
+  const signal = ctrl.signal;
   const manifest = await loadManifest();
   let seq = 0;
+  let shown = '';
   const render = async () => {
     if (!location.hash || location.hash === '#') history.replaceState(null, '', DEFAULT_ROUTE);
+    // A new entry has no state yet: record where it was opened from (kept on Back/Forward and reload).
+    const st: unknown = history.state;
+    if (!(st && typeof st === 'object' && 'from' in st)) {
+      try { history.replaceState({ ...(st && typeof st === 'object' ? st : {}), from: shown }, ''); } catch { /* throttled */ }
+    }
+    shown = location.hash.slice(1);
     const mine = ++seq;
     // A pending list save must not land on the entry we are navigating to.
     clearTimeout(listTimer);
@@ -123,11 +136,11 @@ export async function startApp(app: HTMLElement): Promise<void> {
     });
   };
   if (!document.querySelector('.to-top')) document.body.append(toTopButton());
-  addEventListener('hashchange', () => { void render(); });
-  addEventListener('scroll', onScroll, { passive: true });
+  addEventListener('hashchange', () => { void render(); }, { signal });
+  addEventListener('scroll', onScroll, { passive: true, signal });
   // The debounced scroll save can lag the last flick; save once more right before a link leaves the page.
   addEventListener('click', e => {
     if ((e.target as Element | null)?.closest?.('a[href^="#"]')) saveListY(true);
-  }, { capture: true });
+  }, { capture: true, signal });
   await render();
 }

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { startApp } from '../src/app/router';
 import { pushRecent, recentList, type RecentItem } from '../src/app/recent';
 import { prefs } from '../src/app/storage';
-import { navLink, siteHeader } from '../src/app/views/common';
+import { navLink, siteHeader, viewMissing } from '../src/app/views/common';
 import { applyTheme, resetThemeChoice } from '../src/app/theme';
 
 const mount = (nodes: HTMLElement[]) => { document.body.replaceChildren(...nodes); return document.body; };
@@ -282,4 +282,63 @@ test('活動頁的上一期／下一期讀不到時標「尚未提供」', () =>
   expect(dn.textContent).toContain('尚未提供');
   expect(dn.classList.contains('na')).toBe(true);
   expect(root.querySelector(`.drawer a[href="#event-${prev!.id}"]`)!.classList.contains('na')).toBe(false);
+});
+
+test('找不到／尚未提供的頁面有可點的出口', () => {
+  let root = mount(viewMissing('第 1 話「x」尚未提供。', '#event-1'));
+  expect([...root.querySelectorAll('.missing-actions a')].map(a => a.getAttribute('href'))).toEqual(['#event-1', '#library']);
+  root = mount(viewMissing('找不到這個頁面。'));
+  expect([...root.querySelectorAll('.missing-actions a')].map(a => a.getAttribute('href'))).toEqual(['#library']);
+});
+test('活動頁的「← 活動目錄」：從目錄進來就退回上一頁（保留篩選與位置），否則開目錄', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (u: string) =>
+    u === '/manifest.json' ? Response.json({ bg: [], sd: [], episodes: [] }) : new Response('', { status: 404 })));
+  const back = vi.spyOn(history, 'back').mockImplementation(() => {});
+  const go = async (hash: string) => {
+    history.pushState(null, '', hash);
+    dispatchEvent(new HashChangeEvent('hashchange'));
+    await new Promise(r => setTimeout(r, 0));
+  };
+  // Returns whether the app prevented the link; then always prevents it so jsdom does not run the real
+  // fragment navigation in a later task (it would land in the next test).
+  const clickBack = (init: MouseEventInit = {}) => {
+    let prevented = false;
+    const seen = (e: Event) => { prevented = e.defaultPrevented; e.preventDefault(); };
+    app.addEventListener('click', seen);
+    app.querySelector('a.back-link')!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ...init }));
+    app.removeEventListener('click', seen);
+    return prevented;
+  };
+  history.replaceState(null, '', '#library?unit=idol');
+  const app = document.createElement('div');
+  await startApp(app);
+  await go('#event-173');
+  expect(app.querySelector('a.back-link')!.getAttribute('href')).toBe('#library');
+  expect(clickBack()).toBe(true);
+  expect(back).toHaveBeenCalledTimes(1);
+  // Ctrl/Cmd-click keeps the real link (new tab) instead of stepping back.
+  expect(clickBack({ ctrlKey: true })).toBe(false);
+  await go('#event-162');
+  expect(clickBack()).toBe(false);
+  expect(back).toHaveBeenCalledTimes(1);
+  back.mockRestore();
+});
+test('目錄 → A → B 再按上一頁回到 A，A 的「← 活動目錄」仍退回目錄', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (u: string) =>
+    u === '/manifest.json' ? Response.json({ bg: [], sd: [], episodes: [] }) : new Response('', { status: 404 })));
+  const back = vi.spyOn(history, 'back').mockImplementation(() => {});
+  const settle = () => new Promise(r => setTimeout(r, 0));
+  history.replaceState(null, '', '#library?unit=idol');
+  const app = document.createElement('div');
+  await startApp(app);
+  history.pushState(null, '', '#event-173'); dispatchEvent(new HashChangeEvent('hashchange')); await settle();
+  const stateA = history.state;
+  history.pushState(null, '', '#event-162'); dispatchEvent(new HashChangeEvent('hashchange')); await settle();
+  // Browser Back to A: jsdom cannot traverse, so restore A's entry the way the browser would.
+  history.replaceState(stateA, '', '#event-173'); dispatchEvent(new HashChangeEvent('hashchange')); await settle();
+  const ev = new MouseEvent('click', { bubbles: true, cancelable: true });
+  app.querySelector('a.back-link')!.dispatchEvent(ev);
+  expect(ev.defaultPrevented).toBe(true);
+  expect(back).toHaveBeenCalledTimes(1);
+  back.mockRestore();
 });
