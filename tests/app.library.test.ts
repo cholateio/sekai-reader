@@ -99,3 +99,9 @@ test('有橫幅的期在列上放延遲載入的縮圖；沒有的放同尺寸�
   expect(root.querySelector(`a.ev[href="#event-${b.id}"] .thumb`)).not.toBeNull();
   expect(root.querySelector(`a.ev[href="#event-${b.id}"] .thumb img`)).toBeNull();
 });
+test('改篩選保留這筆歷史紀錄的捲動位置', () => {
+  history.replaceState({ y: 1200, other: 1 }, '', '#library');
+  mount(viewLibrary(emptyManifest, EMPTY_QUERY));
+  (document.querySelector('.chip[data-unit="idol"]') as HTMLElement).click();
+  expect(history.state).toEqual({ y: scrollY, other: 1 });
+});

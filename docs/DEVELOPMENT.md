@@ -8,7 +8,7 @@ Everything you need to pick this project back up after months away.
 npm install
 # assets/raw/ is git-ignored: restore event_173_01.asset, bg/*.webp, sd/*.webp from your local backup
 npm run build:episode event_173_01   # -> assets/public/ (episodes, bg thumbnails, sd, manifest.json)
-npm run dev                          # -> http://localhost:5173 (opens #read-173-1)
+npm run dev                          # -> http://localhost:5173 (opens #library)
 ```
 
 ## Commands

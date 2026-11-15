@@ -50,14 +50,16 @@ describe('路由', () => {
   const stubFetch = () => vi.stubGlobal('fetch', vi.fn(async (u: string) =>
     u === '/manifest.json' ? Response.json({ bg: [], sd: [], episodes: [] }) : new Response('', { status: 404 })));
 
-  test('空 hash 啟動後進入 173-1', async () => {
+  test('空 hash 啟動後進入活動目錄', async () => {
     stubFetch();
     const app = document.createElement('div');
     await startApp(app);
-    expect(location.hash).toBe('#read-173-1');
+    expect(location.hash).toBe('#library');
+    expect(app.querySelectorAll('.ev').length).toBeGreaterThan(100);
   });
   test('沒有劇本檔的話數顯示尚未提供', async () => {
     stubFetch();
+    history.replaceState(null, '', '#read-173-1');
     const app = document.createElement('div');
     await startApp(app);
     expect(app.textContent).toContain('尚未提供');
@@ -245,4 +247,91 @@ test('側邊欄首頁在最上、本頁導覽其次、黑白在分隔線之後',
   expect(at('[data-go="library"]')).toBeLessThan(at('a[href="#event-1"]'));
   expect(at('a[href="#event-1"]')).toBeLessThan(at('hr.drawer-sep'));
   expect(at('hr.drawer-sep')).toBeLessThan(at('[aria-label="黑白"]'));
+});
+
+describe('列表捲動位置與回到頂端', () => {
+  const frame = () => new Promise(r => requestAnimationFrame(() => r(null)));
+  const height = (px: number) => Object.defineProperty(document.documentElement, 'scrollHeight', { configurable: true, get: () => px });
+  afterEach(() => { delete (document.documentElement as any).scrollHeight; });
+
+  test('回到列表時捲回離開前的位置；新開的頁面從頂端開始', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (u: string) =>
+      u === '/manifest.json' ? Response.json({ bg: [], sd: [], episodes: [] }) : new Response('', { status: 404 })));
+    height(20000);
+    const calls: number[] = [];
+    window.scrollTo = ((_x: number, y: number) => { calls.push(y); }) as typeof window.scrollTo;
+    history.replaceState({ y: 3200 }, '', '#library');
+    await startApp(document.createElement('div'));
+    await frame();
+    expect(calls.at(-1)).toBe(3200);
+    history.pushState(null, '', '#event-173');
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+    await new Promise(r => setTimeout(r, 0));
+    await frame();
+    expect(calls.at(-1)).toBe(0);
+  });
+  test('點連結離開前把目前位置寫進這筆歷史紀錄', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (u: string) =>
+      u === '/manifest.json' ? Response.json({ bg: [], sd: [], episodes: [] }) : new Response('', { status: 404 })));
+    history.replaceState(null, '', '#library');
+    const app = document.createElement('div');
+    document.body.append(app);
+    await startApp(app);
+    await frame();
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 1500 });
+    const a = app.querySelector('a.ev') as HTMLAnchorElement;
+    a.addEventListener('click', e => e.preventDefault());
+    a.click();
+    expect((history.state as { y: number }).y).toBe(1500);
+    delete (window as any).scrollY;
+    app.remove();
+  });
+  test('回到頂端鈕：列表捲過一屏半才出現，閱讀頁不出現', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (u: string) =>
+      u === '/manifest.json' ? Response.json({ bg: [], sd: [], episodes: ['event_173_01'] })
+        : u === '/episodes/event_173_01.json' ? Response.json(syntheticEpisode()) : new Response('', { status: 404 })));
+    history.replaceState(null, '', '#library');
+    await startApp(document.createElement('div'));
+    const btn = document.querySelector('.to-top') as HTMLButtonElement;
+    expect(document.querySelectorAll('.to-top').length).toBe(1);
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: innerHeight * 2 });
+    window.dispatchEvent(new Event('scroll'));
+    expect(btn.hidden).toBe(false);
+    history.pushState(null, '', '#read-173-1');
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+    await new Promise(r => setTimeout(r, 0));
+    await frame();
+    window.dispatchEvent(new Event('scroll'));
+    expect(btn.hidden).toBe(true);
+    delete (window as any).scrollY;
+  });
+});
+
+test('閱讀頁還在載入時就離開，過時的閱讀頁不會讓列表停止記位置', async () => {
+  let release!: () => void;
+  const gate = new Promise<void>(r => { release = r; });
+  vi.stubGlobal('fetch', vi.fn(async (u: string) => {
+    if (u === '/manifest.json') return Response.json({ bg: [], sd: [], episodes: ['event_173_01'] });
+    if (u === '/episodes/event_173_01.json') { await gate; return Response.json(syntheticEpisode()); }
+    return new Response('', { status: 404 });
+  }));
+  history.replaceState(null, '', '#library');
+  const app = document.createElement('div');
+  document.body.append(app);
+  await startApp(app);
+  history.pushState(null, '', '#read-173-1');
+  window.dispatchEvent(new HashChangeEvent('hashchange'));
+  history.pushState(null, '', '#library');
+  window.dispatchEvent(new HashChangeEvent('hashchange'));
+  await new Promise(r => setTimeout(r, 0));
+  release();
+  await new Promise(r => setTimeout(r, 20));
+  expect(app.querySelector('.ev')).not.toBeNull();
+  Object.defineProperty(window, 'scrollY', { configurable: true, value: 900 });
+  const a = app.querySelector('a.ev') as HTMLAnchorElement;
+  a.addEventListener('click', e => e.preventDefault());
+  a.click();
+  expect((history.state as { y: number }).y).toBe(900);
+  delete (window as any).scrollY;
+  app.remove();
 });

@@ -81,11 +81,11 @@ a { color: var(--ink); }
 .list { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
 .ev {
   --tone: var(--muted);
-  display: grid; grid-template-columns: 4px 76px 1fr auto; gap: 0 12px; align-items: center;
+  display: grid; grid-template-columns: 4px 128px 1fr auto; gap: 0 10px; align-items: center;
   padding: 12px 0; border: 0; border-bottom: 1px solid var(--line); background: none; text-align: left; width: 100%;
 }
 .ev .stripe { align-self: stretch; border-radius: 2px; background: var(--tone); }
-.ev .thumb { width: 76px; aspect-ratio: 2 / 1; border-radius: 4px; overflow: hidden; background: color-mix(in srgb, var(--tone) 16%, var(--bg)); }
+.ev .thumb { width: 128px; aspect-ratio: 2 / 1; border-radius: 4px; overflow: hidden; background: color-mix(in srgb, var(--tone) 16%, var(--bg)); }
 .ev .thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .ev .main { min-width: 0; }
 .ev .nm { font-weight: 500; display: block; overflow-wrap: anywhere; }
@@ -184,6 +184,14 @@ a.end-next:hover .end-arrow { transform: translateX(4px); }
 .end-last { margin: 0; text-align: center; font-family: var(--font-display); font-size: 18px; color: var(--ink); }
 .end-back { justify-self: center; font-size: 13px; color: var(--muted); text-underline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) { .progress i, .drawer-item .switch, .drawer-item .switch::after, .end-arrow { transition: none; } }
+
+/* Back-to-top: list pages only (hidden on the reader by the router), after 1.5 screens of scrolling. */
+.to-top {
+  position: fixed; z-index: 15; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
+  width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  font-size: 20px; line-height: 1; box-shadow: 0 4px 14px rgba(46, 58, 72, .16);
+}
+.to-top[hidden] { display: none; }
 
 /* Opening curtain (see src/app/curtain.ts): hidden unless data-play is set on the first load of a session. */
 .curtain { display: none; }

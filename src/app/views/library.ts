@@ -10,10 +10,12 @@ export function eventMeta(e: EventInfo): HTMLElement[] {
 }
 
 // Every row keeps the same box (a tinted block when there is no banner) so titles stay aligned.
+// 128 CSS px is wider than the 200 px small file covers at 2x/3x, so phones pick the 720 px one.
 function thumb(e: EventInfo, manifest: Manifest): HTMLElement {
   const src = bannerUrl(manifest, e.bundle, true);
+  const big = bannerUrl(manifest, e.bundle);
   return h('span', { class: 'thumb', 'aria-hidden': 'true' },
-    src ? h('img', { src, alt: '', loading: 'lazy', decoding: 'async', width: '200', height: '100' }) : null);
+    src ? h('img', { src, srcset: `${src} 200w, ${big} 720w`, sizes: '128px', alt: '', loading: 'lazy', decoding: 'async', width: '128', height: '64' }) : null);
 }
 
 export function viewLibrary(manifest: Manifest, initial: LibraryQuery = EMPTY_QUERY): HTMLElement[] {
@@ -30,7 +32,9 @@ export function viewLibrary(manifest: Manifest, initial: LibraryQuery = EMPTY_QU
   // Filter changes rewrite the hash in place (no history entry, no hashchange) so Back leaves the library.
   const apply = (next: LibraryQuery) => {
     qy = next;
-    history.replaceState(null, '', `#${toHash(qy)}`);
+    // Keep the entry's state (the router's saved list position lives there), updated to where we are now.
+    const st: unknown = history.state;
+    history.replaceState({ ...(st && typeof st === 'object' ? st : {}), y: scrollY }, '', `#${toHash(qy)}`);
     search.value = qy.q;
     draw();
   };

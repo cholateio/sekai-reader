@@ -47,7 +47,7 @@ async function main(): Promise<number> {
     const errors: string[] = [];
     page.on('pageerror', e => errors.push(String(e)));
     page.on('response', r => { if (r.status() >= 400) errors.push(`${r.status()} ${r.url()}`); });
-    await page.goto(`http://localhost:${PORT}/`, { waitUntil: 'networkidle' });
+    await page.goto(`http://localhost:${PORT}/#read-173-1`, { waitUntil: 'networkidle' });
     await page.waitForSelector('.comic .pw');
     // First load of the session plays the curtain; it must be gone (removed) once the animation ends.
     const curtainPlayed = await page.evaluate(() => document.querySelector('[data-curtain]')?.hasAttribute('data-play') ?? false);
@@ -75,7 +75,7 @@ async function main(): Promise<number> {
       }).slice(0, 5).map(e => `${e.tagName}.${(e as HTMLElement).className}`),
     }));
     const check = (ok: boolean, msg: string) => { console.log(`${msg} ${ok ? 'OK' : 'FAIL'}`); if (!ok) fail.push(msg); };
-    check(m.hash === '#read-173-1', `default route ${m.hash}`);
+    check(m.hash === '#read-173-1', `reader route ${m.hash}`);
     check(m.scrollWidth === W, `scrollWidth ${m.scrollWidth}`);
     check(m.wideEls.length === 0, `no element past right edge ${m.wideEls.join(' ')}`);
     check(m.panels >= 30, `panels ${m.panels}`);
@@ -98,7 +98,8 @@ async function main(): Promise<number> {
     }
     await page.screenshot({ path: 'scratch/layout-full.png', fullPage: true });
     await mangaChecks(page, check);
-    console.log('screenshots: scratch/layout-{top,scene2,full,bw}.png');
+    await libraryChecks(page, check);
+    console.log('screenshots: scratch/layout-{top,scene2,full,bw,library}.png');
     await browser.close();
   } finally {
     try { process.kill(-server.pid!); } catch { /* already gone */ }
@@ -107,6 +108,35 @@ async function main(): Promise<number> {
 }
 
 type Check = (ok: boolean, msg: string) => void;
+
+/** Bare URL opens the library; Back from an event restores the list position; the top button shows after scrolling. */
+async function libraryChecks(page: Page, check: Check): Promise<void> {
+  await page.goto(`http://localhost:${PORT}/`, { waitUntil: 'networkidle' });
+  await page.waitForSelector('a.ev');
+  check(page.url().endsWith('#library'), `bare URL opens the library ${page.url()}`);
+  const thumbW = await page.evaluate(() => document.querySelector('.ev .thumb')!.getBoundingClientRect().width);
+  check(thumbW === 128, `library thumbnail width ${thumbW}`);
+  await page.evaluate(() => scrollTo(0, 4000));
+  await page.waitForTimeout(400);
+  const shown = await page.evaluate(() => !(document.querySelector('.to-top') as HTMLElement).hidden);
+  const ev = await page.evaluate(() => {
+    const a = [...document.querySelectorAll<HTMLAnchorElement>('a.ev')].find(x => x.getBoundingClientRect().top > 100)!;
+    return a.getAttribute('href')!;
+  });
+  await page.click(`a.ev[href="${ev}"]`);
+  await page.waitForSelector('.evhead');
+  const evTop = await page.evaluate(() => scrollY);
+  await page.goBack();
+  await page.waitForSelector('a.ev');
+  await page.waitForTimeout(300);
+  const back = await page.evaluate(() => scrollY);
+  check(evTop === 0 && Math.abs(back - 4000) < 2, `Back to library restores position: event top ${evTop}, library ${back}`);
+  await page.screenshot({ path: 'scratch/layout-library.png' });
+  await page.click('.to-top');
+  await page.waitForTimeout(1200);
+  const y = await page.evaluate(() => scrollY);
+  check(shown && y === 0, `top button shows after scrolling and returns to top (shown ${shown}, y ${y})`);
+}
 
 /** Logical rows: comic children minus .credit/.trans; split/pair containers count as one row. */
 const ROWS_JS = `(() => {
