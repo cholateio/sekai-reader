@@ -83,14 +83,34 @@ describe('路由', () => {
   });
 });
 
+// Serves storyboards the way the Vite plugin does: the committed file at /storyboards/{sid}.json, else 404.
+const serveBoards = () => vi.fn(async (u: string) => {
+  const m = /^\/storyboards\/([a-z0-9_]+)\.json$/.exec(u);
+  return m && existsSync(`storyboards/${m[1]}.json`) ? new Response(readFileSync(`storyboards/${m[1]}.json`, 'utf8')) : new Response('', { status: 404 });
+});
 const ASSET = 'assets/raw/event_173_01.asset';
-describe.skipIf(!existsSync(ASSET))('173-1 打包的分鏡', () => {
-  test('經 resolveStoryboard 取得 AI 分鏡', () => {
+describe.skipIf(!existsSync(ASSET))('173-1 的分鏡', () => {
+  test('經 resolveStoryboard 取得 AI 分鏡', async () => {
+    vi.stubGlobal('fetch', serveBoards());
     const ep173 = parseScenario(JSON.parse(readFileSync(ASSET, 'utf8')) as RawScenario);
-    expect(resolveStoryboard(loadStoryboard('event_173_01'), ep173).meta.director).toBe('ai');
+    expect(resolveStoryboard(await loadStoryboard('event_173_01'), ep173).meta.director).toBe('ai');
   });
 });
-test('沒有分鏡的話數回 undefined', () => expect(loadStoryboard('event_1_01')).toBeUndefined());
+test('分鏡按話抓取：有檔回內容，沒有分鏡或回應不是 JSON 時回 undefined', async () => {
+  const f = serveBoards();
+  vi.stubGlobal('fetch', f);
+  expect(await loadStoryboard('event_173_01')).toMatchObject({ panels: expect.any(Array) });
+  expect(f).toHaveBeenCalledWith('/storyboards/event_173_01.json');
+  expect(await loadStoryboard('event_1_01')).toBeUndefined();
+  vi.stubGlobal('fetch', vi.fn(async () => new Response('<!doctype html>', { status: 200 })));
+  expect(await loadStoryboard('event_173_01')).toBeUndefined();
+});
+test('loadStoryboard 拒絕不合法的 sid', async () => {
+  const f = vi.fn();
+  vi.stubGlobal('fetch', f);
+  expect(await loadStoryboard('../x')).toBeUndefined();
+  expect(f).not.toHaveBeenCalled();
+});
 
 test('重開已讀完的話數不會把進度覆寫成 0', async () => {
   vi.stubGlobal('fetch', vi.fn(async (u: string) =>

@@ -170,17 +170,18 @@ test('深色模式：沒設定時跟系統，設定過就以設定為準', () =>
 });
 
 test('被取代的閱讀頁載入不寫入最近閱讀', async () => {
-  let resolveEp!: (r: Response) => void;
+  const pending = new Map<string, (r: Response) => void>();
   vi.stubGlobal('fetch', vi.fn((u: string) => u === '/manifest.json'
     ? Promise.resolve(Response.json({ bg: [], sd: [], episodes: ['event_173_01'] }))
-    : new Promise<Response>(r => { resolveEp = r; })));
+    : new Promise<Response>(r => { pending.set(u, r); })));
   history.replaceState(null, '', '#read-173-1');
   const app = document.createElement('div');
   const started = startApp(app);
   await new Promise(r => setTimeout(r, 0));
   history.replaceState(null, '', '#library');
   dispatchEvent(new HashChangeEvent('hashchange'));
-  resolveEp(Response.json(syntheticEpisode()));
+  pending.get('/episodes/event_173_01.json')!(Response.json(syntheticEpisode()));
+  pending.get('/storyboards/event_173_01.json')!(new Response('', { status: 404 }));
   await started;
   await new Promise(r => setTimeout(r, 0));
   expect(recentList()).toEqual([]);

@@ -11,9 +11,18 @@ export function resolveStoryboard(input: unknown, ep: Episode): Storyboard {
   return autoBoard(ep);
 }
 
-// Storyboards are committed to git and bundled at build time; dialogue never is.
-const BOARDS = import.meta.glob('../../storyboards/*.json', { eager: true, import: 'default' }) as Record<string, unknown>;
+const SID = /^[a-z0-9_]+$/;
 
-export function loadStoryboard(sid: string): unknown {
-  return BOARDS[`../../storyboards/${sid}.json`];
+/**
+ * Fetches the committed storyboard for one episode (served at /storyboards/{sid}.json by the Vite plugin in
+ * vite.config.ts); undefined when there is none, so the caller falls back to the rule-based board. Dialogue
+ * is never in a storyboard, only line numbers.
+ */
+export async function loadStoryboard(sid: string): Promise<unknown> {
+  if (!SID.test(sid)) return undefined;
+  try {
+    const res = await fetch(`/storyboards/${sid}.json`);
+    // Pages answers unknown paths with the SPA's index.html (200), so a body that is not JSON also means none.
+    return res.ok ? ((await res.json()) as unknown) : undefined;
+  } catch { return undefined; }
 }

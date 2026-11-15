@@ -125,7 +125,8 @@ async function libraryChecks(page: Page, check: Check): Promise<void> {
   });
   await page.click(`a.ev[href="${ev}"]`);
   await page.waitForSelector('.evhead');
-  const evTop = await page.evaluate(() => scrollY);
+  // The router scrolls in the next animation frame; until then the browser shows the clamped old offset.
+  const evTop = await page.evaluate(() => new Promise<number>(r => requestAnimationFrame(() => requestAnimationFrame(() => r(scrollY)))));
   await page.goBack();
   await page.waitForSelector('a.ev');
   await page.waitForTimeout(300);

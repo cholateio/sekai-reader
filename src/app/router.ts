@@ -79,14 +79,15 @@ async function route(r: string, manifest: Manifest): Promise<Page> {
     const i = ev ? ev.eps.findIndex(x => x[0] === no) : -1;
     if (!ev || i < 0) return { nodes: viewMissing('找不到這一話，回到活動列表重新選擇。'), restore: 0 };
     const [, title, sid] = ev.eps[i];
-    const ep = manifest.episodes.includes(sid) || !manifest.episodes.length ? await loadEpisode(sid) : null;
+    const listed = manifest.episodes.includes(sid) || !manifest.episodes.length;
+    const [ep, board] = listed ? await Promise.all([loadEpisode(sid), loadStoryboard(sid)]) : [null, undefined];
     if (!ep) return { nodes: viewMissing(`第 ${no} 話「${title}」尚未提供。`, `#event-${id}`), restore: 0 };
     const link = (x: typeof ev.eps[number] | undefined) => x
       ? { no: x[0], title: x[1], href: manifest.episodes.includes(x[2]) ? `#read-${id}-${x[0]}` : null } : null;
     return {
       key: sid,
       recent: { sid, id, no, title },
-      nodes: viewReader(ep, resolveStoryboard(loadStoryboard(sid), ep), {
+      nodes: viewReader(ep, resolveStoryboard(board, ep), {
         title: `第 ${no} 話 ${title}`, sub: `第 ${id} 期 · ${eventLabel(ev)}`, back: `#event-${id}`, manifest, unit: unitFlavor(ev.unit),
         prev: link(ev.eps[i - 1]), next: link(ev.eps[i + 1]),
       }),

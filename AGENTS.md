@@ -14,7 +14,7 @@ A static web reader that turns Project SEKAI Traditional Chinese event stories i
 ## File layout
 
 - `src/scenario/` — `.asset` → episode model (`parseScenario`), mood labels
-- `src/storyboard/` — storyboard types, validation, rule-based fallback board, bundled boards
+- `src/storyboard/` — storyboard types, validation, rule-based fallback board, per-episode board fetch (`/storyboards/{sid}.json`, served and emitted by the plugin in `vite.config.ts`)
 - `src/render/` — comic renderer (`comic/`: panels, bubble shape rules `shape.ts`, SVG outlines `bubbleSvg.ts`, backgrounds and effect layers, slanted layout)
 - `src/art/` — `CharacterArt` seam (static chibi now, Spine later) and fallback name circles
 - `src/app/` — hash router, data loading, prefs (`storage.ts`: `bw`, `recent`, `pos:*` kept only for the 5 recent episodes), dark mode (`theme.ts`, mirrored by an inline script in `index.html`), unit easter eggs (`units.ts`), library query model (`filter.ts`: `#library?unit=&q=`), recent episodes (`recent.ts`), views (`views/`: library, event, reader, shared header/drawer)
