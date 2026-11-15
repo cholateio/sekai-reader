@@ -20,8 +20,9 @@ A static web reader that turns Project SEKAI Traditional Chinese event stories i
 - `src/app/` — hash router, data loading, prefs (`storage.ts`: `bw`, `recent`, `pos:*` kept only for the 5 recent episodes), dark mode (`theme.ts`, mirrored by an inline script in `index.html`), unit easter eggs (`units.ts`), library query model (`filter.ts`: `#library?unit=&q=`), recent episodes (`recent.ts`), views (`views/`: library, event, reader, shared header/drawer)
 - `data/` — event index (`tc-event-index.json`: events with episodes, `unit` (card-derived for events the master data leaves `none`) and featured character ids `chars`, character table), pipeline state (`pipeline-state.json`, edited only by the pipeline)
 - `storyboards/` — AI-director storyboards, line numbers only (committed)
+- `static/` — committed site files served at the root by the plugin in `vite.config.ts`: `favicon.svg`, `apple-touch-icon.png`, `og.png` (share preview; original art, regenerate with `scripts/build_share_images.ts`)
 - `prompts/` — storyboard director prompt
-- `scripts/` — `build_episode.ts`, `build_banners.ts` (event banners, two sizes), `manifest.ts` (shared `manifest.json` writer), `fetch_episode.py`, `check_layout.ts`, `build_index.py`, `compact_script.py`
+- `scripts/` — `build_episode.ts`, `build_banners.ts` (event banners, two sizes), `manifest.ts` (shared `manifest.json` writer), `fetch_episode.py`, `check_layout.ts`, `build_share_images.ts`, `build_index.py`, `compact_script.py`
 - `scripts/pipeline/` — hourly pipeline: `state.ts` (queue, spend), `director.ts` (storyboard batches), `run.ts` (phases), `commit.sh`, `setup.sh`, `setup-cron.sh`
 - `worker/` — Cloudflare Worker `sekai-reader-cron`: hourly cron that dispatches the pipeline workflow
 - `assets/` — git-ignored game assets: `raw/` inputs, `public/` reader files (Vite publicDir)

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Same mark as cholate-blog: opaque paper disc (dark tab bars would hide ink on transparent), thick ring for 16px. -->
+  <circle cx="16" cy="16" r="15" fill="#FCFCFA" />
+  <circle cx="16" cy="16" r="13.75" fill="none" stroke="#2E3A48" stroke-width="2.5" />
+  <text x="16" y="22" text-anchor="middle" font-family="ui-monospace, monospace"
+        font-size="17" font-weight="700" fill="#2E3A48">S</text>
+</svg>

@@ -342,3 +342,19 @@ test('目錄 → A → B 再按上一頁回到 A，A 的「← 活動目錄」�
   expect(back).toHaveBeenCalledTimes(1);
   back.mockRestore();
 });
+
+test('分頁標題跟著頁面：目錄只有站名，活動與話數帶「繪名5箱」式簡稱', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (u: string) =>
+    u === '/manifest.json' ? Response.json({ bg: [], sd: [], episodes: [] }) : new Response('', { status: 404 })));
+  const go = async (hash: string) => { history.pushState(null, '', hash); dispatchEvent(new HashChangeEvent('hashchange')); await new Promise(r => setTimeout(r, 0)); };
+  history.replaceState(null, '', '#library');
+  await startApp(document.createElement('div'));
+  expect(document.title).toBe('SEKAI 劇情閱讀器');
+  const e = EVENTS.find(x => x.id === 173)!;
+  await go('#event-173');
+  expect(document.title).toBe(`${eventShort(e)} ${e.name}｜SEKAI 劇情閱讀器`);
+  await go('#read-173-2');
+  expect(document.title).toBe(`${eventShort(e)} 第 2 話 ${e.eps[1][1]}｜SEKAI 劇情閱讀器`);
+  await go('#nope');
+  expect(document.title).toBe('找不到這個頁面｜SEKAI 劇情閱讀器');
+});

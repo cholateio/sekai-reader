@@ -355,3 +355,15 @@ test('閱讀頁還在載入時就離開，過時的閱讀頁不會讓列表停�
   expect((history.state as { y: number }).y).toBe(900);
   app.remove();
 });
+
+test('index.html 的分享預覽指向 static/ 裡真的存在的圖', () => {
+  const html = readFileSync('index.html', 'utf8');
+  const img = /<meta property="og:image" content="https:\/\/sekai-reader\.pages\.dev\/([a-z0-9-]+\.png)">/.exec(html);
+  expect(img).not.toBeNull();
+  expect(existsSync(`static/${img![1]}`)).toBe(true);
+  for (const f of ['favicon.svg', 'apple-touch-icon.png']) {
+    expect(html).toContain(`href="/${f}"`);
+    expect(existsSync(`static/${f}`)).toBe(true);
+  }
+  expect(html).not.toContain('sekai.best');
+});

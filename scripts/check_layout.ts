@@ -114,6 +114,15 @@ async function libraryChecks(page: Page, check: Check): Promise<void> {
   await page.goto(`http://localhost:${PORT}/`, { waitUntil: 'networkidle' });
   await page.waitForSelector('a.ev');
   check(page.url().endsWith('#library'), `bare URL opens the library ${page.url()}`);
+  const share = await page.evaluate(async () => {
+    const og = document.querySelector('meta[property="og:image"]')?.getAttribute('content') ?? '';
+    // No named helper inside evaluate: tsx would wrap it in __name, which does not exist in the page.
+    const [img, icon, touch] = await Promise.all([new URL(og).pathname, '/favicon.svg', '/apple-touch-icon.png']
+      .map(p => fetch(p).then(r => `${r.status} ${r.headers.get('content-type')}`)));
+    return { og, img, icon, touch };
+  });
+  check(share.og.endsWith('/og.png') && share.img === '200 image/png' && share.icon === '200 image/svg+xml' && share.touch === '200 image/png',
+    `share preview and icons served ${JSON.stringify(share)}`);
   const thumbW = await page.evaluate(() => document.querySelector('.ev .thumb')!.getBoundingClientRect().width);
   check(thumbW === 128, `library thumbnail width ${thumbW}`);
   const touch = await page.evaluate(() => ({

@@ -1,6 +1,6 @@
 import { h } from '../render/dom';
 import { loadStoryboard, resolveStoryboard } from '../storyboard';
-import { eventById, eventLabel } from './catalog';
+import { eventById, eventLabel, eventShort } from './catalog';
 import { parseQuery } from './filter';
 import { loadEpisode, loadManifest, type Manifest } from './load';
 import { pushRecent, type RecentItem } from './recent';
@@ -60,8 +60,11 @@ const savedY = (): number | null => {
   return typeof y === 'number' && y > 0 ? y : null;
 };
 
+const SITE = 'SEKAI 劇情閱讀器';
+
 interface Page {
   nodes: HTMLElement[]; restore: number;
+  /** Page part of document.title (before the site name); omitted for the library. */ title?: string;
   /** Recorded only when this render is still the latest (see startApp). */ recent?: RecentItem;
   /** Episode sid whose reading position this page saves; applied only when the render is accepted. */ key?: string;
 }
@@ -71,21 +74,25 @@ async function route(r: string, manifest: Manifest): Promise<Page> {
   const [name, search = ''] = r.split('?', 2);
   if (name === 'library') return { nodes: viewLibrary(manifest, parseQuery(search)), restore: 0 };
   let m = /^event-(\d+)$/.exec(r);
-  if (m) return { nodes: viewEvent(Number(m[1]), manifest), restore: 0 };
+  if (m) {
+    const ev = eventById.get(Number(m[1]));
+    return { nodes: viewEvent(Number(m[1]), manifest), restore: 0, title: ev ? `${eventShort(ev)} ${ev.name}` : '找不到這期活動' };
+  }
   m = /^read-(\d+)-(\d+)$/.exec(r);
   if (m) {
     const id = Number(m[1]), no = Number(m[2]);
     const ev = eventById.get(id);
     const i = ev ? ev.eps.findIndex(x => x[0] === no) : -1;
-    if (!ev || i < 0) return { nodes: viewMissing('找不到這一話，回到活動列表重新選擇。'), restore: 0 };
+    if (!ev || i < 0) return { nodes: viewMissing('找不到這一話，回到活動列表重新選擇。'), restore: 0, title: '找不到這一話' };
     const [, title, sid] = ev.eps[i];
     const listed = manifest.episodes.includes(sid) || !manifest.episodes.length;
     const [ep, board] = listed ? await Promise.all([loadEpisode(sid), loadStoryboard(sid)]) : [null, undefined];
-    if (!ep) return { nodes: viewMissing(`第 ${no} 話「${title}」尚未提供。`, `#event-${id}`), restore: 0 };
+    if (!ep) return { nodes: viewMissing(`第 ${no} 話「${title}」尚未提供。`, `#event-${id}`), restore: 0, title: `${eventShort(ev)} 第 ${no} 話 ${title}` };
     const link = (x: typeof ev.eps[number] | undefined) => x
       ? { no: x[0], title: x[1], href: manifest.episodes.includes(x[2]) ? `#read-${id}-${x[0]}` : null } : null;
     return {
       key: sid,
+      title: `${eventShort(ev)} 第 ${no} 話 ${title}`,
       recent: { sid, id, no, title },
       nodes: viewReader(ep, resolveStoryboard(board, ep), {
         title: `第 ${no} 話 ${title}`, sub: `第 ${id} 期 · ${eventLabel(ev)}`, back: `#event-${id}`, manifest, unit: unitFlavor(ev.unit),
@@ -94,7 +101,7 @@ async function route(r: string, manifest: Manifest): Promise<Page> {
       restore: prefs.get(`pos:${sid}`, 0),
     };
   }
-  return { nodes: viewMissing('找不到這個頁面。'), restore: 0 };
+  return { nodes: viewMissing('找不到這個頁面。'), restore: 0, title: '找不到這個頁面' };
 }
 
 let appCtrl: AbortController | null = null;
@@ -120,8 +127,9 @@ export async function startApp(app: HTMLElement): Promise<void> {
     // A pending list save must not land on the entry we are navigating to.
     clearTimeout(listTimer);
     leavePage();
-    const { nodes, restore, recent, key } = await route(location.hash.slice(1), manifest);
+    const { nodes, restore, recent, key, title } = await route(location.hash.slice(1), manifest);
     if (mine !== seq) return;
+    document.title = title ? `${title}｜${SITE}` : SITE;
     posKey = key ?? null;
     if (recent) pushRecent(recent);
     quietUntil = Date.now() + RESTORE_QUIET_MS;
