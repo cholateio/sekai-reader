@@ -16,7 +16,10 @@ const ctx = (bg: string[] = ['bg_test_a']) => ({
 const mount = (nodes: HTMLElement[]) => { document.body.replaceChildren(...nodes); return document.body; };
 
 beforeEach(() => { window.scrollTo = (() => {}) as typeof window.scrollTo; localStorage.clear(); document.body.className = ''; history.replaceState(null, '', '/'); });
-afterEach(() => vi.unstubAllGlobals());
+// jsdom defines scrollY on window itself: deleting the override would remove it for every later timer.
+const SCROLL_Y = Object.getOwnPropertyDescriptor(window, 'scrollY')!;
+const setScrollY = (v: number) => Object.defineProperty(window, 'scrollY', { configurable: true, value: v });
+afterEach(() => { vi.unstubAllGlobals(); Object.defineProperty(window, 'scrollY', SCROLL_Y); });
 
 test('頁面不含 sekai.best', () => {
   mount(viewReader(ep, syntheticBoard(), ctx()));
@@ -298,12 +301,11 @@ describe('列表捲動位置與回到頂端', () => {
     document.body.append(app);
     await startApp(app);
     await frame();
-    Object.defineProperty(window, 'scrollY', { configurable: true, value: 1500 });
+    setScrollY(1500);
     const a = app.querySelector('a.ev') as HTMLAnchorElement;
     a.addEventListener('click', e => e.preventDefault());
     a.click();
     expect((history.state as { y: number }).y).toBe(1500);
-    delete (window as any).scrollY;
     app.remove();
   });
   test('回到頂端鈕：列表捲過一屏半才出現，閱讀頁不出現', async () => {
@@ -314,7 +316,7 @@ describe('列表捲動位置與回到頂端', () => {
     await startApp(document.createElement('div'));
     const btn = document.querySelector('.to-top') as HTMLButtonElement;
     expect(document.querySelectorAll('.to-top').length).toBe(1);
-    Object.defineProperty(window, 'scrollY', { configurable: true, value: innerHeight * 2 });
+    setScrollY(innerHeight * 2);
     window.dispatchEvent(new Event('scroll'));
     expect(btn.hidden).toBe(false);
     history.pushState(null, '', '#read-173-1');
@@ -323,7 +325,6 @@ describe('列表捲動位置與回到頂端', () => {
     await frame();
     window.dispatchEvent(new Event('scroll'));
     expect(btn.hidden).toBe(true);
-    delete (window as any).scrollY;
   });
 });
 
@@ -347,11 +348,10 @@ test('閱讀頁還在載入時就離開，過時的閱讀頁不會讓列表停�
   release();
   await new Promise(r => setTimeout(r, 20));
   expect(app.querySelector('.ev')).not.toBeNull();
-  Object.defineProperty(window, 'scrollY', { configurable: true, value: 900 });
+  setScrollY(900);
   const a = app.querySelector('a.ev') as HTMLAnchorElement;
   a.addEventListener('click', e => e.preventDefault());
   a.click();
   expect((history.state as { y: number }).y).toBe(900);
-  delete (window as any).scrollY;
   app.remove();
 });

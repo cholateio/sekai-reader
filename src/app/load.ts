@@ -10,6 +10,18 @@ export function bannerUrl(m: Manifest, bundle: string, small = false): string | 
 
 const SID = /^[a-z0-9_]+$/;
 
+const available = new WeakMap<Manifest, Set<string>>();
+/**
+ * Whether at least one episode of the event is deployed. An empty episode list means the manifest failed to
+ * load; the router then still tries every episode, so everything counts as readable rather than hidden.
+ */
+export function isReadable(m: Manifest, e: { eps: [number, string, string][] }): boolean {
+  if (!m.episodes.length) return true;
+  let set = available.get(m);
+  if (!set) available.set(m, set = new Set(m.episodes));
+  return e.eps.some(x => set.has(x[2]));
+}
+
 export async function loadEpisode(sid: string): Promise<Episode | null> {
   if (!SID.test(sid)) return null;
   try {

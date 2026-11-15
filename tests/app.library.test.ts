@@ -105,3 +105,21 @@ test('改篩選保留這筆歷史紀錄的捲動位置', () => {
   (document.querySelector('.chip[data-unit="idol"]') as HTMLElement).click();
   expect(history.state).toEqual({ y: scrollY, other: 1 });
 });
+test('一話都讀不到的期排到最後的「尚未提供」區，不放縮圖；可讀的期在前且順序不變', () => {
+  const readable = EVENTS.filter(e => e.id <= 150);
+  const m = { bg: [], sd: [], episodes: readable.map(e => e.eps[0][2]), banners: EVENTS.map(e => e.bundle) };
+  const root = mount(viewLibrary(m, EMPTY_QUERY));
+  const kids = [...root.querySelector('.list')!.children];
+  const head = kids.findIndex(k => k.classList.contains('lib-later'));
+  expect(kids[head].textContent).toBe(`尚未提供 · ${EVENTS.length - readable.length} 期`);
+  const before = kids.slice(0, head), after = kids.slice(head + 1);
+  expect(before.map(a => a.getAttribute('href'))).toEqual(EVENTS.filter(e => e.id <= 150).map(e => `#event-${e.id}`));
+  expect(after.every(a => a.classList.contains('na') && !a.querySelector('.thumb'))).toBe(true);
+  expect(after.length).toBe(EVENTS.length - readable.length);
+  expect(before.every(a => !a.classList.contains('na') && a.querySelector('.thumb img'))).toBe(true);
+});
+test('manifest 讀不到（沒有任何話數）時不把整個目錄當成尚未提供', () => {
+  const root = mount(viewLibrary(emptyManifest, EMPTY_QUERY));
+  expect(root.querySelector('.lib-later')).toBeNull();
+  expect(root.querySelectorAll('a.ev.na').length).toBe(0);
+});

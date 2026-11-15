@@ -1,7 +1,7 @@
 import { h } from '../../render/dom';
 import { BUILT, EVENTS, eventLabel, UNIT_SHORT, UNITS, unitOf, type EventInfo } from '../catalog';
 import { EMPTY_QUERY, filterEvents, isFiltered, toHash, type LibraryQuery } from '../filter';
-import { bannerUrl, type Manifest } from '../load';
+import { bannerUrl, isReadable, type Manifest } from '../load';
 import { siteFooter, siteHeader } from './common';
 
 /** Second row of a library entry: date · box label. No reading progress (owner, 2026-11-07). */
@@ -43,13 +43,22 @@ export function viewLibrary(manifest: Manifest, initial: LibraryQuery = EMPTY_QU
     const rows = filterEvents(EVENTS, qy);
     count.hidden = !isFiltered(qy);
     count.replaceChildren(`符合 ${rows.length} 期 · `, clearLink());
-    list.replaceChildren(...(rows.length ? rows.map(e => h('a', { class: 'ev', href: `#event-${e.id}`, style: `--tone:${e.color || unitOf(e.unit)[1]}` },
+    // Events with nothing to read yet go last, under their own heading, as compact muted rows (owner,
+    // 2026-11-15: the first screen used to be five empty boxes); the order inside each group is unchanged.
+    const ready = rows.filter(e => isReadable(manifest, e));
+    const later = rows.filter(e => !isReadable(manifest, e));
+    const row = (e: EventInfo, na: boolean) => h('a', { class: na ? 'ev na' : 'ev', href: `#event-${e.id}`, style: `--tone:${e.color || unitOf(e.unit)[1]}` },
       h('i', { class: 'stripe' }),
-      thumb(e, manifest),
+      na ? null : thumb(e, manifest),
       h('span', { class: 'main' },
         h('span', { class: 'nm' }, e.name),
         h('span', { class: 'meta' }, eventMeta(e))),
-      h('span', { class: 'num' }, `#${e.id}`)))
+      h('span', { class: 'num' }, `#${e.id}`));
+    list.replaceChildren(...(rows.length ? [
+      ...ready.map(e => row(e, false)),
+      later.length ? h('p', { class: 'lib-later' }, `尚未提供 · ${later.length} 期`) : null,
+      ...later.map(e => row(e, true)),
+    ].filter((x): x is HTMLElement => !!x)
       : [h('p', { class: 'empty' }, '找不到符合的活動。', h('br'), clearLink())]));
     // No 「全部」 chip: nothing pressed means all units; tapping the pressed chip again clears it.
     const unitChips = Object.entries(UNITS).filter(([k]) => k !== 'piapro').map(([k, [, c]]) => h('button', {

@@ -269,3 +269,17 @@ test('最近閱讀：清理途中另一個分頁寫入新清單，新清單裡�
   keys.mockRestore(); remove.mockRestore();
   expect(prefs.get('pos:event_172_02', 0)).toBe(0.4);
 });
+
+test('活動頁的上一期／下一期讀不到時標「尚未提供」', () => {
+  const { prev, next } = neighbours(173);
+  const m = { bg: [], sd: [], episodes: [prev!.eps[0][2]] };
+  const root = mount(viewEvent(173, m));
+  expect(root.querySelector('.evnav .prev')!.textContent).not.toContain('尚未提供');
+  const nx = root.querySelector('.evnav .next')!;
+  expect(nx.classList.contains('na')).toBe(true);
+  expect(nx.textContent).toContain(`下一期 #${next!.id} · 尚未提供`);
+  const dn = root.querySelector(`.drawer a[href="#event-${next!.id}"]`)!;
+  expect(dn.textContent).toContain('尚未提供');
+  expect(dn.classList.contains('na')).toBe(true);
+  expect(root.querySelector(`.drawer a[href="#event-${prev!.id}"]`)!.classList.contains('na')).toBe(false);
+});

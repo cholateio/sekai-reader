@@ -1,6 +1,6 @@
 import { h } from '../../render/dom';
 import { charsOf, eventById, eventLabel, neighbours, unitOf, type EventInfo } from '../catalog';
-import { bannerUrl, type Manifest } from '../load';
+import { bannerUrl, isReadable, type Manifest } from '../load';
 import { navLink, siteFooter, siteHeader, viewMissing } from './common';
 
 const CAST_MAX = 8;
@@ -29,8 +29,15 @@ export function viewEvent(id: number, manifest: Manifest): HTMLElement[] {
       h('span', { class: 't' }, title)));
   }));
   const { prev, next } = neighbours(e.id);
+  // A neighbour with nothing to read stays a link (its page lists the titles) but says so up front.
+  const na = (x: EventInfo) => (isReadable(manifest, x) ? '' : ' · 尚未提供');
+  const drawerLink = (x: EventInfo, label: string) => {
+    const a = navLink(`#event-${x.id}`, `${label} #${x.id}`, eventLabel(x) + na(x));
+    if (na(x)) a.classList.add('na');
+    return a;
+  };
   const evLink = (x: typeof prev, label: string, cls: string) => x
-    ? h('a', { class: `evnav-link ${cls}`, href: `#event-${x.id}` }, h('small', {}, `${label} #${x.id}`), h('span', {}, eventLabel(x)))
+    ? h('a', { class: `evnav-link ${cls}${na(x) ? ' na' : ''}`, href: `#event-${x.id}` }, h('small', {}, `${label} #${x.id}${na(x)}`), h('span', {}, eventLabel(x)))
     : h('span', { class: `evnav-empty ${cls}`, 'aria-hidden': 'true' });
   const label = eventLabel(e);
   const [unitName, unitColor] = unitOf(e.unit);
@@ -40,7 +47,7 @@ export function viewEvent(id: number, manifest: Manifest): HTMLElement[] {
   return [
     ...siteHeader({
       title: `第 ${e.id} 期`, sub: label,
-      items: [prev ? navLink(`#event-${prev.id}`, `上一期 #${prev.id}`, eventLabel(prev)) : null, next ? navLink(`#event-${next.id}`, `下一期 #${next.id}`, eventLabel(next)) : null]
+      items: [prev ? drawerLink(prev, '上一期') : null, next ? drawerLink(next, '下一期') : null]
         .filter((x): x is HTMLAnchorElement => !!x),
     }),
     h('section', {
