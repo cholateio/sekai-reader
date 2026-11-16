@@ -9,7 +9,11 @@ import { applyEdges } from './layout';
 import { buildPanel, type PanelCtx } from './panels';
 import './comic.css';
 
-export interface ComicOptions { bgUrl: (id: string) => string | null; unit?: UnitFlavor | null }
+export interface ComicOptions {
+  bgUrl: (id: string) => string | null; unit?: UnitFlavor | null;
+  /** The page's lifetime (pageSignal): aborting it stops the font and resize watchers so a left comic can be freed. */
+  signal?: AbortSignal;
+}
 
 export function renderComic(ep: Episode, board: Storyboard, art: CharacterArt, opts: ComicOptions): HTMLElement {
   const out = h('div', { class: 'comic' });
@@ -46,32 +50,29 @@ export function renderComic(ep: Episode, board: Storyboard, art: CharacterArt, o
     afterTrans = p.t === 'trans';
   }
   applyEdges(out);
-  watchBubbles(out, opts.unit ? { roundRadius: opts.unit.roundRadius } : {});
+  watchBubbles(out, opts.unit ? { roundRadius: opts.unit.roundRadius } : {}, opts.signal);
   return out;
 }
 
 // Bubble outlines need real layout sizes, which only exist once the comic is mounted; redraw after
 // web fonts load and whenever the comic's width changes.
-function watchBubbles(root: HTMLElement, opts: FitOpts): void {
+function watchBubbles(root: HTMLElement, opts: FitOpts, signal?: AbortSignal): void {
   fitBubbles(root, opts);
   const fonts = document.fonts;
   if (fonts) {
     fonts.ready.then(() => fitBubbles(root, opts)).catch(() => {});
-    // The font stylesheet is not render-blocking (index.html), so faces can arrive after `ready` first
-    // settles. The listener goes away once this comic has been mounted and then removed.
-    let mounted = false;
-    const onLoad = () => {
-      if (root.isConnected) { mounted = true; fitBubbles(root, opts); }
-      else if (mounted) fonts.removeEventListener('loadingdone', onLoad);
-    };
-    fonts.addEventListener?.('loadingdone', onLoad);
+    // The font stylesheet is not render-blocking (index.html), so faces can arrive after `ready` settles.
+    // A global listener would keep the comic alive, so it is only added with a page signal to remove it.
+    if (signal && !signal.aborted) fonts.addEventListener?.('loadingdone', () => { if (root.isConnected) fitBubbles(root, opts); }, { signal });
   }
   if (typeof ResizeObserver !== 'undefined') {
     let lastWidth = -1;
-    new ResizeObserver(entries => {
+    const ro = new ResizeObserver(entries => {
       const w = entries[0]?.contentRect.width ?? 0;
       if (w !== lastWidth) { lastWidth = w; fitBubbles(root, opts); }
-    }).observe(root);
+    });
+    ro.observe(root);
+    signal?.addEventListener('abort', () => ro.disconnect(), { once: true });
   }
 }
 

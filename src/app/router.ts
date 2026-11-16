@@ -6,7 +6,7 @@ import { loadEpisode, loadManifest, type Manifest } from './load';
 import { pushRecent, type RecentItem } from './recent';
 import { prefs } from './storage';
 import { unitFlavor } from './units';
-import { leavePage, viewMissing } from './views/common';
+import { leavePage, pageSignal, viewMissing } from './views/common';
 import { viewEvent } from './views/event';
 import { viewLibrary } from './views/library';
 import { viewReader } from './views/reader';
@@ -69,7 +69,7 @@ interface Page {
   /** Episode sid whose reading position this page saves; applied only when the render is accepted. */ key?: string;
 }
 
-async function route(r: string, manifest: Manifest): Promise<Page> {
+async function route(r: string, manifest: Manifest, page: AbortSignal): Promise<Page> {
   document.body.classList.remove('paper', 'bw');
   const [name, search = ''] = r.split('?', 2);
   if (name === 'library') return { nodes: viewLibrary(manifest, parseQuery(search)), restore: 0 };
@@ -87,6 +87,8 @@ async function route(r: string, manifest: Manifest): Promise<Page> {
     const [, title, sid] = ev.eps[i];
     const listed = manifest.episodes.includes(sid) || !manifest.episodes.length;
     const [ep, board] = listed ? await Promise.all([loadEpisode(sid), loadStoryboard(sid)]) : [null, undefined];
+    // Left while loading: building the view now would hand its listeners the next page's signal (pageSignal).
+    if (page.aborted) return { nodes: [], restore: 0 };
     if (!ep) return { nodes: viewMissing(`第 ${no} 話「${title}」尚未提供。`, `#event-${id}`), restore: 0, title: `${eventShort(ev)} 第 ${no} 話 ${title}` };
     const link = (x: typeof ev.eps[number] | undefined) => x
       ? { no: x[0], title: x[1], href: manifest.episodes.includes(x[2]) ? `#read-${id}-${x[0]}` : null } : null;
@@ -127,8 +129,9 @@ export async function startApp(app: HTMLElement): Promise<void> {
     // A pending list save must not land on the entry we are navigating to.
     clearTimeout(listTimer);
     leavePage();
-    const { nodes, restore, recent, key, title } = await route(location.hash.slice(1), manifest);
-    if (mine !== seq) return;
+    const { nodes, restore, recent, key, title } = await route(location.hash.slice(1), manifest, pageSignal());
+    // seq is per startApp; a restarted app aborts the old one's signal, which must not commit either.
+    if (mine !== seq || signal.aborted) return;
     document.title = title ? `${title}｜${SITE}` : SITE;
     posKey = key ?? null;
     if (recent) pushRecent(recent);

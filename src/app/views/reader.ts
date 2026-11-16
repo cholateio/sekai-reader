@@ -6,7 +6,7 @@ import type { Episode } from '../../scenario/types';
 import type { Storyboard } from '../../storyboard/types';
 import type { Manifest } from '../load';
 import { prefs } from '../storage';
-import { navLink, siteHeader } from './common';
+import { navLink, pageSignal, siteHeader } from './common';
 
 export interface ReaderCtx {
   title: string;
@@ -34,7 +34,7 @@ export function viewReader(ep: Episode, board: Storyboard, ctx: ReaderCtx): HTML
   document.body.classList.add('paper');
   const bg = new Set(ctx.manifest.bg);
   const body = renderComic(ep, board, new StaticChibiArt('/sd', ctx.manifest.sd.length ? ctx.manifest.sd : undefined),
-    { bgUrl: id => (bg.has(id) ? `/bg/${id}.webp` : null), unit: ctx.unit ?? null });
+    { bgUrl: id => (bg.has(id) ? `/bg/${id}.webp` : null), unit: ctx.unit ?? null, signal: pageSignal() });
 
   const bwBtn = h('button', {
     class: 'drawer-item toggle', 'aria-pressed': String(prefs.get('bw', false)), 'aria-label': '黑白',

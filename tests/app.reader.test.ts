@@ -356,6 +356,71 @@ test('閱讀頁還在載入時就離開，過時的閱讀頁不會讓列表停�
   app.remove();
 });
 
+test('閱讀頁載入中就換頁：過時的閱讀頁不建立畫面，也不掛任何監聽到下一頁', async () => {
+  let release!: () => void;
+  const gate = new Promise<void>(r => { release = r; });
+  vi.stubGlobal('fetch', vi.fn(async (u: string) => {
+    if (u === '/manifest.json') return Response.json({ bg: [], sd: [], episodes: ['event_173_01'] });
+    if (u === '/episodes/event_173_01.json') { await gate; return Response.json(syntheticEpisode()); }
+    return new Response('', { status: 404 });
+  }));
+  const fonts = Object.assign(new EventTarget(), { ready: Promise.resolve() });
+  const fontListeners: string[] = [];
+  const addFont = fonts.addEventListener.bind(fonts);
+  fonts.addEventListener = (t: string, l: EventListenerOrEventListenerObject | null, o?: AddEventListenerOptions | boolean) => { fontListeners.push(t); addFont(t, l, o); };
+  const desc = Object.getOwnPropertyDescriptor(document, 'fonts');
+  Object.defineProperty(document, 'fonts', { configurable: true, value: fonts });
+  const keydowns: (AbortSignal | undefined)[] = [];
+  const orig = document.addEventListener.bind(document);
+  const spy = vi.spyOn(document, 'addEventListener').mockImplementation((type: string, fn: any, opts?: any) => {
+    if (type === 'keydown') keydowns.push(opts?.signal);
+    return orig(type, fn, opts);
+  });
+  try {
+    history.replaceState(null, '', '#library');
+    const app = document.createElement('div');
+    await startApp(app);
+    history.pushState(null, '', '#read-173-1');
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+    await new Promise(r => setTimeout(r, 0));
+    history.pushState(null, '', '#library');
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+    await new Promise(r => setTimeout(r, 0));
+    const before = keydowns.length;
+    release();
+    await new Promise(r => setTimeout(r, 20));
+    expect(fontListeners).toEqual([]);
+    expect(keydowns.length).toBe(before);
+    expect(app.querySelector('.comic')).toBeNull();
+  } finally {
+    spy.mockRestore();
+    if (desc) Object.defineProperty(document, 'fonts', desc);
+    else delete (document as { fonts?: unknown }).fonts;
+  }
+});
+
+test('startApp 重新啟動時，舊實例晚到的閱讀頁不會蓋掉新實例的畫面', async () => {
+  let release!: () => void;
+  const gate = new Promise<void>(r => { release = r; });
+  vi.stubGlobal('fetch', vi.fn(async (u: string) => {
+    if (u === '/manifest.json') return Response.json({ bg: [], sd: [], episodes: ['event_173_01'] });
+    if (u === '/episodes/event_173_01.json') { await gate; return Response.json(syntheticEpisode()); }
+    return new Response('', { status: 404 });
+  }));
+  const app = document.createElement('div');
+  history.replaceState(null, '', '#read-173-1');
+  const first = startApp(app);
+  await new Promise(r => setTimeout(r, 0));
+  history.replaceState(null, '', '#library');
+  await startApp(app);
+  expect(app.querySelector('.ev')).not.toBeNull();
+  release();
+  await first;
+  await new Promise(r => setTimeout(r, 20));
+  expect(app.querySelector('.ev')).not.toBeNull();
+  expect(document.title).toBe('SEKAI 劇情閱讀器');
+});
+
 test('index.html 的分享預覽指向 static/ 裡真的存在的圖', () => {
   const html = readFileSync('index.html', 'utf8');
   const img = /<meta property="og:image" content="https:\/\/sekai-reader\.pages\.dev\/([a-z0-9-]+\.png)">/.exec(html);

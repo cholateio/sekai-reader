@@ -177,27 +177,43 @@ test('25時 的心聲格用 whisper', () => {
   expect(root.querySelector('[data-r="4"]')!.classList.contains('bb-whisper')).toBe(true);
 });
 
-test('字型 CSS 晚到：每次 loadingdone 都重畫泡泡框；漫畫離開畫面後移除監聽', async () => {
+test('字型 CSS 晚到：掛上畫面後每次 loadingdone 都重畫泡泡框；換頁（signal abort）後不再重畫', async () => {
   const fonts = Object.assign(new EventTarget(), { ready: Promise.resolve() });
   const desc = Object.getOwnPropertyDescriptor(document, 'fonts');
   Object.defineProperty(document, 'fonts', { configurable: true, value: fonts });
-  const removed: string[] = [];
-  const remove = fonts.removeEventListener.bind(fonts);
-  fonts.removeEventListener = (t: string, l: EventListenerOrEventListenerObject | null) => { removed.push(t); remove(t, l); };
+  const page = new AbortController();
   try {
-    const root = render();
-    fonts.dispatchEvent(new Event('loadingdone'));
-    expect(removed).toEqual([]);
+    const root = renderComic(ep, syntheticBoard(), art, { ...opts, signal: page.signal });
     document.body.append(root);
     const bb = root.querySelector('.bb') as HTMLElement;
-    Object.defineProperty(bb, 'offsetWidth', { configurable: true, get: () => 200 });
+    let w = 200;
+    Object.defineProperty(bb, 'offsetWidth', { configurable: true, get: () => w });
     Object.defineProperty(bb, 'offsetHeight', { configurable: true, get: () => 60 });
     expect(bb.querySelector('svg.bo path')).toBeNull();
     fonts.dispatchEvent(new Event('loadingdone'));
-    expect(bb.querySelector('svg.bo')!.getAttribute('viewBox')).not.toBeNull();
-    root.remove();
+    const svg = bb.querySelector('svg.bo')!;
+    expect(svg.getAttribute('viewBox')).toBe('0 0 232 92');
+    page.abort();
+    w = 300;
     fonts.dispatchEvent(new Event('loadingdone'));
-    expect(removed).toEqual(['loadingdone']);
+    expect(svg.getAttribute('viewBox')).toBe('0 0 232 92');
+    root.remove();
+  } finally {
+    if (desc) Object.defineProperty(document, 'fonts', desc);
+    else delete (document as { fonts?: unknown }).fonts;
+  }
+});
+
+test('沒有 page signal 時不掛全域字型監聽（避免留住離開的漫畫）', () => {
+  const fonts = Object.assign(new EventTarget(), { ready: Promise.resolve() });
+  const added: string[] = [];
+  const add = fonts.addEventListener.bind(fonts);
+  fonts.addEventListener = (t: string, l: EventListenerOrEventListenerObject | null, o?: AddEventListenerOptions | boolean) => { added.push(t); add(t, l, o); };
+  const desc = Object.getOwnPropertyDescriptor(document, 'fonts');
+  Object.defineProperty(document, 'fonts', { configurable: true, value: fonts });
+  try {
+    render();
+    expect(added).toEqual([]);
   } finally {
     if (desc) Object.defineProperty(document, 'fonts', desc);
     else delete (document as { fonts?: unknown }).fonts;
