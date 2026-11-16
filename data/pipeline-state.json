@@ -7890,7 +7890,7 @@
      "tries": 0
     }
    },
-   "jpCheckedAt": "2026-11-15T00:25:29.971Z"
+   "jpCheckedAt": "2026-11-16T00:25:32.258Z"
   }
  },
  "batches": [],
@@ -8289,6 +8289,6 @@
   "msgbatch_013NJy4b3mKWgMXEZGqJaVN3": "2026-11-07",
   "msgbatch_01N1wCTz7vqkyeq9JWGb6aYi": "2026-11-08"
  },
- "pendingDeploy": false,
+ "pendingDeploy": true,
  "promptVersion": "v4-caps"
 }
