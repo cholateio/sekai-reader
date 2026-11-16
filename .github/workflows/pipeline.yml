@@ -1,6 +1,7 @@
 # Hourly pipeline: refresh the event index, fetch at most one event into the private R2 store,
 # request AI storyboards in batches, then deploy dist/ to Cloudflare Pages. State and storyboards
 # are committed back to main. Each secret is scoped to the only step that needs it.
+# A run whose plan step finds no work (most hours) skips the R2 syncs, both phases and the deploy.
 name: pipeline
 
 # Started hourly by the Cloudflare Worker sekai-reader-cron (worker/); GitHub's own schedule was unreliable
@@ -28,7 +29,6 @@ concurrency:
 env:
   R2_BUCKET: ${{ vars.R2_BUCKET }}
   BACKFILL: ${{ vars.BACKFILL }}
-  SCRIPTS_FIRST: ${{ vars.SCRIPTS_FIRST }}
   DIRECT_DAILY_USD: ${{ vars.DIRECT_DAILY_USD }}
   RCLONE_CONFIG_R2_TYPE: s3
   RCLONE_CONFIG_R2_PROVIDER: Cloudflare
@@ -39,8 +39,8 @@ env:
 jobs:
   run:
     runs-on: ubuntu-latest
-    # The scripts-first lane alone takes about 27 minutes (80 requests, 20 s apart).
-    timeout-minutes: 55
+    # A whole event (40 requests, 5 s apart) plus its builds and both syncs takes about 10 minutes.
+    timeout-minutes: 30
     permissions:
       contents: write
     steps:
@@ -57,12 +57,34 @@ jobs:
         with:
           python-version: '3.12'
 
-      # sharp 0.34 ships prebuilt binaries as optional dependencies, so install scripts are not needed.
+      # sharp ships prebuilt binaries as optional dependencies, so install scripts are not needed.
       - run: npm ci --ignore-scripts
+
+      - name: refresh event index
+        run: python3 scripts/build_index.py data/tc-event-index.json --state data/pipeline-state.json
+
+      - name: plan
+        id: plan
+        env:
+          IN_EVENT: ${{ inputs.event }}
+          IN_DIRECT: ${{ inputs.direct }}
+        run: |
+          set -euo pipefail
+          args=()
+          if [ -n "${IN_EVENT:-}" ]; then
+            [[ "$IN_EVENT" =~ ^[0-9]{1,5}$ ]] || { echo '::error::event 必須是整數'; exit 1; }
+            args+=(--event "$IN_EVENT")
+          fi
+          if [ -n "${IN_DIRECT:-}" ] && [ "$IN_DIRECT" != "0" ]; then
+            [[ "$IN_DIRECT" =~ ^[0-9]{1,3}$ ]] || { echo '::error::direct 必須是整數'; exit 1; }
+            args+=(--direct "$IN_DIRECT")
+          fi
+          npx tsx scripts/pipeline/run.ts plan "${args[@]}"
 
       # Pinned release binary instead of apt: runner DNS for security.ubuntu.com failed for hours on 2026-11-11.
       # The checksum is this zip's line in the release's SHA256SUMS; update both together.
       - name: install rclone
+        if: steps.plan.outputs.work == 'true'
         env:
           RCLONE_VER: v1.75.2
           RCLONE_SHA256: 349ac8fba6ff65d6247043f1750cdcb518ec5d500ef91463a10d37c0ccdf3702
@@ -76,6 +98,7 @@ jobs:
           rclone version
 
       - name: sync assets down
+        if: steps.plan.outputs.work == 'true'
         env:
           RCLONE_CONFIG_R2_ENDPOINT: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
           RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
@@ -85,10 +108,8 @@ jobs:
           rclone copy "r2:$R2_BUCKET/raw" assets/raw --transfers 16 --quiet
           rclone copy "r2:$R2_BUCKET/public" assets/public --transfers 16 --quiet
 
-      - name: refresh event index
-        run: python3 scripts/build_index.py data/tc-event-index.json --state data/pipeline-state.json
-
       - name: fetch phase
+        if: steps.plan.outputs.work == 'true'
         env:
           IN_EVENT: ${{ inputs.event }}
           IN_DIRECT: ${{ inputs.direct }}
@@ -107,7 +128,7 @@ jobs:
 
       - name: sync assets up
         id: syncup
-        if: always()
+        if: always() && steps.plan.outputs.work == 'true'
         env:
           RCLONE_CONFIG_R2_ENDPOINT: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
           RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
@@ -134,7 +155,7 @@ jobs:
 
       - name: commit state and storyboards
         id: commit1
-        if: always() && steps.syncup.outcome == 'success'
+        if: always() && (steps.syncup.outcome == 'success' || (steps.plan.outcome == 'success' && steps.plan.outputs.work == 'false'))
         run: 'bash scripts/pipeline/commit.sh "chore(pipeline): 更新狀態、目錄與分鏡"'
 
       # Runs even when the direct phase failed (e.g. an Anthropic outage) so fetched assets still ship.

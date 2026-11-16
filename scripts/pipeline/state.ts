@@ -12,8 +12,6 @@ export interface EventState {
   jpCheckedAt?: string;
   /** Set when a fetch ran out of budget; the queue resumes it next hour whatever BACKFILL says. */
   partialAt?: string;
-  /** All scripts fetched by the scripts-first lane (images may still be missing); enough for storyboards. */
-  scriptsAt?: string;
   /** Home banner (spec 2026-11-07): done = fetched; missing = 404, never asked again. Unset = not tried yet. */
   banner?: 'done' | 'missing';
   eps: Record<string, EpState>;
@@ -29,6 +27,8 @@ export interface PipelineState {
   pendingDeploy: boolean;
   /** Director prompt version the fallback episodes were last tried with; a change requeues them. */
   promptVersion?: string;
+  /** build_banners failed as a whole; kept until a run's build succeeds so the plan step does not call that run idle. */
+  bannerBuildFailed?: boolean;
 }
 export interface IndexEvent { id: number; name: string; date: string; bundle: string; eps: [number, string, string][] }
 export interface IndexFile { events: IndexEvent[]; built: string }
@@ -154,7 +154,7 @@ export function authorizeDirect(s: PipelineState, index: IndexFile, o: { eventId
   if (o.newest && o.newest > 0) {
     const old = byNewest(index).filter(e => {
       const st = s.events[String(e.id)];
-      return st && st.kind === 'old' && hasScripts(st) && hasManual(st) && !targets.has(e.id);
+      return st && st.kind === 'old' && st.assets === 'done' && hasManual(st) && !targets.has(e.id);
     });
     for (const e of old.slice(0, o.newest)) targets.add(e.id);
   }
@@ -162,31 +162,15 @@ export function authorizeDirect(s: PipelineState, index: IndexFile, o: { eventId
   return [...targets];
 }
 
-const hasScripts = (st: EventState) => st.assets === 'done' || Boolean(st.scriptsAt);
 
 export function dueEpisodes(s: PipelineState, index: IndexFile): { eventId: number; sid: string }[] {
   const out: { eventId: number; sid: string }[] = [];
   for (const e of byNewest(index)) {
     const st = s.events[String(e.id)];
-    if (!st || !hasScripts(st)) continue;
+    if (!st || st.assets !== 'done') continue;
     for (const [, , sid] of [...e.eps].sort((a, b) => a[0] - b[0])) if (st.eps[sid]?.s === 'none') out.push({ eventId: e.id, sid });
   }
   return out;
-}
-
-/** Old events whose scripts the scripts-first lane still has to fetch, newest first. */
-export function scriptsLane(s: PipelineState, index: IndexFile): number[] {
-  return byNewest(index).filter(e => {
-    const st = s.events[String(e.id)];
-    return st && st.kind === 'old' && st.assets === 'pending' && !st.scriptsAt && st.failures < MAX_FAILURES;
-  }).map(e => e.id);
-}
-
-export function recordScripts(s: PipelineState, id: number, status: 'done' | 'partial' | 'jp' | 'missing', now: Date): void {
-  const e = s.events[String(id)];
-  if (!e) throw new Error(`unknown event ${id}`);
-  if (status === 'done') e.scriptsAt = now.toISOString();
-  else if (status === 'jp' || status === 'missing') recordFetch(s, id, { status }, now);
 }
 
 /** Banner lane (owner-approved 2026-11-07): at most 4 per run, events whose images are fetched, newest first. */

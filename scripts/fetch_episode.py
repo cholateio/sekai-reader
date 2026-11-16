@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Fetcher for one event's (or one episode's) assets into assets/raw/ (git-ignored).
 
-Usage: python3 scripts/fetch_episode.py --event <id> | --scripts-for <ids> | --banners <ids> | <sid>
+Usage: python3 scripts/fetch_episode.py --event <id> | --banners <ids> | <sid>
        [--index data/tc-event-index.json] [--out assets/raw]
 
 Constraints (spec 2026-11-04): one event per run, at most 40 requests, >= 5 s between requests, no Referer
@@ -24,7 +24,7 @@ import urllib.error
 import urllib.request
 
 BASE = 'https://storage.sekai.best'
-USER_AGENT = 'sekai-reader (https://github.com/cholateio/sekai-reader)'
+USER_AGENT = 'sekai-reader'
 SID_RE = re.compile(r'^[a-z0-9_]+$')
 EFFECT_CHANGE_BACKGROUND = 7
 PHONE_SUFFIX = '的訊息'
@@ -113,9 +113,6 @@ def character_ids(asset, chars):
 
 
 JP_KANA_RATIO = 0.05
-# Scripts-first lane (owner-approved 2026-11-05): same hourly volume as before, spread out instead of bursts.
-SCRIPTS_BUDGET = 80
-SCRIPTS_DELAY = 20
 EXIT = {'done': 0, 'jp': 3, 'partial': 4, 'missing': 5, 'error': 1}
 
 
@@ -264,37 +261,6 @@ def run_event(event, index, out, fetcher):
     return result('done', done)
 
 
-def _scripts_of(event, out, fetcher):
-    sids = _sids(event)
-    existed = {sid for sid in sids if os.path.exists(os.path.join(out, sid + '.asset'))}
-    done = []
-    for sid in sids:
-        v = _checked_script(fetcher, scenario_url(event['bundle'], sid), out, sid)
-        if v in ('jp', 'invalid'):
-            removed = sorted(set(_purge(out, sids)) | ({sid + '.asset'} if sid in existed else set()))
-            r = {'id': event['id'], 'status': 'jp' if v == 'jp' else 'error', 'sids': []}
-            if removed:
-                r['removed'] = removed
-            return r
-        if v != 'ok':
-            return {'id': event['id'], 'status': v, 'sids': done}
-        done.append(sid)
-    return {'id': event['id'], 'status': 'done', 'sids': done}
-
-
-def run_scripts(events, out, fetcher):
-    """Scripts only (no images) for several events in order, until the shared budget runs out."""
-    start = fetcher.count
-    results = []
-    for event in events:
-        r = _scripts_of(event, out, fetcher)
-        results.append(r)
-        if r['status'] == 'partial':
-            break
-    status = 'partial' if fetcher.exhausted else 'done'
-    return {'status': status, 'requests': fetcher.count - start, 'events': results}
-
-
 BANNER_MAX = 4
 
 
@@ -344,20 +310,16 @@ def run(sid, index, out, fetcher):
 
 def main(argv=None, opener=None, sleep=time.sleep, log=print, max_requests=40):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter,
-                                 usage='%(prog)s (--event ID | --scripts-for ID,ID | --banners ID,ID | SID) [--index PATH] [--out DIR]')
+                                 usage='%(prog)s (--event ID | --banners ID,ID | SID) [--index PATH] [--out DIR]')
     target = ap.add_mutually_exclusive_group(required=True)
     target.add_argument('sid', nargs='?', metavar='SID', help='fetch one episode (e.g. event_173_02)')
     target.add_argument('--event', type=int, metavar='ID', help='fetch one whole event; prints a JSON result line')
-    target.add_argument('--scripts-for', metavar='ID,ID,...',
-                        help='scripts only (no images) for these events, newest first; budget %d, %d s apart' % (SCRIPTS_BUDGET, SCRIPTS_DELAY))
     target.add_argument('--banners', metavar='ID,ID,...',
                         help='home banners of these events (at most %d), one request each, 5 s apart' % BANNER_MAX)
     ap.add_argument('--index', default='data/tc-event-index.json')
     ap.add_argument('--state', default='data/pipeline-state.json', help='pipeline state; --banners only')
     ap.add_argument('--out', default='assets/raw')
     args = ap.parse_args(argv)
-    if args.scripts_for is not None:
-        return _main_scripts(args, opener, sleep, log)
     if args.banners is not None:
         return _main_banners(args, opener, sleep, log)
     if args.event is not None:
@@ -377,23 +339,6 @@ def _main_event(args, opener, sleep, log, max_requests):
         r = run_event(event, index, args.out, fetcher)
     except Exception as e:  # noqa: BLE001 - reported to the pipeline as a JSON line
         print(json.dumps({'status': 'error', 'requests': fetcher.count, 'sids': [], 'error': '%s: %s' % (type(e).__name__, e)}))
-        return 1
-    print(json.dumps(r))
-    return EXIT[r['status']]
-
-
-def _main_scripts(args, opener, sleep, log):
-    fetcher = Fetcher(opener or urllib.request.urlopen, max_requests=SCRIPTS_BUDGET, delay=float(SCRIPTS_DELAY),
-                      sleep=sleep, log=log)
-    try:
-        if not re.match(r'^\d{1,5}(,\d{1,5})*$', args.scripts_for):
-            raise ValueError('bad id list')
-        index = _load(args.index)
-        by_id = {e['id']: e for e in index['events']}
-        events = [by_id[int(x)] for x in args.scripts_for.split(',')]
-        r = run_scripts(events, args.out, fetcher)
-    except Exception as e:  # noqa: BLE001 - reported to the pipeline as a JSON line
-        print(json.dumps({'status': 'error', 'requests': fetcher.count, 'events': [], 'error': '%s: %s' % (type(e).__name__, e)}))
         return 1
     print(json.dumps(r))
     return EXIT[r['status']]

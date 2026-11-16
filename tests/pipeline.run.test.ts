@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { expect, test } from 'vitest';
-import { fetchResultFromChild, runOnce, spawnBanners, spawnFetch, spawnScripts, type BannersResult, type FetchResult, type RunDeps, type ScriptsResult } from '../scripts/pipeline/run';
+import { PROMPT_VERSION } from '../scripts/pipeline/director';
+import { fetchResultFromChild, runOnce, spawnBanners, spawnFetch, type BannersResult, type FetchResult, type RunDeps } from '../scripts/pipeline/run';
 import { loadState, type IndexEvent, type IndexFile, type PipelineState } from '../scripts/pipeline/state';
 import { syntheticEpisode } from './helpers';
 
@@ -12,7 +13,7 @@ const ev = (id: number, date: string, n = 2): IndexEvent => ({
 });
 const NOW = new Date('2026-11-04T10:00:00Z');
 
-function setup(o: { fetch?: (id: number) => FetchResult; build?: (sid: string) => boolean; withDirector?: boolean; backfill?: boolean; cap?: number; scriptsFirst?: boolean; scripts?: (ids: number[]) => ScriptsResult; banners?: (ids: number[]) => BannersResult; bannersBuilt?: () => { ok: boolean; built: number; changed: boolean; failed: string[] } } = {}) {
+function setup(o: { fetch?: (id: number) => FetchResult; build?: (sid: string) => boolean; withDirector?: boolean; backfill?: boolean; cap?: number; banners?: (ids: number[]) => BannersResult; bannersBuilt?: () => { ok: boolean; built: number; changed: boolean; failed: string[] } } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'run-'));
   const index: IndexFile = { events: [ev(173, '2026-10-01', 3), ev(172, '2026-09-20'), ev(171, '2026-09-10')], built: '2026-11-04' };
   const indexPath = path.join(dir, 'index.json');
@@ -22,7 +23,6 @@ function setup(o: { fetch?: (id: number) => FetchResult; build?: (sid: string) =
   fs.writeFileSync(path.join(boardsDir, 'event_173_01.json'), '{}');
   const calls: string[] = [];
   const fetched: number[] = [];
-  const scriptCalls: number[][] = [];
   const bannerCalls: number[][] = [];
   let bannerBuilds = 0;
   const sleeps: number[] = [];
@@ -44,12 +44,6 @@ function setup(o: { fetch?: (id: number) => FetchResult; build?: (sid: string) =
     statePath: path.join(dir, 'pipeline-state.json'), indexPath, boardsDir, r2DeletePath: path.join(dir, 'r2-delete.txt'),
     fetchEvent: async id => { fetched.push(id); return o.fetch ? o.fetch(id) : { status: 'done', requests: 5, sids: (JSON.parse(fs.readFileSync(indexPath, 'utf8')) as IndexFile).events.find(e => e.id === id)!.eps.map(e => e[2]) }; },
     buildEpisode: async sid => { built.push(sid); return o.build ? o.build(sid) : true; },
-    fetchScripts: async ids => {
-      scriptCalls.push(ids);
-      if (o.scripts) return o.scripts(ids);
-      const idx = JSON.parse(fs.readFileSync(indexPath, 'utf8')) as IndexFile;
-      return { status: 'done', requests: 9, events: ids.map(id => ({ id, status: 'done' as const, sids: idx.events.find(e => e.id === id)!.eps.map(e => e[2]) })) };
-    },
     fetchBanners: async ids => {
       bannerCalls.push(ids);
       return o.banners ? o.banners(ids) : { status: 'done', requests: ids.length, events: ids.map(id => ({ id, status: 'done' as const })) };
@@ -59,7 +53,7 @@ function setup(o: { fetch?: (id: number) => FetchResult; build?: (sid: string) =
       client: client as never, compact: async () => 'BG:x', readEpisode: () => syntheticEpisode(),
       writeBoard: () => {}, prompt: 'P', now: () => NOW, log: () => {},
     } : null,
-    env: { backfill: o.backfill ?? false, dailyCapUsd: o.cap ?? 20, scriptsFirst: o.scriptsFirst ?? false },
+    env: { backfill: o.backfill ?? false, dailyCapUsd: o.cap ?? 20 },
     now: () => NOW, log: () => {},
     sleep: async ms => { sleeps.push(ms); },
   };
@@ -69,7 +63,7 @@ function setup(o: { fetch?: (id: number) => FetchResult; build?: (sid: string) =
     fs.writeFileSync(indexPath, JSON.stringify(idx));
   };
   const state = () => loadState(deps.statePath) as PipelineState;
-  return { deps, calls, fetched, built, addNew, state, ended, index, scriptCalls, sleeps, bannerCalls, builds: () => bannerBuilds };
+  return { deps, calls, fetched, built, addNew, state, ended, index, sleeps, bannerCalls, builds: () => bannerBuilds };
 }
 const epStates = (s: PipelineState, id: number) => Object.values(s.events[String(id)].eps).map(e => e.s);
 
@@ -280,99 +274,6 @@ test('fetchResultFromChild 帶出 removed', () => {
   expect(r.removed).toEqual(['event_9_01.asset']);
 });
 
-test('scripts-first：不做圖片補舊，改抓全部舊活動的劇本並授權分鏡；不 build、不部署', async () => {
-  const t = setup({ backfill: true, scriptsFirst: true });
-  const r = await runOnce(t.deps, { phase: 'fetch' });
-  expect(t.fetched).toEqual([]);
-  expect(t.scriptCalls).toEqual([[173, 172, 171]]);
-  expect(t.built).toEqual([]);
-  const s = t.state();
-  expect(s.events['172'].scriptsAt).toBe(NOW.toISOString());
-  expect(s.events['172'].assets).toBe('pending');
-  expect(Object.values(s.events['172'].eps).map(e => e.s)).toEqual(['none', 'none']);
-  expect(r.authorized.sort()).toEqual([171, 172, 173]);
-  expect(r.deploy).toBe(false);
-  expect(r.scripts?.requests).toBe(9);
-});
-
-test('scripts-first：jp / missing / partial 照實記錄，partial 的期下次再排', async () => {
-  const t = setup({ backfill: true, scriptsFirst: true, scripts: () => ({ status: 'partial', requests: 80, events: [
-    { id: 173, status: 'jp', sids: [] }, { id: 172, status: 'missing', sids: [] }, { id: 171, status: 'partial', sids: ['event_171_01'] }] }) });
-  await runOnce(t.deps, { phase: 'fetch' });
-  const s = t.state();
-  expect([s.events['173'].assets, s.events['172'].assets, s.events['171'].assets]).toEqual(['jp', 'missing', 'pending']);
-  expect(s.events['171'].scriptsAt).toBeUndefined();
-  await runOnce(t.deps, { phase: 'fetch' });
-  expect(t.scriptCalls.at(-1)).toEqual([171]);
-});
-
-test('scripts-first：新活動整期抓時這小時不跑劇本線（每小時請求量不疊加）', async () => {
-  const t = setup({ backfill: true, scriptsFirst: false });
-  t.deps.env.backfill = false;
-  await runOnce(t.deps, { phase: 'fetch' });
-  t.deps.env.backfill = true;
-  t.deps.env.scriptsFirst = true;
-  t.addNew();
-  const r = await runOnce(t.deps, { phase: 'fetch' });
-  expect(r.picked).toEqual({ id: 174, reason: 'new' });
-  expect(t.scriptCalls).toEqual([]);
-  await runOnce(t.deps, { phase: 'fetch' });
-  expect(t.scriptCalls).toEqual([[173, 172, 171]]);
-});
-
-test('scripts-first 關閉時不呼叫劇本線', async () => {
-  const t = setup({ backfill: true });
-  await runOnce(t.deps, { phase: 'fetch' });
-  expect(t.scriptCalls).toEqual([]);
-  expect(t.fetched).toEqual([173]);
-});
-
-test('真實 fetchScripts：spawn 帶 --scripts-for 與逗號分隔的 id', async () => {
-  const f = spawnScripts('tests/fixtures/fake_fetch.py', () => {});
-  expect(await f([9, 8])).toEqual({ status: 'done', requests: 2, events: [{ id: 9, status: 'done', sids: ['event_9_01'] }, { id: 8, status: 'done', sids: ['event_8_01'] }] });
-});
-
-test('scripts-first：recheck 只花 1 個請求且仍是 jp/missing 才接劇本線，並先等 20 秒', async () => {
-  const t = setup({ backfill: true, scriptsFirst: true, fetch: () => ({ status: 'jp', requests: 1, sids: [] }) });
-  await runOnce(t.deps, { phase: 'fetch' });
-  const s0 = t.state();
-  for (const id of ['173', '172', '171']) delete s0.events[id].scriptsAt;
-  s0.events['173'].assets = 'jp';
-  s0.events['173'].jpCheckedAt = '2026-11-03T00:00:00Z';
-  fs.writeFileSync(t.deps.statePath, JSON.stringify(s0));
-  t.scriptCalls.length = 0;
-  t.sleeps.length = 0;
-  const r = await runOnce(t.deps, { phase: 'fetch' });
-  expect(r.picked).toEqual({ id: 173, reason: 'jp-recheck' });
-  expect(t.scriptCalls).toEqual([[172, 171]]);
-  expect(t.sleeps).toEqual([20000]);
-});
-
-test('scripts-first：recheck 變成繁中並整期抓（多個請求）時，這小時不跑劇本線', async () => {
-  const t = setup({ backfill: true, scriptsFirst: true });
-  await runOnce(t.deps, { phase: 'fetch' });
-  const s0 = t.state();
-  for (const id of ['172', '171']) delete s0.events[id].scriptsAt;
-  s0.events['173'].assets = 'jp';
-  s0.events['173'].jpCheckedAt = '2026-11-03T00:00:00Z';
-  fs.writeFileSync(t.deps.statePath, JSON.stringify(s0));
-  t.scriptCalls.length = 0;
-  const r = await runOnce(t.deps, { phase: 'fetch' });
-  expect(r.picked).toEqual({ id: 173, reason: 'jp-recheck' });
-  expect(r.fetch?.status).toBe('done');
-  expect(t.scriptCalls).toEqual([]);
-});
-
-test('scripts-first：壞掉的劇本記為錯誤並排進 R2 刪除清單', async () => {
-  const t = setup({ backfill: true, scriptsFirst: true, scripts: () => ({ status: 'done', requests: 3, events: [
-    { id: 173, status: 'error', sids: [], removed: ['event_173_01.asset'] }, { id: 172, status: 'done', sids: ['event_172_01', 'event_172_02'] }] }) });
-  await runOnce(t.deps, { phase: 'fetch' });
-  const s = t.state();
-  expect(s.events['173']).toMatchObject({ failures: 1, assets: 'pending' });
-  expect(s.events['173'].scriptsAt).toBeUndefined();
-  expect(fs.readFileSync(t.deps.r2DeletePath!, 'utf8')).toBe('raw/event_173_01.asset\n');
-});
-
 test('橫幅通道：抓完圖的活動同一輪就抓橫幅，先等 5 秒，記 done 並部署；每輪都整理橫幅檔', async () => {
   const t = setup({ backfill: true });
   const r = await runOnce(t.deps, { phase: 'fetch' });
@@ -461,4 +362,95 @@ test('direct：提示詞版本變了就把 fallback 的話重新送出', async (
   expect(r.submitted).toContain('event_173_01');
   expect(t.state().promptVersion).toBe('v4-caps');
   expect(t.calls.some(c => c.startsWith('create:') && c.includes('event_173_01'))).toBe(true);
+});
+
+// plan: an idle run skips the R2 syncs and every phase, so each condition those phases act on must count as work.
+async function idleSetup() {
+  const t = setup({ withDirector: true });
+  await runOnce(t.deps, { phase: 'fetch' });
+  const s = t.state();
+  for (const e of Object.values(s.events)) {
+    Object.assign(e, { assets: 'done', banner: 'done' });
+    for (const ep of Object.values(e.eps)) ep.s = 'done';
+  }
+  Object.assign(s, { promptVersion: PROMPT_VERSION, pendingDeploy: false, batches: [] });
+  fs.writeFileSync(t.deps.statePath, JSON.stringify(s));
+  t.fetched.length = 0;
+  t.calls.length = 0;
+  t.bannerCalls.length = 0;
+  t.built.length = 0;
+  return t;
+}
+const edit = (t: Awaited<ReturnType<typeof idleSetup>>, f: (s: PipelineState) => void) => {
+  const s = t.state();
+  f(s);
+  fs.writeFileSync(t.deps.statePath, JSON.stringify(s));
+};
+
+test('plan：全部完成、沒有待辦時是 idle，且不呼叫任何抓檔、建置或 API', async () => {
+  const t = await idleSetup();
+  const builds = t.builds();
+  const r = await runOnce(t.deps, { phase: 'plan' });
+  expect(r.work).toEqual([]);
+  expect(r.deploy).toBe(false);
+  expect([t.fetched, t.built, t.bannerCalls, t.calls]).toEqual([[], [], [], []]);
+  expect(t.builds()).toBe(builds);
+});
+
+test('plan：目錄出現新活動 → 寫進狀態並算有事做', async () => {
+  const t = await idleSetup();
+  t.addNew();
+  const r = await runOnce(t.deps, { phase: 'plan' });
+  expect(r.work).toContain('event 174 (new)');
+  expect(t.state().events['174']).toMatchObject({ kind: 'new', assets: 'pending' });
+  expect(t.fetched).toEqual([]);
+});
+
+test('plan：jp/missing 每天重查一次；今天查過就 idle', async () => {
+  const t = await idleSetup();
+  edit(t, s => Object.assign(s.events['171'], { assets: 'jp', jpCheckedAt: '2026-11-03T05:00:00Z' }));
+  expect((await runOnce(t.deps, { phase: 'plan' })).work).toEqual(['event 171 (jp-recheck)']);
+  edit(t, s => { s.events['171'].jpCheckedAt = NOW.toISOString(); });
+  expect((await runOnce(t.deps, { phase: 'plan' })).work).toEqual([]);
+});
+
+test('plan：手動參數、待部署、批次未收、分鏡待送、橫幅待抓、prompt 版本變更都算有事做', async () => {
+  const cases: [string, (s: PipelineState) => void, string][] = [
+    ['deploy', s => { s.pendingDeploy = true; }, 'deploy pending'],
+    ['batch', s => { s.batches.push({ id: 'msgbatch_x', day: '2026-11-04', sids: ['event_172_01'], estUsd: 0.1 }); }, 'batches in flight'],
+    ['due', s => { s.events['172'].eps['event_172_01'].s = 'none'; }, 'storyboards due'],
+    ['banner', s => { delete s.events['172'].banner; }, 'banners due'],
+    ['prompt', s => { s.promptVersion = 'v0-old'; }, 'prompt version changed'],
+  ];
+  for (const [, f, why] of cases) {
+    const t = await idleSetup();
+    edit(t, f);
+    expect((await runOnce(t.deps, { phase: 'plan' })).work).toEqual([why]);
+  }
+  const t = await idleSetup();
+  expect((await runOnce(t.deps, { phase: 'plan', direct: 3 })).work).toEqual(['manual inputs']);
+  expect((await runOnce(t.deps, { phase: 'plan', event: 172 })).work).toEqual(['manual inputs']);
+});
+
+test('plan：BACKFILL 開著且有舊活動待抓才算有事做', async () => {
+  const t = await idleSetup();
+  edit(t, s => { s.events['171'].assets = 'pending'; });
+  expect((await runOnce(t.deps, { phase: 'plan' })).work).toEqual([]);
+  t.deps.env.backfill = true;
+  expect((await runOnce(t.deps, { phase: 'plan' })).work).toEqual(['event 171 (backfill)']);
+});
+
+test('plan：橫幅轉檔整批失敗後，即使已部署也要算有事做，直到下一次轉檔成功', async () => {
+  const t = await idleSetup();
+  edit(t, s => { delete s.events['172'].banner; });
+  let ok = false;
+  t.deps.buildBanners = async () => ({ ok, built: 0, changed: false, failed: [] });
+  await runOnce(t.deps, { phase: 'fetch' });
+  await runOnce(t.deps, { phase: 'mark-deployed' });
+  expect(t.state().events['172'].banner).toBe('done');
+  expect((await runOnce(t.deps, { phase: 'plan' })).work).toEqual(['banner build retry']);
+  ok = true;
+  await runOnce(t.deps, { phase: 'fetch' });
+  expect(t.state().bannerBuildFailed).toBeUndefined();
+  expect((await runOnce(t.deps, { phase: 'plan' })).work).toEqual([]);
 });
