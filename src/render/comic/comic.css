@@ -35,6 +35,8 @@
 .comic .bb-phone { font-size: .94em; }
 .comic .bb-box { font-family: var(--font-display); line-height: 1.7; }
 .comic .bb.big { font-size: 1.22em; font-weight: 700; }
+/* Shout keeps its 900 in pop panels too (.bb.big would otherwise win on specificity); Noto Sans TC loads 900 only. */
+.comic .bb-shout.big { font-weight: 900; }
 .comic .bb.small { font-size: .92em; }
 .comic .bb.huge { font-size: 1.3em; font-weight: 900; max-width: 92%; }
 .comic .stage { display: flex; justify-content: space-between; align-items: flex-end; gap: 8px; }

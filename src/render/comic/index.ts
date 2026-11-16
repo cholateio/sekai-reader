@@ -54,7 +54,18 @@ export function renderComic(ep: Episode, board: Storyboard, art: CharacterArt, o
 // web fonts load and whenever the comic's width changes.
 function watchBubbles(root: HTMLElement, opts: FitOpts): void {
   fitBubbles(root, opts);
-  document.fonts?.ready.then(() => fitBubbles(root, opts)).catch(() => {});
+  const fonts = document.fonts;
+  if (fonts) {
+    fonts.ready.then(() => fitBubbles(root, opts)).catch(() => {});
+    // The font stylesheet is not render-blocking (index.html), so faces can arrive after `ready` first
+    // settles. The listener goes away once this comic has been mounted and then removed.
+    let mounted = false;
+    const onLoad = () => {
+      if (root.isConnected) { mounted = true; fitBubbles(root, opts); }
+      else if (mounted) fonts.removeEventListener('loadingdone', onLoad);
+    };
+    fonts.addEventListener?.('loadingdone', onLoad);
+  }
   if (typeof ResizeObserver !== 'undefined') {
     let lastWidth = -1;
     new ResizeObserver(entries => {

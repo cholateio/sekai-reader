@@ -176,3 +176,30 @@ test('25時 的心聲格用 whisper', () => {
   const root = renderComic(ep, syntheticBoard(), art, { bgUrl: () => null, unit: unitFlavor('school_refusal') });
   expect(root.querySelector('[data-r="4"]')!.classList.contains('bb-whisper')).toBe(true);
 });
+
+test('字型 CSS 晚到：每次 loadingdone 都重畫泡泡框；漫畫離開畫面後移除監聽', async () => {
+  const fonts = Object.assign(new EventTarget(), { ready: Promise.resolve() });
+  const desc = Object.getOwnPropertyDescriptor(document, 'fonts');
+  Object.defineProperty(document, 'fonts', { configurable: true, value: fonts });
+  const removed: string[] = [];
+  const remove = fonts.removeEventListener.bind(fonts);
+  fonts.removeEventListener = (t: string, l: EventListenerOrEventListenerObject | null) => { removed.push(t); remove(t, l); };
+  try {
+    const root = render();
+    fonts.dispatchEvent(new Event('loadingdone'));
+    expect(removed).toEqual([]);
+    document.body.append(root);
+    const bb = root.querySelector('.bb') as HTMLElement;
+    Object.defineProperty(bb, 'offsetWidth', { configurable: true, get: () => 200 });
+    Object.defineProperty(bb, 'offsetHeight', { configurable: true, get: () => 60 });
+    expect(bb.querySelector('svg.bo path')).toBeNull();
+    fonts.dispatchEvent(new Event('loadingdone'));
+    expect(bb.querySelector('svg.bo')!.getAttribute('viewBox')).not.toBeNull();
+    root.remove();
+    fonts.dispatchEvent(new Event('loadingdone'));
+    expect(removed).toEqual(['loadingdone']);
+  } finally {
+    if (desc) Object.defineProperty(document, 'fonts', desc);
+    else delete (document as { fonts?: unknown }).fonts;
+  }
+});
