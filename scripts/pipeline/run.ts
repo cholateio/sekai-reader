@@ -1,6 +1,7 @@
 // Usage: tsx scripts/pipeline/run.ts <plan|fetch|direct|mark-deployed> [--event N] [--direct N]
 // env: BACKFILL (on|off), DIRECT_DAILY_USD (default 20), ANTHROPIC_API_KEY (absent: no storyboard API calls).
 import { execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -28,6 +29,8 @@ export interface RunDeps {
   fetchBanners(ids: number[]): Promise<BannersResult>;
   /** Converts raw banners that have no public copy yet and rewrites the manifest; failed = undecodable bundles. */
   buildBanners(): Promise<{ ok: boolean; built: number; changed: boolean; failed: string[] }>;
+  /** siteFingerprint of the working tree; compared with the state's deployedSite. */
+  siteHash(): string;
   /** null without ANTHROPIC_API_KEY: the direct phase makes no API calls. runOnce supplies persist. */
   director: Omit<DirectorDeps, 'persist'> | null;
   env: { backfill: boolean; dailyCapUsd: number };
@@ -69,6 +72,26 @@ export function fetchResultFromChild(code: number, lastLine: string): FetchResul
   }
 }
 
+/**
+ * Repo files the site build reads besides assets/ (which the fetch phase already flags for deploy): code, page,
+ * static files, storyboards, build config and the event index (its `built` date is shown in the library).
+ */
+export const SITE_PATHS = ['index.html', 'src', 'static', 'storyboards', 'data/tc-event-index.json', 'vite.config.ts', 'tsconfig.json', 'package.json', 'package-lock.json'];
+
+export function siteFingerprint(root: string, paths = SITE_PATHS): string {
+  const files: string[] = [];
+  const walk = (rel: string) => {
+    const abs = path.join(root, rel);
+    if (!fs.existsSync(abs)) return;
+    if (fs.statSync(abs).isDirectory()) for (const f of fs.readdirSync(abs)) walk(path.posix.join(rel, f));
+    else files.push(rel);
+  };
+  for (const p of paths) walk(p);
+  const h = createHash('sha256');
+  for (const f of files.sort()) h.update(f).update('\0').update(fs.readFileSync(path.join(root, f))).update('\0');
+  return h.digest('hex');
+}
+
 const boardSids = (dir: string) =>
   fs.existsSync(dir) ? fs.readdirSync(dir).filter(f => f.endsWith('.json')).map(f => f.slice(0, -5)) : [];
 
@@ -81,7 +104,7 @@ export async function runOnce(d: RunDeps, o: RunOptions): Promise<RunSummary> {
     if (o.phase === 'plan') planPhase(d, o, s, index, sum);
     else if (o.phase === 'fetch') await fetchPhase(d, o, s, index, sum);
     else if (o.phase === 'direct') await directPhase(d, s, index, sum);
-    else s.pendingDeploy = false;
+    else { s.pendingDeploy = false; s.deployedSite = d.siteHash(); }
   } catch (e) {
     sum.failed = e instanceof Error ? e.message : String(e);
     sum.deploy = s.pendingDeploy;
@@ -116,6 +139,10 @@ export function workReasons(s: PipelineState, index: IndexFile, o: RunOptions, e
 function planPhase(d: RunDeps, o: RunOptions, s: PipelineState, index: IndexFile, sum: RunSummary) {
   const added = syncIndex(s, index, d.now());
   if (added.length) d.log(`new events: ${added.join(', ')}`);
+  if (d.siteHash() !== s.deployedSite && !s.pendingDeploy) {
+    s.pendingDeploy = true;
+    d.log('site sources changed since the last deploy');
+  }
   sum.work = workReasons(s, index, o, d.env, dayOf(d.now()));
   d.log(sum.work.length ? `work: ${sum.work.join('; ')}` : 'idle: nothing to fetch, direct or deploy');
 }
@@ -275,6 +302,7 @@ function realDeps(): RunDeps {
       if (r.code !== 0) log(`build ${sid} failed: exit ${r.code} ${r.stderr.trim().split('\n').slice(-3).join(' ')}`);
       return r.code === 0;
     },
+    siteHash: () => siteFingerprint('.'),
     director,
     env: { backfill: process.env.BACKFILL === 'on', dailyCapUsd: process.env.DIRECT_DAILY_USD && Number.isFinite(cap) && cap >= 0 ? cap : 20 },
     now: () => new Date(), log,
@@ -284,10 +312,10 @@ function realDeps(): RunDeps {
 
 const HELP = `usage: tsx scripts/pipeline/run.ts <phase> [--event N] [--direct N]
 phases:
-  plan           add new index events to the state and report whether this run has work (GitHub output work=)
+  plan           add new index events, flag a deploy if site sources changed, report whether this run has work (work=)
   fetch          update the queue, fetch at most one event, build its episodes, then up to 4 home banners
   direct         reconcile and collect storyboard batches, submit due episodes (needs ANTHROPIC_API_KEY)
-  mark-deployed  clear pendingDeploy after a successful deploy
+  mark-deployed  clear pendingDeploy and record the deployed site fingerprint after a successful deploy
 options (fetch only):
   --event N      process event N first; naming an old event also authorizes its storyboards
   --direct N     authorize storyboards for the N newest old events whose assets are done

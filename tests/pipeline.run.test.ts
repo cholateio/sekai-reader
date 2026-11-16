@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { expect, test } from 'vitest';
 import { PROMPT_VERSION } from '../scripts/pipeline/director';
-import { fetchResultFromChild, runOnce, spawnBanners, spawnFetch, type BannersResult, type FetchResult, type RunDeps } from '../scripts/pipeline/run';
+import { fetchResultFromChild, runOnce, siteFingerprint, spawnBanners, spawnFetch, type BannersResult, type FetchResult, type RunDeps } from '../scripts/pipeline/run';
 import { loadState, type IndexEvent, type IndexFile, type PipelineState } from '../scripts/pipeline/state';
 import { syntheticEpisode } from './helpers';
 
@@ -25,6 +25,7 @@ function setup(o: { fetch?: (id: number) => FetchResult; build?: (sid: string) =
   const fetched: number[] = [];
   const bannerCalls: number[][] = [];
   let bannerBuilds = 0;
+  let site = 'site-v1';
   const sleeps: number[] = [];
   const built: string[] = [];
   let n = 0;
@@ -43,6 +44,7 @@ function setup(o: { fetch?: (id: number) => FetchResult; build?: (sid: string) =
   const deps: RunDeps = {
     statePath: path.join(dir, 'pipeline-state.json'), indexPath, boardsDir, r2DeletePath: path.join(dir, 'r2-delete.txt'),
     fetchEvent: async id => { fetched.push(id); return o.fetch ? o.fetch(id) : { status: 'done', requests: 5, sids: (JSON.parse(fs.readFileSync(indexPath, 'utf8')) as IndexFile).events.find(e => e.id === id)!.eps.map(e => e[2]) }; },
+    siteHash: () => site,
     buildEpisode: async sid => { built.push(sid); return o.build ? o.build(sid) : true; },
     fetchBanners: async ids => {
       bannerCalls.push(ids);
@@ -63,7 +65,7 @@ function setup(o: { fetch?: (id: number) => FetchResult; build?: (sid: string) =
     fs.writeFileSync(indexPath, JSON.stringify(idx));
   };
   const state = () => loadState(deps.statePath) as PipelineState;
-  return { deps, calls, fetched, built, addNew, state, ended, index, sleeps, bannerCalls, builds: () => bannerBuilds };
+  return { deps, calls, fetched, built, addNew, state, ended, index, sleeps, bannerCalls, builds: () => bannerBuilds, setSite: (v: string) => { site = v; } };
 }
 const epStates = (s: PipelineState, id: number) => Object.values(s.events[String(id)].eps).map(e => e.s);
 
@@ -174,14 +176,14 @@ test('direct：花費寫回狀態檔（每日上限跨執行累計）', async ()
   expect(t.state().spend['2026-11-04']).toBeGreaterThan(0.3);
 });
 
-test('mark-deployed 只清 pendingDeploy', async () => {
+test('mark-deployed 只清 pendingDeploy 並記下部署時的網站指紋', async () => {
   const t = setup();
   await runOnce(t.deps, { phase: 'fetch', event: 173 });
   const before = t.state();
   expect(before.pendingDeploy).toBe(true);
   const r = await runOnce(t.deps, { phase: 'mark-deployed' });
   expect(r.deploy).toBe(false);
-  expect(t.state()).toEqual({ ...before, pendingDeploy: false });
+  expect(t.state()).toEqual({ ...before, pendingDeploy: false, deployedSite: 'site-v1' });
 });
 
 test('deps 例外時狀態檔仍被寫入並帶 failed', async () => {
@@ -373,7 +375,7 @@ async function idleSetup() {
     Object.assign(e, { assets: 'done', banner: 'done' });
     for (const ep of Object.values(e.eps)) ep.s = 'done';
   }
-  Object.assign(s, { promptVersion: PROMPT_VERSION, pendingDeploy: false, batches: [] });
+  Object.assign(s, { promptVersion: PROMPT_VERSION, pendingDeploy: false, batches: [], deployedSite: 'site-v1' });
   fs.writeFileSync(t.deps.statePath, JSON.stringify(s));
   t.fetched.length = 0;
   t.calls.length = 0;
@@ -453,4 +455,46 @@ test('plan：橫幅轉檔整批失敗後，即使已部署也要算有事做，�
   await runOnce(t.deps, { phase: 'fetch' });
   expect(t.state().bannerBuildFailed).toBeUndefined();
   expect((await runOnce(t.deps, { phase: 'plan' })).work).toEqual([]);
+});
+
+test('plan：網站原始碼與上次部署不同 → 設待部署；部署完記下指紋後回到 idle', async () => {
+  const t = await idleSetup();
+  t.setSite('site-v2');
+  const r = await runOnce(t.deps, { phase: 'plan' });
+  expect(r.work).toEqual(['deploy pending']);
+  expect(r.deploy).toBe(true);
+  expect(t.state().pendingDeploy).toBe(true);
+  await runOnce(t.deps, { phase: 'mark-deployed' });
+  expect(t.state()).toMatchObject({ pendingDeploy: false, deployedSite: 'site-v2' });
+  expect((await runOnce(t.deps, { phase: 'plan' })).work).toEqual([]);
+});
+
+test('plan：從沒記過指紋的狀態（本次改版後第一跑）會部署一次', async () => {
+  const t = await idleSetup();
+  edit(t, s => { delete s.deployedSite; });
+  expect((await runOnce(t.deps, { phase: 'plan' })).work).toEqual(['deploy pending']);
+});
+
+test('siteFingerprint：檔案內容、新增檔與路徑都會改變指紋，清單外的檔案不會', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-'));
+  fs.mkdirSync(path.join(dir, 'src', 'app'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'index.html'), '<html>');
+  fs.writeFileSync(path.join(dir, 'src', 'app', 'a.ts'), 'a');
+  const f0 = siteFingerprint(dir);
+  fs.writeFileSync(path.join(dir, 'README.md'), 'docs');
+  fs.mkdirSync(path.join(dir, 'assets'));
+  fs.writeFileSync(path.join(dir, 'assets', 'x.webp'), 'x');
+  expect(siteFingerprint(dir)).toBe(f0);
+  fs.writeFileSync(path.join(dir, 'package.json'), '{"scripts":{"build":"vite build"}}');
+  const fPkg = siteFingerprint(dir);
+  expect(fPkg).not.toBe(f0);
+  fs.writeFileSync(path.join(dir, 'src', 'app', 'a.ts'), 'b');
+  const f1 = siteFingerprint(dir);
+  expect(f1).not.toBe(fPkg);
+  expect(f1).not.toBe(f0);
+  fs.writeFileSync(path.join(dir, 'src', 'app', 'b.ts'), '');
+  expect(siteFingerprint(dir)).not.toBe(f1);
+  fs.rmSync(path.join(dir, 'src', 'app', 'b.ts'));
+  fs.renameSync(path.join(dir, 'src', 'app', 'a.ts'), path.join(dir, 'src', 'app', 'c.ts'));
+  expect(siteFingerprint(dir)).not.toBe(f1);
 });

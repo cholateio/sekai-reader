@@ -27,6 +27,8 @@ export interface PipelineState {
   pendingDeploy: boolean;
   /** Director prompt version the fallback episodes were last tried with; a change requeues them. */
   promptVersion?: string;
+  /** siteFingerprint of the sources the last successful deploy was built from; a change means a deploy is due. */
+  deployedSite?: string;
   /** build_banners failed as a whole; kept until a run's build succeeds so the plan step does not call that run idle. */
   bannerBuildFailed?: boolean;
 }
