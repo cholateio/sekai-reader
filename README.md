@@ -1,50 +1,41 @@
-# SEKAI Story Reader（SEKAI 劇情閱讀器）
+# SEKAI Story Reader
 
-You want to catch up on a Project SEKAI (Traditional Chinese server) event story without opening the game and tapping through every line. Open the reader on your phone and each episode scrolls by as a vertical comic: real backgrounds, slanted manga panels, speech bubbles with the original dialogue.
+You want to catch up on a Project SEKAI (Traditional Chinese server) event story without opening the game and tapping through every line. Open the reader on your phone and each episode scrolls by as a vertical comic: real backgrounds, slanted manga panels and speech bubbles with the original dialogue.
 
-```
-event_173_01 (MVP)
-┌──────────────────────────┐   36 panels, 49 lines, two scenes
-│ 午休時間 / 中庭  [est]    │   every line appears exactly once
-├─────────────────────────╲┤   panels touch both screen edges
-│ (chibi)  speech bubble   │   one menu button, nothing else
-└──────────────────────────┘
-```
+![The reader's share card: the title 「SEKAI 劇情閱讀器」 next to a column of slanted comic panels with empty speech bubbles](static/og.png)
 
-- **AI-directed panels**: an AI director decides panel types, framing and slant; the dialogue is always the original text, referenced by line number only.
-- **Manga vocabulary**: eight bubble shapes chosen from the line itself, focus and speed lines, sound effects, slanted gutters of equal width.
-- **Exactly once**: automated tests check that every line of the episode is rendered once, in order.
-- **Static site**: the build output is plain files; there is no server, no login and no tracking.
+- **AI-directed panels**: an AI director picks each panel's type, framing and slant; the dialogue is always the original text, referenced by line number only.
+- **Manga vocabulary**: eight bubble shapes chosen from the line itself, focus and speed lines, sound effects and slanted gutters of equal width.
+- **Every line, once**: automated tests check that every line of an episode is rendered exactly once, in order.
+- **The whole library**: Taiwan-server events from the first one onward, searchable by title or character and filterable by unit, and the reader remembers where you stopped.
 
-Only event 173 episode 1 is readable for now; every other episode shows 「尚未提供」.
+Events the Taiwan server has not released in Chinese yet are listed as 「尚未提供」 until their files appear.
 
 ## How it works
 
 ```
-.asset script ──► episode JSON ─┐
-storyboard JSON (line numbers) ─┼──► comic renderer ──► static page
-background + chibi images ──────┘
+Taiwan-server event list ──► fetch one event's script and images per hour ──► private R2 store
+.asset script ──► episode JSON ──────────┐
+storyboard (line numbers only) ──────────┼──► comic renderer ──► static pages on Cloudflare Pages
+backgrounds + chibi images ──────────────┘
 ```
 
-Scripts, storyboards and images are three separate layers; changing one never requires regenerating the others. Game assets are kept out of git and copied into the build locally.
+There is no server and no database behind the page: an hourly GitHub Actions run fetches new events, asks Claude to storyboard new episodes, and uploads plain files.
 
 ## Install
 
-You need Node.js 22 or newer and Python 3, plus the episode's assets (one `.asset` file, its background images and chibi images) on your machine.
+You need only a phone or desktop browser.
 
-1. `npm install`
-2. Put the files into `assets/raw/` (`event_173_01.asset`, `bg/*.webp`, `sd/chr_sd_XX_01.webp`).
-3. `npm run build:episode event_173_01`
-4. `npm run dev` and open the printed URL; it lands directly on episode 173-1.
+1. Open https://sekai-reader.pages.dev.
+2. On iPhone, tap **Share → Add to Home Screen** to open it like an app; on Android, use **⋮ → Add to Home screen**.
+3. Pick an event from the library, then an episode.
 
-## Deploy
-
-An hourly GitHub Actions workflow keeps the site current: it checks the Taiwan-server event list, fetches at most one event's assets into a private Cloudflare R2 bucket, asks Claude (Message Batches) to direct new episodes, and uploads the build to Cloudflare Pages. One-time setup is `bash scripts/pipeline/setup.sh`; details are in `docs/DEVELOPMENT.md`.
+To build or run the site yourself, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ## Privacy & security
 
-- The reader stores only your reading preferences (black-and-white mode, scroll position) in your browser's localStorage.
-- At runtime the page loads its own files and Google Fonts; it never contacts Sekai-World or any game server.
+- Your browser's localStorage keeps only reading preferences: black-and-white mode, dark mode, your five most recent episodes and the scroll position in each of them.
+- The page loads its own files and fonts from Google Fonts, which sees your IP address. It never contacts Sekai-World or any game server, and it has no analytics.
 - The site has no accounts. The pipeline's keys live only in GitHub Actions secrets and are passed to the single step that needs each one.
 
 ## License
