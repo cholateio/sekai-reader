@@ -3,7 +3,7 @@
      LXGW WenKai for text, IBM Plex Mono for meta (wordmark, titles, dates, numbers). */
   --bg: #fcfcfa; --surface: #ffffff; --sunk: #f2f2ee; --ink: #2e3a48; --text: #46525f; --muted: #78828d; --line: #e8e8e2;
   --accent: #2e3a48; --accent-ink: #f5f5f1; --pill: #3e4a54; --scene: #2e3a48; --scene-ink: #f5f5f1;
-  --flash: #f4ecdc; --flash-ink: #5a4b2e; --warn: #9a5b00; --warn-bg: #fff3dc;
+  --flash: #f4ecdc; --flash-ink: #5a4b2e;
   --font-display: "LXGW WenKai TC", "Iansui", "Klee One", "Noto Sans TC", serif;
   --font-body: "LXGW WenKai TC", "Iansui", "Klee One", "Noto Sans TC", sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -17,7 +17,7 @@
 :root[data-theme="dark"] {
   --bg: #14181e; --surface: #1b2129; --sunk: #222a33; --ink: #e4e8ed; --text: #c3cad3; --muted: #8a949f; --line: #2b333d;
   --accent: #d6dde5; --accent-ink: #14181e; --pill: #c9d1da; --scene: #0b0e12; --scene-ink: #e4e8ed;
-  --flash: #3a3326; --flash-ink: #efe1c2; --warn: #f0b45a; --warn-bg: #3a2c14;
+  --flash: #3a3326; --flash-ink: #efe1c2;
   --knob: #8a949f; --knob-on: #14181e;
   color-scheme: dark;
 }
@@ -106,8 +106,6 @@ a.ev { color: inherit; text-decoration: none; }
 .lib-count[hidden] { display: none; }
 .clear-all { color: var(--ink); }
 .chips .chip:focus-visible { outline-offset: 0; }
-.badge { font-size: 11.5px; padding: 1px 7px; border-radius: 6px; background: var(--warn-bg); color: var(--warn); }
-.badge.ok { background: var(--sunk); color: var(--accent); }
 
 /* event page: the event name is the one large element (box labels like 「真冬1箱」 are for navigation only). */
 .evhead { --tone: var(--ink); padding: 2px 0 4px 16px; margin: 28px 0 26px; border-left: 4px solid var(--tone); display: grid; gap: 4px; }
