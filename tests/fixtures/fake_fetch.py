@@ -6,6 +6,18 @@ if '--banners' in sys.argv:
     ids = [int(x) for x in sys.argv[sys.argv.index('--banners') + 1].split(',')]
     print(json.dumps({'status': 'done', 'requests': len(ids), 'events': [{'id': i, 'status': 'done'} for i in ids]}))
     sys.exit(0)
+if '--chibis' in sys.argv:
+    names = [n for n in sys.argv[sys.argv.index('--chibis') + 1].split(',') if n]
+    with open(sys.argv[sys.argv.index('--chibi-index') + 1], encoding='utf-8') as f:
+        listed = json.load(f)['chibis']
+    if any(n not in listed for n in names):
+        print(json.dumps({'status': 'error', 'requests': 0, 'skel': None, 'chibis': [], 'error': 'ValueError: not due'}))
+        sys.exit(1)
+    chibis = [{'name': n, 'status': 'done'} for n in names]
+    if any('liar' in n for n in names):
+        chibis.append({'name': 'v2_sd_26kaito_school', 'status': 'done'})
+    print(json.dumps({'status': 'done', 'requests': 1 + 2 * len(names), 'skel': 'done', 'chibis': chibis}))
+    sys.exit(1 if any('crash' in n for n in names) else 0)
 eid = int(sys.argv[sys.argv.index('--event') + 1])
 print('fetched https://example.test/x 10 bytes')
 if eid == 1:

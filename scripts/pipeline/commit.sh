@@ -5,7 +5,7 @@ set -euo pipefail
 msg="${1:?commit message}"
 git config user.name 'github-actions[bot]'
 git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-git add data/pipeline-state.json data/tc-event-index.json storyboards/
+git add data/pipeline-state.json data/tc-event-index.json data/chibi-index.json storyboards/
 if git diff --cached --quiet; then echo 'nothing to commit'; exit 0; fi
 git commit -q -m "$msg"
 for _ in 1 2 3; do

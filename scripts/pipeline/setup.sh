@@ -38,6 +38,7 @@ echo '上傳 GitHub secrets（5 個）…'
 gh secret set -f "$ENV_FILE"
 gh variable set R2_BUCKET --body "$BUCKET"
 gh variable get BACKFILL >/dev/null 2>&1 || gh variable set BACKFILL --body off
+gh variable get CHIBIS >/dev/null 2>&1 || gh variable set CHIBIS --body off
 gh variable get DIRECT_DAILY_USD >/dev/null 2>&1 || gh variable set DIRECT_DAILY_USD --body 20
 
 echo '建立 Cloudflare Pages 專案 sekai-reader（已存在就略過）…'

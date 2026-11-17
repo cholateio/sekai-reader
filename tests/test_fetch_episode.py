@@ -567,5 +567,139 @@ class BannersTest(unittest.TestCase):
         self.assertEqual(last['events'], [{'id': 4, 'status': 'done'}, {'id': 3, 'status': 'done'}])
 
 
+PNG = b'\x89PNG\r\n\x1a\n' + b'\0' * 16
+ATLAS = b'\nsekai_atlas.png\nsize:1024,512\n'
+SKEL = b'\xe1\r\x17\x90\r\xc4\xd7\xd7\x074.1.23\xc3' + b'\0' * 32
+A, B = 'v2_sd_01ichika_school', 'v2_sd_02saki_casual'
+
+
+class ChibisTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.out = self.tmp.name
+        self.sleeps = []
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def fetcher(self, opener):
+        return fe.Fetcher(opener, max_requests=1 + 2 * fe.CHIBI_MAX, sleep=self.sleeps.append, log=lambda *a: None)
+
+    def path(self, *parts):
+        return os.path.join(self.out, 'chibi', *parts)
+
+    def bodies(self, *names):
+        b = {fe.chibi_skel_url(): SKEL}
+        for n in names:
+            b[fe.chibi_url(n, fe.CHIBI_ATLAS)] = ATLAS
+            b[fe.chibi_url(n, fe.CHIBI_TEXTURE)] = PNG
+        return b
+
+    def cli(self, arg, chibis, state, opener, sleeps=None):
+        import io
+        from contextlib import redirect_stdout
+        idx = os.path.join(self.out, 'chibi-index.json')
+        with open(idx, 'w', encoding='utf-8') as f:
+            json.dump({'chibis': chibis}, f)
+        st = os.path.join(self.out, 'state.json')
+        with open(st, 'w', encoding='utf-8') as f:
+            json.dump({'events': {}, **state}, f)
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = fe.main(['--chibis', arg, '--chibi-index', idx, '--state', st, '--out', self.out], opener=opener,
+                           sleep=(sleeps.append if sleeps is not None else (lambda s: None)), log=lambda *a: None)
+        return code, json.loads(buf.getvalue().strip().splitlines()[-1])
+
+    def test_chibi_urls_are_jp_area_sd(self):
+        self.assertEqual(fe.chibi_skel_url(),
+                         'https://storage.sekai.best/sekai-jp-assets/area_sd/v2_sd_main/v2_base_model/v2_sd_main.skel')
+        self.assertEqual(fe.chibi_url(A, fe.CHIBI_ATLAS),
+                         'https://storage.sekai.best/sekai-jp-assets/area_sd/v2_sd_main/v2_sd_01ichika_school/sekai_atlas.atlas.txt')
+
+    def test_skeleton_then_sets_five_seconds_apart(self):
+        opener = FakeOpener(self.bodies(A, B))
+        r = fe.run_chibis([A, B], self.out, self.fetcher(opener))
+        self.assertEqual(r, {'status': 'done', 'requests': 5, 'skel': 'done',
+                             'chibis': [{'name': A, 'status': 'done'}, {'name': B, 'status': 'done'}]})
+        self.assertEqual([q.full_url for q in opener.requests], [
+            fe.chibi_skel_url(), fe.chibi_url(A, fe.CHIBI_ATLAS), fe.chibi_url(A, fe.CHIBI_TEXTURE),
+            fe.chibi_url(B, fe.CHIBI_ATLAS), fe.chibi_url(B, fe.CHIBI_TEXTURE)])
+        self.assertEqual(self.sleeps, [5.0] * 4)
+        self.assertTrue(all(q.get_header('User-agent') == 'sekai-reader' for q in opener.requests))
+        for parts in [('v2_sd_main.skel',), (A, 'sekai_atlas.atlas.txt'), (A, 'sekai_atlas.png'), (B, 'sekai_atlas.png')]:
+            self.assertTrue(os.path.exists(self.path(*parts)))
+
+    def test_missing_and_invalid_files_leave_nothing_behind(self):
+        bodies = self.bodies(A, B)
+        bodies[fe.chibi_url(B, fe.CHIBI_TEXTURE)] = b'<html>'
+        C, D = 'v2_sd_03honami_school', 'v2_sd_04shiho_school'
+        bodies[fe.chibi_url(C, fe.CHIBI_ATLAS)] = b'other.png\n'
+        bodies[fe.chibi_url(D, fe.CHIBI_ATLAS)] = ATLAS
+        opener = FakeOpener(bodies, missing=[fe.chibi_url(A, fe.CHIBI_ATLAS), fe.chibi_url(D, fe.CHIBI_TEXTURE)])
+        r = fe.run_chibis([A, D, B, C], self.out, self.fetcher(opener), skel=False)
+        self.assertEqual(r['skel'], None)
+        # The first error (B's texture is not a PNG) ends the run: C is neither requested nor reported.
+        self.assertEqual(r['chibis'], [{'name': A, 'status': 'missing'}, {'name': D, 'status': 'missing'}, {'name': B, 'status': 'error'}])
+        self.assertEqual(r['requests'], 5)  # A atlas, D atlas + texture, B atlas + texture
+        self.assertNotIn(fe.chibi_url(C, fe.CHIBI_ATLAS), [q.full_url for q in opener.requests])
+        self.assertFalse(os.path.exists(self.path(A)))
+        self.assertFalse(os.path.exists(self.path(D, 'sekai_atlas.atlas.txt')))  # no texture on the mirror: the set is missing
+        # B keeps its valid atlas, so the next try only asks for the texture.
+        self.assertTrue(os.path.exists(self.path(B, 'sekai_atlas.atlas.txt')))
+        self.assertFalse(os.path.exists(self.path(B, 'sekai_atlas.png')))
+        # An atlas that names another texture is an error too, and is not kept.
+        opener = FakeOpener(bodies)
+        r = fe.run_chibis([C, B], self.out, self.fetcher(opener), skel=False)
+        self.assertEqual((r['chibis'], r['requests']), ([{'name': C, 'status': 'error'}], 1))
+        self.assertFalse(os.path.exists(self.path(C, 'sekai_atlas.atlas.txt')))
+
+    def test_no_sets_without_the_skeleton(self):
+        for bodies, missing, want in [({fe.chibi_skel_url(): b'\0' * 9 + b'4.2.11' + b'\0' * 30}, [], 'error'),
+                                      ({}, [fe.chibi_skel_url()], 'missing')]:
+            opener = FakeOpener({**self.bodies(A), **bodies}, missing=missing)
+            r = fe.run_chibis([A], self.out, self.fetcher(opener))
+            self.assertEqual((r['skel'], r['chibis'], r['requests']), (want, [], 1))
+            self.assertFalse(os.path.exists(self.path('v2_sd_main.skel')))
+
+    def test_existing_files_are_done_without_request(self):
+        fe.run_chibis([A], self.out, self.fetcher(FakeOpener(self.bodies(A))))
+        opener = FakeOpener()
+        r = fe.run_chibis([A], self.out, self.fetcher(opener))
+        self.assertEqual((r['requests'], r['skel'], r['chibis']), (0, 'done', [{'name': A, 'status': 'done'}]))
+        self.assertEqual(opener.requests, [])
+
+    def test_cli_rejects_names_that_are_not_due(self):
+        names = ['v2_sd_%02dx_school' % i for i in range(1, 7)]
+        self.assertEqual(fe.CHIBI_MAX, 4)
+        for arg, state in [(','.join(names[:5]), {}), (names[0] + ',' + names[0], {}), ('v2_sd_kitty', {}), ('../x', {}),
+                           ('v2_sd_09y_school', {}), (names[0], {'chibi': {names[0]: 'missing'}}),
+                           (names[0], {'chibi': {names[0]: 'done'}}), (names[0], {'chibiSkel': 'missing'}),
+                           (names[0], {'chibiHalted': 'three failed lane runs'})]:
+            opener = FakeOpener()
+            code, last = self.cli(arg, names, state, opener)
+            self.assertEqual((code, last['status'], last['requests']), (1, 'error', 0), arg)
+            self.assertEqual(opener.requests, [])
+
+    def test_cli_fetches_due_sets_and_skips_a_recorded_skeleton(self):
+        sleeps = []
+        opener = FakeOpener(self.bodies(A, B))
+        code, last = self.cli(A + ',' + B, [A, B], {'chibiSkel': 'done'}, opener, sleeps)
+        self.assertEqual(code, 0)
+        self.assertEqual(last, {'status': 'done', 'requests': 4, 'skel': None,
+                                'chibis': [{'name': A, 'status': 'done'}, {'name': B, 'status': 'done'}]})
+        self.assertNotIn(fe.chibi_skel_url(), [q.full_url for q in opener.requests])
+        self.assertEqual(sleeps, [5.0] * 3)
+        # An empty list fetches the skeleton alone.
+        opener = FakeOpener(self.bodies())
+        code, last = self.cli('', [A], {}, opener)
+        self.assertEqual((code, last['skel'], last['chibis'], last['requests']), (0, 'done', [], 1))
+
+    def test_cli_never_exceeds_nine_requests(self):
+        names = ['v2_sd_%02dx_school' % i for i in range(1, 5)]
+        opener = FakeOpener(self.bodies(*names))
+        code, last = self.cli(','.join(names), names, {}, opener)
+        self.assertEqual((code, last['requests'], len(opener.requests)), (0, 9, 9))
+
+
 if __name__ == '__main__':
     unittest.main()

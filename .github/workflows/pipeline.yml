@@ -29,6 +29,7 @@ concurrency:
 env:
   R2_BUCKET: ${{ vars.R2_BUCKET }}
   BACKFILL: ${{ vars.BACKFILL }}
+  CHIBIS: ${{ vars.CHIBIS }}
   DIRECT_DAILY_USD: ${{ vars.DIRECT_DAILY_USD }}
   RCLONE_CONFIG_R2_TYPE: s3
   RCLONE_CONFIG_R2_PROVIDER: Cloudflare

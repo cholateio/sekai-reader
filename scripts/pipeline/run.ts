@@ -1,8 +1,9 @@
 // Usage: tsx scripts/pipeline/run.ts <plan|fetch|direct|mark-deployed> [--event N] [--direct N]
-// env: BACKFILL (on|off), DIRECT_DAILY_USD (default 20), ANTHROPIC_API_KEY (absent: no storyboard API calls).
-import { execFile } from 'node:child_process';
+// env: BACKFILL (on|off), CHIBIS (on|off), DIRECT_DAILY_USD (default 20), ANTHROPIC_API_KEY (absent: no storyboard API calls).
+import { execFile, execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import Anthropic from '@anthropic-ai/sdk';
@@ -10,13 +11,19 @@ import { parseScenario } from '../../src/scenario/parse';
 import type { RawScenario } from '../../src/scenario/types';
 import { collectBatches, PROMPT_VERSION, reconcile, requeueForPrompt, submitDue, type DirectorDeps } from './director';
 import {
-  authorizeDirect, bannerLane, dayOf, dueEpisodes, loadState, pickEvent, recordBanner, recordFetch, saveState, seedState, spentToday, syncIndex,
+  authorizeDirect, bannerLane, chibiDue, chibiLane, dayOf, dueEpisodes, loadState, pickEvent, recordBanner, recordChibi, recordChibiLane, recordChibiSkel, recordFetch, saveState, seedState,
+  spentToday, syncIndex,
   type FetchStatus, type IndexFile, type PipelineState,
 } from './state';
 
 export interface BannersResult {
   status: 'done' | 'error'; requests: number; error?: string;
   events: { id: number; status: 'done' | 'missing' | 'error' }[];
+}
+export interface ChibisResult {
+  status: 'done' | 'error'; requests: number; error?: string;
+  skel: 'done' | 'missing' | 'error' | null;
+  chibis: { name: string; status: 'done' | 'missing' | 'error' }[];
 }
 export interface FetchResult { status: FetchStatus; requests: number; sids: string[]; error?: string; removed?: string[] }
 export interface RunDeps {
@@ -29,11 +36,15 @@ export interface RunDeps {
   fetchBanners(ids: number[]): Promise<BannersResult>;
   /** Converts raw banners that have no public copy yet and rewrites the manifest; failed = undecodable bundles. */
   buildBanners(): Promise<{ ok: boolean; built: number; changed: boolean; failed: string[] }>;
+  /** Chibi lane (spec 2026-11-18): at most 4 sets, two requests each, plus the shared skeleton once. */
+  fetchChibis(names: string[], catalogue: string): Promise<ChibisResult>;
+  /** data/chibi-index.json as committed at HEAD, never the copy this run just rebuilt from the master data; null when absent. */
+  chibiCatalogue(): string | null;
   /** siteFingerprint of the working tree; compared with the state's deployedSite. */
   siteHash(): string;
   /** null without ANTHROPIC_API_KEY: the direct phase makes no API calls. runOnce supplies persist. */
   director: Omit<DirectorDeps, 'persist'> | null;
-  env: { backfill: boolean; dailyCapUsd: number };
+  env: { backfill: boolean; dailyCapUsd: number; chibis?: boolean };
   now(): Date; log(line: string): void;
   sleep(ms: number): Promise<void>;
 }
@@ -46,6 +57,7 @@ export interface RunSummary {
   /** plan phase: why this run needs the R2 assets; empty = idle. */
   work?: string[];
   banners?: { requests: number; done: number[]; missing: number[]; built: number };
+  chibis?: { requests: number; skel: ChibisResult['skel']; done: string[]; missing: string[] };
 }
 
 const BANNER_GAP_MS = 5_000;
@@ -122,12 +134,13 @@ export async function runOnce(d: RunDeps, o: RunOptions): Promise<RunSummary> {
  * An idle run (no reasons) skips both R2 syncs, both phases and the deploy, so whatever they would do must show up
  * here. Not covered: reconcile adopting a batch lost by a crashed runner waits for the next run with work.
  */
-export function workReasons(s: PipelineState, index: IndexFile, o: RunOptions, env: RunDeps['env'], now: Date): string[] {
+export function workReasons(s: PipelineState, index: IndexFile, o: RunOptions, env: RunDeps['env'], now: Date, chibiNames: string[] = []): string[] {
   const why: string[] = [];
   if (o.event !== undefined || (o.direct ?? 0) > 0) why.push('manual inputs');
   const picked = pickEvent(s, index, { backfill: env.backfill, now, forced: o.event });
   if (picked) why.push(`event ${picked.id} (${picked.reason})`);
   if (bannerLane(s, index).length) why.push('banners due');
+  if (env.chibis && chibiDue(s, chibiNames, dayOf(now))) why.push('chibis due');
   if (s.pendingDeploy) why.push('deploy pending');
   if (s.batches.length) why.push('batches in flight');
   if (s.promptVersion !== PROMPT_VERSION) why.push('prompt version changed');
@@ -143,7 +156,7 @@ function planPhase(d: RunDeps, o: RunOptions, s: PipelineState, index: IndexFile
     s.pendingDeploy = true;
     d.log('site sources changed since the last deploy');
   }
-  sum.work = workReasons(s, index, o, d.env, d.now());
+  sum.work = workReasons(s, index, o, d.env, d.now(), d.env.chibis ? parseChibiNames(d.chibiCatalogue()) : []);
   d.log(sum.work.length ? `work: ${sum.work.join('; ')}` : 'idle: nothing to fetch, direct or deploy');
 }
 
@@ -173,6 +186,7 @@ async function fetchPhase(d: RunDeps, o: RunOptions, s: PipelineState, index: In
     }
   }
   await bannerPhase(d, s, index, sum);
+  await chibiPhase(d, s, sum);
   if (o.event !== undefined) sum.authorized.push(...authorizeDirect(s, index, { eventIds: [o.event] }));
   if (o.direct && o.direct > 0) sum.authorized.push(...authorizeDirect(s, index, { newest: o.direct }));
   if (sum.authorized.length) d.log(`storyboards authorized: ${sum.authorized.join(', ')}`);
@@ -209,6 +223,37 @@ async function bannerPhase(d: RunDeps, s: PipelineState, index: IndexFile, sum: 
     const st = ev && s.events[String(ev.id)];
     if (st?.banner === 'done') delete st.banner;
     d.log(`banner ${bundle} could not be decoded; refetching`);
+  }
+}
+
+// Last in the fetch phase. Raw files only: nothing is published from here, so it never asks for a deploy.
+async function chibiPhase(d: RunDeps, s: PipelineState, sum: RunSummary) {
+  if (!d.env.chibis) return;
+  const catalogue = d.chibiCatalogue();
+  const names = parseChibiNames(catalogue);
+  const today = dayOf(d.now());
+  if (catalogue === null || !chibiDue(s, names, today)) return;
+  const lane = chibiLane(s, names, today);
+  const c: NonNullable<RunSummary['chibis']> = { requests: 0, skel: null, done: [], missing: [] };
+  sum.chibis = c;
+  if (sum.picked || sum.banners?.requests) await d.sleep(BANNER_GAP_MS);
+  // fetch_episode --chibis checks eligibility against the state file, so this run's results must be on disk.
+  saveState(d.statePath, s);
+  const r = await d.fetchChibis(lane, catalogue);
+  c.requests = r.requests;
+  d.log(`chibis: ${r.status}, ${r.requests} requests`);
+  recordChibiLane(s, r.status === 'done', today);
+  if (r.status !== 'done') {
+    d.log(`chibis error: ${r.error ?? ''}${s.chibiHalted ? `; lane halted (${s.chibiHalted})` : ''}`);
+    return;
+  }
+  c.skel = r.skel;
+  if (r.skel) recordChibiSkel(s, r.skel, today);
+  for (const e of r.chibis) {
+    if (!lane.includes(e.name)) continue;
+    recordChibi(s, e.name, e.status, today);
+    if (s.chibi?.[e.name] === 'done') c.done.push(e.name);
+    else if (s.chibi?.[e.name] === 'missing') c.missing.push(e.name);
   }
 }
 
@@ -263,6 +308,71 @@ export function spawnBanners(script: string, log: (line: string) => void): (ids:
   };
 }
 
+const CHIBI_STATUS = new Set(['done', 'missing', 'error']);
+const CHIBI_REQUESTS_MAX = 9;
+
+/**
+ * The child's last line, accepted only when it is exactly what a successful run prints for the names asked;
+ * anything else is a lane error, so a crashed or confused child can never mark a file as fetched.
+ */
+export function chibisResultFromChild(code: number, lastLine: string, names: string[]): ChibisResult {
+  const bad = (error: string): ChibisResult => ({ status: 'error', requests: 0, skel: null, chibis: [], error });
+  let j: { status?: unknown; requests?: unknown; skel?: unknown; chibis?: unknown; error?: unknown };
+  try { j = JSON.parse(lastLine) as typeof j; } catch { return bad(`exit ${code} without a result line`); }
+  if (!j || typeof j !== 'object') return bad(`exit ${code} without a result line`);
+  const requests = Number.isInteger(j.requests) && (j.requests as number) >= 0 && (j.requests as number) <= CHIBI_REQUESTS_MAX ? j.requests as number : 0;
+  if (code !== 0 || j.status !== 'done') return { ...bad(String(j.error ?? `exit ${code}`)), requests };
+  if (requests !== j.requests) return bad('bad request count');
+  if (j.skel !== null && !(typeof j.skel === 'string' && CHIBI_STATUS.has(j.skel))) return bad('bad skeleton status');
+  if (!Array.isArray(j.chibis)) return bad('no chibis');
+  const chibis: ChibisResult['chibis'] = [];
+  for (const e of j.chibis as { name?: unknown; status?: unknown }[]) {
+    if (!e || typeof e.name !== 'string' || typeof e.status !== 'string' || !CHIBI_STATUS.has(e.status)) return bad('bad chibi entry');
+    if (!names.includes(e.name) || chibis.some(x => x.name === e.name)) return bad(`unexpected chibi ${e.name}`);
+    chibis.push({ name: e.name, status: e.status as 'done' | 'missing' | 'error' });
+  }
+  // Without the skeleton the child fetches no set.
+  if ((j.skel === 'missing' || j.skel === 'error') && chibis.length) return bad('sets reported without the skeleton');
+  return { status: 'done', requests, skel: j.skel as ChibisResult['skel'], chibis };
+}
+
+/** The child checks every name against `catalogue`, written to a temp file so it is the committed text, not the working-tree file. */
+export function spawnChibis(script: string, log: (line: string) => void): (names: string[], catalogue: string) => Promise<ChibisResult> {
+  return async (names, catalogue) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'chibi-index-'));
+    try {
+      const file = path.join(dir, 'chibi-index.json');
+      fs.writeFileSync(file, catalogue);
+      const r = await run('python3', [script, '--chibis', names.join(','), '--chibi-index', file], 5 * 60e3);
+      const lines = r.stdout.split('\n').map(l => l.trim()).filter(Boolean);
+      for (const l of lines.slice(0, -1)) log(l);
+      if (r.stderr.trim()) log(r.stderr.trim().split('\n').slice(-5).join('\n'));
+      return chibisResultFromChild(r.code, lines.at(-1) ?? '', names);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  };
+}
+
+export function parseChibiNames(catalogue: string | null): string[] {
+  if (catalogue === null) return [];
+  try {
+    const names = (JSON.parse(catalogue) as { chibis?: unknown }).chibis;
+    return Array.isArray(names) ? names.filter((n): n is string => typeof n === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+/** A file's content at HEAD; null when it is not committed (or this is not a git checkout). */
+export function committedFile(file: string): string | null {
+  try {
+    return execFileSync('git', ['show', `HEAD:${file}`], { encoding: 'utf8', maxBuffer: 8 << 20, stdio: ['ignore', 'pipe', 'ignore'] });
+  } catch {
+    return null;
+  }
+}
+
 function realDeps(): RunDeps {
   const log = (line: string) => console.log(line);
   const key = process.env.ANTHROPIC_API_KEY;
@@ -284,6 +394,8 @@ function realDeps(): RunDeps {
     r2DeletePath: 'assets/r2-delete.txt',
     fetchEvent: spawnFetch('scripts/fetch_episode.py', log),
     fetchBanners: spawnBanners('scripts/fetch_episode.py', log),
+    fetchChibis: spawnChibis('scripts/fetch_episode.py', log),
+    chibiCatalogue: () => committedFile('data/chibi-index.json'),
     buildBanners: async () => {
       const r = await run('npx', ['tsx', 'scripts/build_banners.ts'], 5 * 60e3);
       if (r.stdout.trim()) log(r.stdout.trim());
@@ -304,7 +416,7 @@ function realDeps(): RunDeps {
     },
     siteHash: () => siteFingerprint('.'),
     director,
-    env: { backfill: process.env.BACKFILL === 'on', dailyCapUsd: process.env.DIRECT_DAILY_USD && Number.isFinite(cap) && cap >= 0 ? cap : 20 },
+    env: { backfill: process.env.BACKFILL === 'on', chibis: process.env.CHIBIS === 'on', dailyCapUsd: process.env.DIRECT_DAILY_USD && Number.isFinite(cap) && cap >= 0 ? cap : 20 },
     now: () => new Date(), log,
     sleep: ms => new Promise(res => setTimeout(res, ms)),
   };
@@ -314,6 +426,7 @@ const HELP = `usage: tsx scripts/pipeline/run.ts <phase> [--event N] [--direct N
 phases:
   plan           add new index events, flag a deploy if site sources changed, report whether this run has work (work=)
   fetch          update the queue, fetch at most one event, build its episodes, then up to 4 home banners
+                 and (CHIBIS=on) up to 4 Spine chibi sets
   direct         reconcile and collect storyboard batches, submit due episodes (needs ANTHROPIC_API_KEY)
   mark-deployed  clear pendingDeploy and record the deployed site fingerprint after a successful deploy
 options (fetch only):
@@ -334,6 +447,7 @@ function writeGithub(sum: RunSummary) {
     lines.push(`- event: ${sum.picked ? `${sum.picked.id} (${sum.picked.reason})` : '-'}`);
     if (sum.fetch) lines.push(`- fetch: ${sum.fetch.status}, ${sum.fetch.requests} requests`);
     lines.push(`- built: ${list(sum.built)}`, `- authorized: ${sum.authorized.join(', ') || '-'}`);
+    if (sum.chibis) lines.push(`- chibis: ${sum.chibis.requests} requests, skeleton ${sum.chibis.skel ?? '-'}, done ${sum.chibis.done.join(', ') || '-'}, missing ${sum.chibis.missing.join(', ') || '-'}`);
     if (sum.banners) lines.push(`- banners: ${sum.banners.requests} requests, done ${sum.banners.done.join(', ') || '-'}, missing ${sum.banners.missing.join(', ') || '-'}, built ${sum.banners.built}`);
   } else if (sum.phase === 'direct') {
     lines.push(`- adopted: ${list(sum.reconciled?.adopted)}`, `- collected done: ${list(sum.collected?.done)}`,

@@ -75,5 +75,39 @@ class BuildRowsTest(unittest.TestCase):
         self.assertFalse(hasattr(bi, 'JP_TEXT_FROM'))
 
 
+class BuildChibiTest(unittest.TestCase):
+    C2D = [{'id': 1, 'characterType': 'game_character', 'characterId': 1},
+           {'id': 2, 'characterType': 'game_character', 'characterId': 21},
+           {'id': 3, 'characterType': 'sub_game_character', 'characterId': 15},
+           {'id': 4, 'characterType': 'mob', 'characterId': 900}]
+
+    def row(self, c2d, live, spine):
+        return {'character2dId': c2d, 'live2dAssetbundleName': live, 'spineAssetbundleName': spine}
+
+    def test_only_game_characters_v2_chibis(self):
+        r = bi.build_chibi([
+            self.row(1, 'v2_01ichika_school01', 'v2_sd_01ichika_school'),
+            self.row(1, 'v2_01ichika_school02', 'v2_sd_01ichika_school'),
+            self.row(1, 'v2_01ichika_casual', 'v2_sd_01ichika_casual'),
+            self.row(1, '01ichika_normal', 'sd_01ichika_normal'),        # old family: another skeleton
+            self.row(1, 'v2_01ichika_x', None),
+            self.row(1, None, 'v2_sd_01ichika_kakizome'),                # seasonal set without a costume name
+            self.row(2, 'v2_21miku_street', 'v2_sd_21miku_street'),
+            self.row(2, 'v2_21miku_odd', 'v2_sd_22rin_street'),          # number does not match the character
+            self.row(3, 'v2_15nene_casual', 'v2_sd_15nene_casual'),      # not a game_character row
+            self.row(4, 'mob', 'v2_sd_staff001'),
+            self.row(2, 'clb', 'v2_sd_kitty'),
+            self.row(1, 'bad', 'v2_sd_01ichika_../x'),
+        ], self.C2D)
+        self.assertEqual(r['chibis'], ['v2_sd_01ichika_casual', 'v2_sd_01ichika_kakizome', 'v2_sd_01ichika_school', 'v2_sd_21miku_street'])
+        self.assertEqual(r['costumes'], {'v2_01ichika_casual': 'v2_sd_01ichika_casual', 'v2_01ichika_school01': 'v2_sd_01ichika_school',
+                                         'v2_01ichika_school02': 'v2_sd_01ichika_school', 'v2_21miku_street': 'v2_sd_21miku_street'})
+        self.assertEqual(r['default'], {'1': 'v2_sd_01ichika_school', '21': 'v2_sd_21miku_street'})
+
+    def test_default_prefers_school_then_casual(self):
+        r = bi.build_chibi([self.row(1, 'a', 'v2_sd_01ichika_band'), self.row(1, 'b', 'v2_sd_01ichika_casual')], self.C2D)
+        self.assertEqual(r['default'], {'1': 'v2_sd_01ichika_casual'})
+
+
 if __name__ == '__main__':
     unittest.main()

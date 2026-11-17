@@ -31,6 +31,17 @@ export interface PipelineState {
   deployedSite?: string;
   /** build_banners failed as a whole; kept until a run's build succeeds so the plan step does not call that run idle. */
   bannerBuildFailed?: boolean;
+  /** Spine chibis (spec 2026-11-18), by chibi name: done = both files fetched; missing = 404, never asked again. */
+  chibi?: Record<string, 'done' | 'missing'>;
+  /** The skeleton all chibis share; missing stops the lane. */
+  chibiSkel?: 'done' | 'missing';
+  /** Failed tries per chibi set (its atlas and texture count together), CHIBI_SKEL_KEY for the skeleton and
+   *  CHIBI_LANE_KEY for a run that failed as a whole. The third failure is final, so the lane never retries forever. */
+  chibiFails?: Record<string, number>;
+  /** UTC day of the last failure: the lane makes no more requests that day, so a mirror outage costs each file one try. */
+  chibiPausedDay?: string;
+  /** Set after three failed lane runs; the lane stays off until a person removes this field. */
+  chibiHalted?: string;
 }
 export interface IndexEvent {
   id: number; name: string; date: string; bundle: string; eps: [number, string, string][];
@@ -218,6 +229,65 @@ export function recordBanner(s: PipelineState, id: number, status: 'done' | 'mis
   if (status === 'error') return;
   e.banner = status;
   if (status === 'done') s.pendingDeploy = true;
+}
+
+/** Chibi lane (owner-approved 2026-11-18): at most 4 sets per run, in the catalogue's order; names come from the committed data/chibi-index.json. */
+export const CHIBI_MAX = 4;
+export const CHIBI_NAME = /^v2_sd_\d{2}[a-z]+_[a-z0-9_]+$/;
+export const CHIBI_SKEL_KEY = '@skel';
+export const CHIBI_LANE_KEY = '@lane';
+
+/** Nothing may be requested today: the lane is halted, has no skeleton to hope for, or already failed today. */
+const chibiClosed = (s: PipelineState, today: string) => !!s.chibiHalted || s.chibiSkel === 'missing' || s.chibiPausedDay === today;
+
+export function chibiLane(s: PipelineState, names: string[], today: string): string[] {
+  if (chibiClosed(s, today)) return [];
+  return [...new Set(names)].filter(n => CHIBI_NAME.test(n) && !s.chibi?.[n]).slice(0, CHIBI_MAX);
+}
+
+/** True while the lane has a request to make today: a set to fetch, or the skeleton. */
+export function chibiDue(s: PipelineState, names: string[], today: string): boolean {
+  if (chibiClosed(s, today)) return false;
+  return chibiLane(s, names, today).length > 0 || (names.length > 0 && !s.chibiSkel);
+}
+
+const clearFail = (s: PipelineState, key: string) => {
+  if (!s.chibiFails) return;
+  delete s.chibiFails[key];
+  if (!Object.keys(s.chibiFails).length) delete s.chibiFails;
+};
+
+/** Counts a failed try and pauses the lane for the day; true on the third one (MAX_FAILURES), which the caller records as final. */
+function failChibi(s: PipelineState, key: string, today: string): boolean {
+  s.chibiPausedDay = today;
+  const n = (s.chibiFails?.[key] ?? 0) + 1;
+  if (n >= MAX_FAILURES) { clearFail(s, key); return true; }
+  (s.chibiFails ??= {})[key] = n;
+  return false;
+}
+
+/** done and missing are recorded; an error counts as a failed try and becomes missing on the third; anything else is ignored. */
+function settleChibi(s: PipelineState, key: string, status: string, today: string): 'done' | 'missing' | null {
+  if (status === 'error') return failChibi(s, key, today) ? 'missing' : null;
+  if (status !== 'done' && status !== 'missing') return null;
+  clearFail(s, key);
+  return status;
+}
+
+export function recordChibi(s: PipelineState, name: string, status: string, today: string): void {
+  const r = settleChibi(s, name, status, today);
+  if (r) (s.chibi ??= {})[name] = r;
+}
+
+export function recordChibiSkel(s: PipelineState, status: string, today: string): void {
+  const r = settleChibi(s, CHIBI_SKEL_KEY, status, today);
+  if (r) s.chibiSkel = r;
+}
+
+/** A lane run that failed as a whole (child crash, timeout, unusable output); the third one halts the lane. */
+export function recordChibiLane(s: PipelineState, ok: boolean, today: string): void {
+  if (ok) clearFail(s, CHIBI_LANE_KEY);
+  else if (failChibi(s, CHIBI_LANE_KEY, today)) s.chibiHalted = `three failed lane runs, last on ${today}`;
 }
 
 export function addSpend(s: PipelineState, day: string, usd: number): void {

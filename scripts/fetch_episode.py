@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Fetcher for one event's (or one episode's) assets into assets/raw/ (git-ignored).
 
-Usage: python3 scripts/fetch_episode.py --event <id> | --banners <ids> | <sid>
+Usage: python3 scripts/fetch_episode.py --event <id> | --banners <ids> | --chibis <names> | <sid>
        [--index data/tc-event-index.json] [--out assets/raw]
 
 Constraints (spec 2026-11-04): one event per run, at most 40 requests, >= 5 s between requests, no Referer
@@ -15,6 +15,9 @@ A background the mirror lacks (404) is recorded as bg/<id>.missing and the episo
 still ahead: the official fan-work guideline bans posting full episodes of an ongoing event (AGENTS.md).
 --banners (spec 2026-11-07, owner-approved): the home banner only, at most 4 events, one request each, 5 s apart,
 and only events the pipeline state (--state) lists with assets done and no banner record.
+--chibis (spec 2026-11-18, owner-approved): Spine chibis, at most 4 sets (atlas + texture, two requests each)
+plus the shared skeleton once, 5 s apart, and only names the committed chibi catalogue (--chibi-index) lists
+and the pipeline state has no record of.
 """
 import argparse
 import calendar
@@ -78,6 +81,20 @@ def sd_url(char_id):
 
 def banner_url(bundle):
     return '%s/sekai-tc-assets/home/banner/%s/%s.webp' % (BASE, bundle, bundle)
+
+
+CHIBI_DIR = 'sekai-jp-assets/area_sd/v2_sd_main'
+CHIBI_SKEL = 'v2_sd_main.skel'
+CHIBI_ATLAS = 'sekai_atlas.atlas.txt'
+CHIBI_TEXTURE = 'sekai_atlas.png'
+
+
+def chibi_skel_url():
+    return '%s/%s/v2_base_model/%s' % (BASE, CHIBI_DIR, CHIBI_SKEL)
+
+
+def chibi_url(name, file):
+    return '%s/%s/%s/%s' % (BASE, CHIBI_DIR, name, file)
 
 
 def is_closed(event, now):
@@ -312,6 +329,79 @@ def run_banners(events, out, fetcher):
     return {'status': 'done', 'requests': fetcher.count - start, 'events': results}
 
 
+CHIBI_MAX = 4
+CHIBI_RE = re.compile(r'^v2_sd_\d{2}[a-z]+_[a-z0-9_]+$')
+# The reader's Spine runtime is 4.1; a skeleton exported by another version cannot be loaded.
+CHIBI_SKEL_VERSION = b'4.1.'
+
+
+def _is_skel(path):
+    with open(path, 'rb') as f:
+        return CHIBI_SKEL_VERSION in f.read(32)
+
+
+def _is_png(path):
+    with open(path, 'rb') as f:
+        return f.read(8) == b'\x89PNG\r\n\x1a\n'
+
+
+def _is_atlas(path):
+    """The atlas must name the one texture fetched next to it."""
+    try:
+        with open(path, encoding='utf-8') as f:
+            first = next((line.strip() for line in f if line.strip()), '')
+    except UnicodeDecodeError:
+        return False
+    return first == CHIBI_TEXTURE
+
+
+def _chibi_file(url, dest, valid, fetcher):
+    """done / missing (404) / error; a file that fails its content check is not kept."""
+    try:
+        fetcher.get(url, dest)
+    except urllib.error.HTTPError as e:
+        return 'missing' if e.code == 404 else 'error'
+    except OSError:
+        return 'error'
+    if not os.path.exists(dest):
+        return 'error'
+    if not valid(dest):
+        os.remove(dest)
+        return 'error'
+    return 'done'
+
+
+def _chibi_of(name, out, fetcher):
+    if not CHIBI_RE.match(name):
+        raise ValueError('invalid chibi name: %r' % name)
+    folder = os.path.join(out, 'chibi', name)
+    atlas = os.path.join(folder, CHIBI_ATLAS)
+    status = _chibi_file(chibi_url(name, CHIBI_ATLAS), atlas, _is_atlas, fetcher)
+    if status != 'done':
+        return status
+    status = _chibi_file(chibi_url(name, CHIBI_TEXTURE), os.path.join(folder, CHIBI_TEXTURE), _is_png, fetcher)
+    if status == 'missing':
+        os.remove(atlas)
+    return status
+
+
+def run_chibis(names, out, fetcher, skel=True):
+    """The shared skeleton (when `skel`), then a few chibi sets; nothing else is fetched unless the skeleton is there.
+    The first error ends the run: the sets after it are not requested and not reported (the lane rests for the day)."""
+    if len(names) > CHIBI_MAX or len(set(names)) != len(names):
+        raise ValueError('at most %d distinct chibis per run' % CHIBI_MAX)
+    start = fetcher.count
+    skel_status = None
+    if skel:
+        skel_status = _chibi_file(chibi_skel_url(), os.path.join(out, 'chibi', CHIBI_SKEL), _is_skel, fetcher)
+    results = []
+    for n in ([] if skel_status in ('missing', 'error') else names):
+        results.append({'name': n, 'status': _chibi_of(n, out, fetcher)})
+        if results[-1]['status'] == 'error':
+            break
+    return {'status': 'done', 'requests': fetcher.count - start, 'skel': skel_status, 'chibis': results}
+
+
 def run(sid, index, out, fetcher):
     if not SID_RE.match(sid):
         raise ValueError('invalid sid: %r' % sid)
@@ -324,19 +414,24 @@ def run(sid, index, out, fetcher):
 
 def main(argv=None, opener=None, sleep=time.sleep, log=print, max_requests=40, now=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter,
-                                 usage='%(prog)s (--event ID | --banners ID,ID | SID) [--index PATH] [--out DIR]')
+                                 usage='%(prog)s (--event ID | --banners ID,ID | --chibis NAME,NAME | SID) [--index PATH] [--out DIR]')
     target = ap.add_mutually_exclusive_group(required=True)
     target.add_argument('sid', nargs='?', metavar='SID', help='fetch one episode (e.g. event_173_02)')
     target.add_argument('--event', type=int, metavar='ID', help='fetch one whole event; prints a JSON result line')
     target.add_argument('--banners', metavar='ID,ID,...',
                         help='home banners of these events (at most %d), one request each, 5 s apart' % BANNER_MAX)
+    target.add_argument('--chibis', metavar='NAME,NAME,...',
+                        help='Spine chibis (at most %d sets, two requests each) plus the shared skeleton once' % CHIBI_MAX)
     ap.add_argument('--index', default='data/tc-event-index.json')
-    ap.add_argument('--state', default='data/pipeline-state.json', help='pipeline state; --banners only')
+    ap.add_argument('--chibi-index', default='data/chibi-index.json', help='chibi catalogue; --chibis only')
+    ap.add_argument('--state', default='data/pipeline-state.json', help='pipeline state; --banners and --chibis only')
     ap.add_argument('--out', default='assets/raw')
     args = ap.parse_args(argv)
     now = time.time() if now is None else now
     if args.banners is not None:
         return _main_banners(args, opener, sleep, log)
+    if args.chibis is not None:
+        return _main_chibis(args, opener, sleep, log)
     if args.event is not None:
         return _main_event(args, opener, sleep, log, max_requests, now)
     index = _load(args.index)
@@ -381,6 +476,30 @@ def _main_banners(args, opener, sleep, log):
         r = run_banners(events, args.out, fetcher)
     except Exception as e:  # noqa: BLE001 - reported to the pipeline as a JSON line
         print(json.dumps({'status': 'error', 'requests': fetcher.count, 'events': [], 'error': '%s: %s' % (type(e).__name__, e)}))
+        return 1
+    print(json.dumps(r))
+    return 0
+
+
+def _main_chibis(args, opener, sleep, log):
+    # One skeleton plus two files per set.
+    fetcher = Fetcher(opener or urllib.request.urlopen, max_requests=1 + 2 * CHIBI_MAX, sleep=sleep, log=log)
+    try:
+        names = args.chibis.split(',') if args.chibis else []
+        if len(names) > CHIBI_MAX or len(set(names)) != len(names) or not all(CHIBI_RE.match(n) for n in names):
+            raise ValueError('bad chibi list')
+        listed = set(_load(args.chibi_index)['chibis'])
+        state = _load(args.state)
+        recorded = state.get('chibi') or {}
+        skel = state.get('chibiSkel')
+        if skel == 'missing' or state.get('chibiHalted'):
+            raise ValueError('the chibi lane is stopped (skeleton missing or lane halted)')
+        for n in names:
+            if n not in listed or n in recorded:
+                raise ValueError('chibi %s is not due' % n)
+        r = run_chibis(names, args.out, fetcher, skel=skel != 'done')
+    except Exception as e:  # noqa: BLE001 - reported to the pipeline as a JSON line
+        print(json.dumps({'status': 'error', 'requests': fetcher.count, 'skel': None, 'chibis': [], 'error': '%s: %s' % (type(e).__name__, e)}))
         return 1
     print(json.dumps(r))
     return 0

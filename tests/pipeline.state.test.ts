@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, expect, test, vi } from 'vitest';
 import {
-  addSpend, authorizeDirect, bannerLane, dayOf, dueEpisodes, isClosed, loadState, pickEvent, recordBanner, recordFetch, rememberBatch, saveState, seedState,
+  addSpend, authorizeDirect, bannerLane, chibiDue, chibiLane, dayOf, dueEpisodes, isClosed, loadState, pickEvent, recordBanner, recordChibi, recordChibiLane, recordChibiSkel, recordFetch, rememberBatch, saveState, seedState,
   spentToday, syncIndex, type IndexEvent, type IndexFile,
 } from '../scripts/pipeline/state';
 
@@ -345,4 +345,62 @@ test('重查頻率：活動結束後第一週每天一次，之後每週一次',
   expect(at('2026-10-24T01:00:00Z')).toEqual({ id: 181, reason: 'jp-recheck' });
   delete s.events['181'].jpCheckedAt;
   expect(at('2026-11-17T01:00:00Z')).toEqual({ id: 181, reason: 'jp-recheck' });
+});
+
+const D1 = '2026-11-04', D2 = '2026-11-05', D3 = '2026-11-06';
+
+test('小人通道：照目錄順序、跳過已有紀錄、重複與不合格式的名字，最多 4 套；骨架 missing 就停', () => {
+  const names = ['v2_sd_01ichika_casual', 'v2_sd_kitty', 'v2_sd_01ichika_school', '../x', 'v2_sd_01ichika_casual', 'v2_sd_02saki_casual', 'v2_sd_02saki_school', 'v2_sd_03honami_casual', 'v2_sd_03honami_school'];
+  const s = seeded();
+  expect(chibiLane(s, names, D1)).toEqual(['v2_sd_01ichika_casual', 'v2_sd_01ichika_school', 'v2_sd_02saki_casual', 'v2_sd_02saki_school']);
+  expect(chibiDue(s, names, D1)).toBe(true);
+  recordChibi(s, 'v2_sd_01ichika_casual', 'done', D1);
+  recordChibi(s, 'v2_sd_01ichika_school', 'missing', D1);
+  recordChibi(s, 'v2_sd_02saki_casual', 'bogus', D1);
+  expect(s.chibi).toEqual({ v2_sd_01ichika_casual: 'done', v2_sd_01ichika_school: 'missing' });
+  expect(chibiLane(s, names, D1)).toEqual(['v2_sd_02saki_casual', 'v2_sd_02saki_school', 'v2_sd_03honami_casual', 'v2_sd_03honami_school']);
+  recordChibiSkel(s, 'missing', D1);
+  expect(chibiLane(s, names, D2)).toEqual([]);
+  expect(chibiDue(s, names, D2)).toBe(false);
+  expect(s.pendingDeploy).toBe(false);
+});
+
+test('小人通道：名單抓完但骨架還沒紀錄時仍算有事；目錄是空的就沒事', () => {
+  const s = seeded();
+  recordChibi(s, 'v2_sd_01ichika_casual', 'done', D1);
+  expect(chibiDue(s, ['v2_sd_01ichika_casual'], D1)).toBe(true);
+  recordChibiSkel(s, 'done', D1);
+  expect(chibiDue(s, ['v2_sd_01ichika_casual'], D1)).toBe(false);
+  expect(chibiDue(seeded(), [], D1)).toBe(false);
+});
+
+test('recordChibi：出錯當天整條通道暫停；累計到第三次才記 missing，成功就清掉計數', () => {
+  const names = ['v2_sd_01ichika_casual', 'v2_sd_02saki_casual'];
+  const s = seeded();
+  recordChibi(s, 'v2_sd_01ichika_casual', 'error', D1);
+  expect(chibiLane(s, names, D1)).toEqual([]);
+  expect(chibiDue(s, names, D1)).toBe(false);
+  expect(chibiLane(s, names, D2)).toEqual(names);
+  recordChibi(s, 'v2_sd_01ichika_casual', 'error', D2);
+  expect(s.chibi).toBeUndefined();
+  expect(s.chibiFails).toEqual({ v2_sd_01ichika_casual: 2 });
+  recordChibi(s, 'v2_sd_01ichika_casual', 'done', D3);
+  expect(s.chibi).toEqual({ v2_sd_01ichika_casual: 'done' });
+  expect(s.chibiFails).toBeUndefined();
+  for (const d of [D1, D2, D3]) recordChibi(s, 'v2_sd_02saki_casual', 'error', d);
+  expect(s.chibi?.v2_sd_02saki_casual).toBe('missing');
+});
+
+test('recordChibiLane：整輪失敗三次停用通道，中間成功一次就重新計數', () => {
+  const names = ['v2_sd_01ichika_casual'];
+  const s = seeded();
+  recordChibiLane(s, false, D1);
+  recordChibiLane(s, true, D2);
+  expect(s.chibiFails).toBeUndefined();
+  for (const d of [D1, D2]) recordChibiLane(s, false, d);
+  expect(s.chibiHalted).toBeUndefined();
+  recordChibiLane(s, false, D3);
+  expect(s.chibiHalted).toContain(D3);
+  expect(chibiDue(s, names, '2026-12-01')).toBe(false);
+  expect(chibiLane(s, names, '2026-12-01')).toEqual([]);
 });

@@ -3,7 +3,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { expect, test } from 'vitest';
 import { PROMPT_VERSION } from '../scripts/pipeline/director';
-import { fetchResultFromChild, runOnce, siteFingerprint, spawnBanners, spawnFetch, type BannersResult, type FetchResult, type RunDeps } from '../scripts/pipeline/run';
+import {
+  chibisResultFromChild, committedFile, fetchResultFromChild, parseChibiNames, runOnce, siteFingerprint, spawnBanners, spawnChibis, spawnFetch,
+  type BannersResult, type ChibisResult, type FetchResult, type RunDeps,
+} from '../scripts/pipeline/run';
 import { loadState, type IndexEvent, type IndexFile, type PipelineState } from '../scripts/pipeline/state';
 import { syntheticEpisode } from './helpers';
 
@@ -13,7 +16,7 @@ const ev = (id: number, date: string, n = 2): IndexEvent => ({
 });
 const NOW = new Date('2026-11-04T10:00:00Z');
 
-function setup(o: { fetch?: (id: number) => FetchResult; build?: (sid: string) => boolean; withDirector?: boolean; backfill?: boolean; cap?: number; banners?: (ids: number[]) => BannersResult; bannersBuilt?: () => { ok: boolean; built: number; changed: boolean; failed: string[] } } = {}) {
+function setup(o: { fetch?: (id: number) => FetchResult; build?: (sid: string) => boolean; withDirector?: boolean; backfill?: boolean; cap?: number; banners?: (ids: number[]) => BannersResult; bannersBuilt?: () => { ok: boolean; built: number; changed: boolean; failed: string[] }; chibiNames?: string[]; chibis?: (names: string[]) => ChibisResult } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'run-'));
   const index: IndexFile = { events: [ev(173, '2026-10-01', 3), ev(172, '2026-09-20'), ev(171, '2026-09-10')], built: '2026-11-04' };
   const indexPath = path.join(dir, 'index.json');
@@ -24,8 +27,11 @@ function setup(o: { fetch?: (id: number) => FetchResult; build?: (sid: string) =
   const calls: string[] = [];
   const fetched: number[] = [];
   const bannerCalls: number[][] = [];
+  const chibiCalls: string[][] = [];
   let bannerBuilds = 0;
   let site = 'site-v1';
+  let clock = NOW;
+  const logs: string[] = [];
   const sleeps: number[] = [];
   const built: string[] = [];
   let n = 0;
@@ -50,13 +56,18 @@ function setup(o: { fetch?: (id: number) => FetchResult; build?: (sid: string) =
       bannerCalls.push(ids);
       return o.banners ? o.banners(ids) : { status: 'done', requests: ids.length, events: ids.map(id => ({ id, status: 'done' as const })) };
     },
+    fetchChibis: async names => {
+      chibiCalls.push(names);
+      return o.chibis ? o.chibis(names) : { status: 'done', requests: 2 * names.length, skel: null, chibis: names.map(name => ({ name, status: 'done' as const })) };
+    },
+    chibiCatalogue: () => (o.chibiNames ? JSON.stringify({ chibis: o.chibiNames }) : null),
     buildBanners: async () => { bannerBuilds++; return o.bannersBuilt ? o.bannersBuilt() : { ok: true, built: 0, changed: false, failed: [] }; },
     director: o.withDirector ? {
       client: client as never, compact: async () => 'BG:x', readEpisode: () => syntheticEpisode(),
       writeBoard: () => {}, prompt: 'P', now: () => NOW, log: () => {},
     } : null,
-    env: { backfill: o.backfill ?? false, dailyCapUsd: o.cap ?? 20 },
-    now: () => NOW, log: () => {},
+    env: { backfill: o.backfill ?? false, dailyCapUsd: o.cap ?? 20, chibis: !!o.chibiNames },
+    now: () => clock, log: l => { logs.push(l); },
     sleep: async ms => { sleeps.push(ms); },
   };
   const addNew = () => {
@@ -65,7 +76,7 @@ function setup(o: { fetch?: (id: number) => FetchResult; build?: (sid: string) =
     fs.writeFileSync(indexPath, JSON.stringify(idx));
   };
   const state = () => loadState(deps.statePath) as PipelineState;
-  return { deps, calls, fetched, built, addNew, state, ended, index, sleeps, bannerCalls, builds: () => bannerBuilds, setSite: (v: string) => { site = v; } };
+  return { deps, calls, fetched, built, addNew, state, ended, index, sleeps, bannerCalls, chibiCalls, logs, setNow: (d: Date) => { clock = d; }, builds: () => bannerBuilds, setSite: (v: string) => { site = v; } };
 }
 const epStates = (s: PipelineState, id: number) => Object.values(s.events[String(id)].eps).map(e => e.s);
 
@@ -381,8 +392,8 @@ test('direct：提示詞版本變了就把 fallback 的話重新送出', async (
 });
 
 // plan: an idle run skips the R2 syncs and every phase, so each condition those phases act on must count as work.
-async function idleSetup() {
-  const t = setup({ withDirector: true });
+async function idleSetup(o: Parameters<typeof setup>[0] = {}) {
+  const t = setup({ withDirector: true, ...o });
   await runOnce(t.deps, { phase: 'fetch' });
   const s = t.state();
   for (const e of Object.values(s.events)) {
@@ -524,4 +535,184 @@ test('plan：進行中的新活動會寫進狀態，但不算有事做（活動�
   const f = await runOnce(t.deps, { phase: 'fetch' });
   expect(f.picked).toBeUndefined();
   expect(t.fetched).toEqual([]);
+});
+
+// Chibi lane (spec 2026-11-18): raw files only, behind CHIBIS=on.
+const CHIBIS = ['v2_sd_01ichika_casual', 'v2_sd_01ichika_school', 'v2_sd_02saki_casual', 'v2_sd_02saki_school', 'v2_sd_03honami_casual'];
+const DAY = (n: number) => new Date(NOW.getTime() + n * 86400e3);
+const fresh = (t: Awaited<ReturnType<typeof idleSetup>>, f: (s: PipelineState) => void = () => {}) => {
+  edit(t, s => { delete s.chibi; delete s.chibiSkel; delete s.chibiFails; delete s.chibiPausedDay; delete s.chibiHalted; f(s); });
+  t.chibiCalls.length = 0;
+  t.sleeps.length = 0;
+};
+const allDone = (names: string[], skel: ChibisResult['skel'] = null): ChibisResult =>
+  ({ status: 'done', requests: 2 * names.length + (skel ? 1 : 0), skel, chibis: names.map(name => ({ name, status: 'done' as const })) });
+
+test('小人通道：CHIBIS 沒開就不抓，plan 也不算有事做；目錄沒提交時也不抓', async () => {
+  const t = await idleSetup();
+  t.deps.chibiCatalogue = () => JSON.stringify({ chibis: CHIBIS });
+  expect((await runOnce(t.deps, { phase: 'plan' })).work).toEqual([]);
+  const r = await runOnce(t.deps, { phase: 'fetch' });
+  expect(r.chibis).toBeUndefined();
+  expect(t.chibiCalls).toEqual([]);
+  t.deps.env.chibis = true;
+  t.deps.chibiCatalogue = () => null;
+  expect((await runOnce(t.deps, { phase: 'plan' })).work).toEqual([]);
+  await runOnce(t.deps, { phase: 'fetch' });
+  expect(t.chibiCalls).toEqual([]);
+});
+
+test('小人通道：每輪照目錄順序至多 4 套，先記骨架；只存原檔所以不觸發部署；全部有紀錄後回到 idle', async () => {
+  const t = await idleSetup({ chibiNames: CHIBIS, chibis: names => ({ status: 'done', requests: 1 + 2 * names.length, skel: 'done', chibis: names.map(name => ({ name, status: name === 'v2_sd_02saki_casual' ? 'missing' as const : 'done' as const })) }) });
+  fresh(t);
+  expect((await runOnce(t.deps, { phase: 'plan' })).work).toEqual(['chibis due']);
+  const r = await runOnce(t.deps, { phase: 'fetch' });
+  expect(t.chibiCalls).toEqual([CHIBIS.slice(0, 4)]);
+  expect(r.chibis).toEqual({ requests: 9, skel: 'done', done: ['v2_sd_01ichika_casual', 'v2_sd_01ichika_school', 'v2_sd_02saki_school'], missing: ['v2_sd_02saki_casual'] });
+  expect(t.sleeps).toEqual([]); // nothing else was requested this hour
+  expect(r.deploy).toBe(false);
+  expect(t.state().chibiSkel).toBe('done');
+  await runOnce(t.deps, { phase: 'fetch' });
+  expect(t.chibiCalls.at(-1)).toEqual(['v2_sd_03honami_casual']);
+  expect(Object.keys(t.state().chibi ?? {}).sort()).toEqual([...CHIBIS].sort());
+  expect((await runOnce(t.deps, { phase: 'plan' })).work).toEqual([]);
+  await runOnce(t.deps, { phase: 'fetch' });
+  expect(t.chibiCalls).toHaveLength(2); // never asked again
+});
+
+test('小人通道：前面發過請求就先等 5 秒；呼叫前已把狀態寫回檔案；子程序拿到的是已提交的目錄', async () => {
+  const t = await idleSetup({ chibiNames: CHIBIS });
+  fresh(t, s => { delete s.events['173'].banner; });
+  let onDisk: string | undefined;
+  let given = '';
+  t.deps.fetchChibis = async (names, catalogue) => {
+    onDisk = (loadState(t.deps.statePath) as PipelineState).events['173'].banner;
+    given = catalogue;
+    return allDone(names);
+  };
+  await runOnce(t.deps, { phase: 'fetch' });
+  expect(t.sleeps).toEqual([5000]);
+  expect(onDisk).toBe('done');
+  expect(JSON.parse(given)).toEqual({ chibis: CHIBIS });
+});
+
+test('小人通道：出錯當天就不再發請求，隔天再試；同一個檔第三次失敗記 missing', async () => {
+  const errs = (names: string[]): ChibisResult => ({ status: 'done', requests: 2, skel: null, chibis: names.map(name => ({ name, status: 'error' as const })) });
+  const t = await idleSetup({ chibiNames: CHIBIS.slice(0, 1), chibis: errs });
+  fresh(t, s => { s.chibiSkel = 'done'; });
+  await runOnce(t.deps, { phase: 'fetch' });
+  expect(t.state().chibi).toBeUndefined();
+  expect(t.state().chibiFails).toEqual({ v2_sd_01ichika_casual: 1 });
+  expect((await runOnce(t.deps, { phase: 'plan' })).work).toEqual([]); // paused for the day
+  await runOnce(t.deps, { phase: 'fetch' });
+  expect(t.chibiCalls).toHaveLength(1);
+  t.setNow(DAY(1));
+  expect((await runOnce(t.deps, { phase: 'plan' })).work).toEqual(['chibis due']);
+  await runOnce(t.deps, { phase: 'fetch' });
+  await runOnce(t.deps, { phase: 'fetch' });
+  expect(t.chibiCalls).toHaveLength(2);
+  t.setNow(DAY(2));
+  await runOnce(t.deps, { phase: 'fetch' });
+  expect(t.state().chibi).toEqual({ v2_sd_01ichika_casual: 'missing' });
+  expect(t.state().chibiFails).toBeUndefined();
+  t.setNow(DAY(3));
+  expect((await runOnce(t.deps, { phase: 'plan' })).work).toEqual([]);
+});
+
+test('小人通道：整輪失敗不中斷流水線、不記任何檔；連續三天整輪失敗就停用通道', async () => {
+  const t = await idleSetup({ chibiNames: CHIBIS, chibis: () => ({ status: 'error', requests: 0, skel: null, chibis: [], error: 'boom' }) });
+  fresh(t);
+  for (const d of [0, 1]) {
+    t.setNow(DAY(d));
+    const r = await runOnce(t.deps, { phase: 'fetch' });
+    expect(r.failed).toBeUndefined();
+    await runOnce(t.deps, { phase: 'fetch' }); // same day: no second try
+  }
+  expect(t.chibiCalls).toHaveLength(2);
+  expect(t.state().chibiFails).toEqual({ '@lane': 2 });
+  expect(t.state().chibi).toBeUndefined();
+  t.setNow(DAY(2));
+  await runOnce(t.deps, { phase: 'fetch' });
+  expect(t.state().chibiHalted).toContain('three failed lane runs');
+  expect(t.logs.some(l => l.includes('lane halted'))).toBe(true);
+  t.setNow(DAY(9));
+  expect((await runOnce(t.deps, { phase: 'plan' })).work).toEqual([]);
+  await runOnce(t.deps, { phase: 'fetch' });
+  expect(t.chibiCalls).toHaveLength(3);
+});
+
+test('小人通道：一次成功的整輪會清掉整輪失敗的計數', async () => {
+  let ok = false;
+  const t = await idleSetup({ chibiNames: CHIBIS, chibis: names => (ok ? allDone(names, 'done') : { status: 'error', requests: 0, skel: null, chibis: [], error: 'boom' }) });
+  fresh(t);
+  await runOnce(t.deps, { phase: 'fetch' });
+  expect(t.state().chibiFails).toEqual({ '@lane': 1 });
+  ok = true;
+  t.setNow(DAY(1));
+  await runOnce(t.deps, { phase: 'fetch' });
+  expect(t.state().chibiFails).toBeUndefined();
+  expect(t.state().chibiSkel).toBe('done');
+});
+
+test('小人通道：骨架 404 記 missing 後整條通道停止；骨架連續三天失敗也停', async () => {
+  const t = await idleSetup({ chibiNames: CHIBIS, chibis: () => ({ status: 'done', requests: 1, skel: 'missing', chibis: [] }) });
+  fresh(t);
+  await runOnce(t.deps, { phase: 'fetch' });
+  expect(t.state().chibiSkel).toBe('missing');
+  t.setNow(DAY(1));
+  expect((await runOnce(t.deps, { phase: 'plan' })).work).toEqual([]);
+  await runOnce(t.deps, { phase: 'fetch' });
+  expect(t.chibiCalls).toHaveLength(1);
+
+  const u = await idleSetup({ chibiNames: CHIBIS, chibis: () => ({ status: 'done', requests: 1, skel: 'error', chibis: [] }) });
+  fresh(u);
+  for (const d of [0, 1, 2]) { u.setNow(DAY(d)); await runOnce(u.deps, { phase: 'fetch' }); await runOnce(u.deps, { phase: 'fetch' }); }
+  expect(u.chibiCalls).toHaveLength(3);
+  expect(u.state().chibiSkel).toBe('missing');
+});
+
+test('chibisResultFromChild：只接受完全符合的成功輸出，其餘一律當整輪失敗、不帶任何檔案狀態', () => {
+  const A = 'v2_sd_01ichika_school', B = 'v2_sd_02saki_school';
+  const ok = { status: 'done', requests: 5, skel: 'done', chibis: [{ name: A, status: 'done' }, { name: B, status: 'missing' }] };
+  expect(chibisResultFromChild(0, JSON.stringify(ok), [A, B])).toEqual(ok);
+  expect(chibisResultFromChild(0, JSON.stringify({ ...ok, skel: null, chibis: [] }), [A, B])).toEqual({ ...ok, skel: null, chibis: [] });
+  const bad: [number, unknown][] = [
+    [1, ok],                                                              // non-zero exit, even with a done-looking body
+    [0, { ...ok, status: 'error' }],
+    [0, { ...ok, requests: 10 }], [0, { ...ok, requests: -1 }], [0, { ...ok, requests: '5' }], [0, { ...ok, requests: 1.5 }],
+    [0, { ...ok, skel: 'ok' }], [0, { ...ok, skel: undefined }],
+    [0, { ...ok, chibis: 'x' }], [0, { ...ok, chibis: [null] }],
+    [0, { ...ok, chibis: [{ name: A, status: 'fetched' }] }],
+    [0, { ...ok, chibis: [{ name: 'v2_sd_26kaito_school', status: 'done' }] }],  // not asked for
+    [0, { ...ok, chibis: [{ name: A, status: 'done' }, { name: A, status: 'done' }] }],
+    [0, { ...ok, skel: 'error' }], [0, { ...ok, skel: 'missing' }],     // sets cannot be fetched without the skeleton
+    [0, null], [0, 7], [0, []],
+  ];
+  for (const [code, body] of bad) {
+    const r = chibisResultFromChild(code, JSON.stringify(body), [A, B]);
+    expect([r.status, r.skel, r.chibis], JSON.stringify(body)).toEqual(['error', null, []]);
+  }
+  expect(chibisResultFromChild(0, 'Traceback: boom', [A]).status).toBe('error');
+  expect(chibisResultFromChild(1, JSON.stringify({ status: 'error', requests: 3, skel: null, chibis: [], error: 'ValueError: x' }), [A]))
+    .toEqual({ status: 'error', requests: 3, skel: null, chibis: [], error: 'ValueError: x' });
+});
+
+test('真實 fetchChibis：spawn 帶 --chibis 與暫存的目錄檔，用完刪掉；子程序失敗或輸出不合就是整輪失敗', async () => {
+  const f = spawnChibis('tests/fixtures/fake_fetch.py', () => {});
+  const cat = JSON.stringify({ chibis: ['v2_sd_01ichika_school', 'v2_sd_09crash_school', 'v2_sd_09liar_school'] });
+  expect(await f(['v2_sd_01ichika_school'], cat)).toEqual({ status: 'done', requests: 3, skel: 'done', chibis: [{ name: 'v2_sd_01ichika_school', status: 'done' }] });
+  expect(await f([], cat)).toEqual({ status: 'done', requests: 1, skel: 'done', chibis: [] });
+  // The fake refuses a name its --chibi-index file does not list, as the real script does.
+  expect((await f(['v2_sd_02saki_school'], cat)).status).toBe('error');
+  expect((await f(['v2_sd_09crash_school'], cat)).status).toBe('error');          // exits 1 after printing a done-looking line
+  expect((await f(['v2_sd_09liar_school'], cat)).status).toBe('error');           // exits 0 but reports a set nobody asked for
+  expect(fs.readdirSync(os.tmpdir()).filter(n => n.startsWith('chibi-index-'))).toEqual([]);
+});
+
+test('parseChibiNames 只取字串；committedFile 讀 HEAD 的內容，沒提交的檔回 null', () => {
+  expect(parseChibiNames(null)).toEqual([]);
+  expect(parseChibiNames('not json')).toEqual([]);
+  expect(parseChibiNames(JSON.stringify({ chibis: ['v2_sd_01ichika_school', 7] }))).toEqual(['v2_sd_01ichika_school']);
+  expect(committedFile('package.json')).toContain('"name"');
+  expect(committedFile('assets/nope.json')).toBeNull();
 });
