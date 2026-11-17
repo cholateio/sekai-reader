@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
+import { publishableGate } from './scripts/check_publishable';
 
 const BOARD_DIR = 'storyboards';
 const BOARD_FILE = /^[a-z0-9_]+\.json$/;
@@ -58,7 +59,7 @@ function staticFiles(): Plugin {
 export default defineConfig({
   // Reader runtime only sees assets/public (git-ignored); raw .asset files stay out of dist.
   publicDir: 'assets/public',
-  plugins: [storyboards(), staticFiles()],
+  plugins: [storyboards(), staticFiles(), publishableGate()],
   test: {
     environment: 'jsdom',
     include: ['tests/**/*.test.ts'],

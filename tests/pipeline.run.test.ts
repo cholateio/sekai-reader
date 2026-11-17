@@ -8,7 +8,7 @@ import { loadState, type IndexEvent, type IndexFile, type PipelineState } from '
 import { syntheticEpisode } from './helpers';
 
 const ev = (id: number, date: string, n = 2): IndexEvent => ({
-  id, name: `E${id}`, date, bundle: `b${id}`,
+  id, name: `E${id}`, date, bundle: `b${id}`, closed: '2026-10-31T00:00:00Z',
   eps: Array.from({ length: n }, (_, i) => [i + 1, `t${i + 1}`, `event_${id}_0${i + 1}`] as [number, string, string]),
 });
 const NOW = new Date('2026-11-04T10:00:00Z');
@@ -511,4 +511,17 @@ test('siteFingerprint：檔案內容、新增檔與路徑都會改變指紋，�
   fs.rmSync(path.join(dir, 'src', 'app', 'b.ts'));
   fs.renameSync(path.join(dir, 'src', 'app', 'a.ts'), path.join(dir, 'src', 'app', 'c.ts'));
   expect(siteFingerprint(dir)).not.toBe(f1);
+});
+
+test('plan：進行中的新活動會寫進狀態，但不算有事做（活動結束後才抓）', async () => {
+  const t = await idleSetup();
+  const idx = JSON.parse(fs.readFileSync(t.deps.indexPath, 'utf8')) as IndexFile;
+  idx.events.unshift({ ...ev(174, '2026-11-01'), closed: '2026-11-09T06:59:00Z' });
+  fs.writeFileSync(t.deps.indexPath, JSON.stringify(idx));
+  const r = await runOnce(t.deps, { phase: 'plan' });
+  expect(t.state().events['174']).toMatchObject({ kind: 'new', assets: 'pending' });
+  expect(r.work).toEqual([]);
+  const f = await runOnce(t.deps, { phase: 'fetch' });
+  expect(f.picked).toBeUndefined();
+  expect(t.fetched).toEqual([]);
 });

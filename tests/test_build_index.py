@@ -10,7 +10,7 @@ NOW = 100 * DAY
 
 
 def ev(i, start):
-    return {'id': i, 'name': 'E%d' % i, 'unit': 'light_sound', 'eventType': 'marathon', 'startAt': start}
+    return {'id': i, 'name': 'E%d' % i, 'unit': 'light_sound', 'eventType': 'marathon', 'startAt': start, 'closedAt': start + 9 * DAY}
 
 
 def story(i):
@@ -31,6 +31,13 @@ class BuildRowsTest(unittest.TestCase):
         self.assertEqual(rows[0]['eps'], [[1, 'a', 'event_12_01'], [2, 'b', 'event_12_02']])
         self.assertEqual(rows[0]['color'], '#33aaee')
         self.assertFalse(any(r['jp'] for r in rows))
+
+    def test_rows_carry_close_time_or_none(self):
+        rows = bi.build_rows(EVENTS, STORIES, UNITS, now_ms=NOW, jp_ids=set(), event_chars={})
+        self.assertEqual(rows[0]['closed'], '1970-03-01T00:00:00Z')
+        no_close = {**EVENTS, 12: {k: v for k, v in EVENTS[12].items() if k != 'closedAt'}}
+        rows = bi.build_rows(no_close, STORIES, UNITS, now_ms=NOW, jp_ids=set(), event_chars={})
+        self.assertIsNone(rows[0]['closed'])
 
     def test_jp_flag_comes_from_state(self):
         self.assertEqual(bi.jp_ids_from_state({'events': {'181': {'assets': 'jp'}, '173': {'assets': 'done'}}}), {181})

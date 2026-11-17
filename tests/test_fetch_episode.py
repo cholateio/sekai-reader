@@ -1,7 +1,9 @@
+import calendar
 import json
 import os
 import sys
 import tempfile
+import time
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
@@ -150,7 +152,7 @@ class EventTest(unittest.TestCase):
     EP1 = {'FirstBackground': 'bg_a', 'TalkData': [talk('一歌', '今天一起練習吧。')], 'Snippets': [{'Action': 1, 'ReferenceIndex': 0}]}
     EP2 = {'FirstBackground': 'bg_a', 'TalkData': [talk('咲希', '好啊，放學後見。')], 'Snippets': [{'Action': 1, 'ReferenceIndex': 0}]}
     JP = {'FirstBackground': 'bg_a', 'TalkData': [talk('一歌', 'きょうはいっしょにれんしゅうしよう')], 'Snippets': [{'Action': 1, 'ReferenceIndex': 0}]}
-    EVENT = {'id': 9, 'bundle': 'b', 'eps': [[1, 't1', 'event_9_01'], [2, 't2', 'event_9_02']]}
+    EVENT = {'id': 9, 'bundle': 'b', 'eps': [[1, 't1', 'event_9_01'], [2, 't2', 'event_9_02']], 'closed': '2026-01-01T00:00:00Z'}
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -327,7 +329,7 @@ class ScriptValidityTest(unittest.TestCase):
     JP = EventTest.JP
     E9 = {'id': 9, 'bundle': 'b9', 'eps': [[1, 't', 'event_9_01'], [2, 't', 'event_9_02']]}
     E8 = {'id': 8, 'bundle': 'b8', 'eps': [[1, 't', 'event_8_01'], [2, 't', 'event_8_02'], [3, 't', 'event_8_03']]}
-    E7 = {'id': 7, 'bundle': 'b7', 'eps': [[1, 't', 'event_7_01']]}
+    E7 = {'id': 7, 'bundle': 'b7', 'eps': [[1, 't', 'event_7_01']], 'closed': '2026-01-01T00:00:00Z'}
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -434,6 +436,57 @@ class ScriptValidityTest(unittest.TestCase):
         from contextlib import redirect_stderr
         with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
             fe.main(['--scripts-for', '9'])
+
+
+class ClosedGateTest(unittest.TestCase):
+    """AGENTS.md: no story of an event still running on the TC server, by hand either."""
+    CLOSE = '2026-11-20T06:59:00Z'
+    EV = {'id': 185, 'bundle': 'b185', 'eps': [[1, 't', 'event_185_01']], 'closed': CLOSE}
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.idx = os.path.join(self.tmp.name, 'index.json')
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def write(self, ev):
+        with open(self.idx, 'w', encoding='utf-8') as f:
+            json.dump({'events': [ev], 'chars': PlanTest.CHARS}, f)
+
+    def call(self, argv, now):
+        import io
+        from contextlib import redirect_stdout
+        opener = FakeOpener()
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = fe.main(argv + ['--index', self.idx, '--out', os.path.join(self.tmp.name, 'raw')],
+                           opener=opener, sleep=lambda s: None, log=lambda *a: None, now=now)
+        return code, opener.requests, buf.getvalue()
+
+    def test_is_closed_boundary_and_fail_closed(self):
+        t = calendar.timegm(time.strptime(self.CLOSE, '%Y-%m-%dT%H:%M:%SZ'))
+        self.assertFalse(fe.is_closed(self.EV, t - 1))
+        self.assertTrue(fe.is_closed(self.EV, t))
+        for bad in [None, '', '2026-11-20', 'soon', 5]:
+            self.assertFalse(fe.is_closed(dict(self.EV, closed=bad), t + 10 ** 9), bad)
+        self.assertFalse(fe.is_closed({'id': 1}, t + 10 ** 9))
+
+    def test_cli_event_and_sid_refuse_a_running_event_without_any_request(self):
+        t = calendar.timegm(time.strptime(self.CLOSE, '%Y-%m-%dT%H:%M:%SZ'))
+        for ev in [self.EV, dict(self.EV, closed=None), {k: v for k, v in self.EV.items() if k != 'closed'}]:
+            self.write(ev)
+            code, reqs, out = self.call(['--event', '185'], t - 60)
+            self.assertEqual((code, reqs), (1, []))
+            self.assertEqual(json.loads(out.strip().splitlines()[-1])['status'], 'error')
+            code, reqs, _ = self.call(['event_185_01'], t - 60)
+            self.assertEqual((code, reqs), (1, []))
+
+    def test_cli_event_fetches_after_close(self):
+        self.write(self.EV)
+        t = calendar.timegm(time.strptime(self.CLOSE, '%Y-%m-%dT%H:%M:%SZ'))
+        _, reqs, _ = self.call(['--event', '185'], t)
+        self.assertGreater(len(reqs), 0)
 
 
 WEBP = b'RIFF\x10\x00\x00\x00WEBPVP8 ' + b'\x00' * 8

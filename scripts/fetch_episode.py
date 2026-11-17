@@ -11,10 +11,13 @@ pipeline or by a person; never loop this over many events.
 missing = a script is not on the mirror yet (HTTP 404); the pipeline rechecks it daily.
 A Japanese first episode (kana ratio > 0.05) reports jp and keeps no script.
 A background the mirror lacks (404) is recorded as bg/<id>.missing and the episode is still built.
+--event and SID refuse, before any request, an event whose TC close time (`closed` in the index) is missing or
+still ahead: the official fan-work guideline bans posting full episodes of an ongoing event (AGENTS.md).
 --banners (spec 2026-11-07, owner-approved): the home banner only, at most 4 events, one request each, 5 s apart,
 and only events the pipeline state (--state) lists with assets done and no banner record.
 """
 import argparse
+import calendar
 import json
 import os
 import re
@@ -75,6 +78,17 @@ def sd_url(char_id):
 
 def banner_url(bundle):
     return '%s/sekai-tc-assets/home/banner/%s/%s.webp' % (BASE, bundle, bundle)
+
+
+def is_closed(event, now):
+    """True once the event's TC close time has passed; a missing or unparsable time counts as still running."""
+    closed = event.get('closed')
+    if not isinstance(closed, str):
+        return False
+    try:
+        return calendar.timegm(time.strptime(closed, '%Y-%m-%dT%H:%M:%SZ')) <= now
+    except ValueError:
+        return False
 
 
 def find_bundle(index, sid):
@@ -308,7 +322,7 @@ def run(sid, index, out, fetcher):
     _episode_assets(_load(asset_path), index, out, fetcher)
 
 
-def main(argv=None, opener=None, sleep=time.sleep, log=print, max_requests=40):
+def main(argv=None, opener=None, sleep=time.sleep, log=print, max_requests=40, now=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter,
                                  usage='%(prog)s (--event ID | --banners ID,ID | SID) [--index PATH] [--out DIR]')
     target = ap.add_mutually_exclusive_group(required=True)
@@ -320,22 +334,29 @@ def main(argv=None, opener=None, sleep=time.sleep, log=print, max_requests=40):
     ap.add_argument('--state', default='data/pipeline-state.json', help='pipeline state; --banners only')
     ap.add_argument('--out', default='assets/raw')
     args = ap.parse_args(argv)
+    now = time.time() if now is None else now
     if args.banners is not None:
         return _main_banners(args, opener, sleep, log)
     if args.event is not None:
-        return _main_event(args, opener, sleep, log, max_requests)
+        return _main_event(args, opener, sleep, log, max_requests, now)
     index = _load(args.index)
+    event = next((e for e in index['events'] if any(ep[2] == args.sid for ep in e['eps'])), None)
+    if event is not None and not is_closed(event, now):
+        print('event %d has not closed on the TC server yet; not fetching %s' % (event['id'], args.sid))
+        return 1
     fetcher = Fetcher(opener or urllib.request.urlopen, max_requests=max_requests, sleep=sleep, log=log)
     run(args.sid, index, args.out, fetcher)
     print('requests made:', fetcher.count)
     return EXIT['partial'] if fetcher.exhausted else 0
 
 
-def _main_event(args, opener, sleep, log, max_requests):
+def _main_event(args, opener, sleep, log, max_requests, now):
     fetcher = Fetcher(opener or urllib.request.urlopen, max_requests=max_requests, sleep=sleep, log=log)
     try:
         index = _load(args.index)
         event = next(e for e in index['events'] if e['id'] == args.event)
+        if not is_closed(event, now):
+            raise ValueError('event %d has not closed on the TC server yet' % event['id'])
         r = run_event(event, index, args.out, fetcher)
     except Exception as e:  # noqa: BLE001 - reported to the pipeline as a JSON line
         print(json.dumps({'status': 'error', 'requests': fetcher.count, 'sids': [], 'error': '%s: %s' % (type(e).__name__, e)}))

@@ -23,7 +23,7 @@ A static web reader that turns Project SEKAI Traditional Chinese event stories i
 - `storyboards/` — AI-director storyboards, line numbers only (committed)
 - `static/` — committed site files served at the root by the plugin in `vite.config.ts`: `favicon.svg`, `apple-touch-icon.png`, `og.png` (share preview; original art, regenerate with `scripts/build_share_images.ts`)
 - `prompts/` — storyboard director prompt
-- `scripts/` — `build_episode.ts`, `build_banners.ts` (event banners, two sizes), `manifest.ts` (shared `manifest.json` writer), `fetch_episode.py`, `check_layout.ts`, `build_share_images.ts`, `build_index.py`, `compact_script.py`
+- `scripts/` — `build_episode.ts`, `build_banners.ts` (event banners, two sizes), `manifest.ts` (shared `manifest.json` writer), `fetch_episode.py`, `check_layout.ts`, `build_share_images.ts`, `build_index.py`, `compact_script.py`, `check_publishable.ts` (Vite build gate: no episode of a running event)
 - `scripts/pipeline/` — hourly pipeline: `state.ts` (queue, spend), `director.ts` (storyboard batches), `run.ts` (phases), `commit.sh`, `setup.sh`, `setup-cron.sh`
 - `worker/` — Cloudflare Worker `sekai-reader-cron`: hourly cron that dispatches the pipeline workflow
 - `assets/` — git-ignored game assets: `raw/` inputs, `public/` reader files (Vite publicDir)
@@ -35,6 +35,7 @@ A static web reader that turns Project SEKAI Traditional Chinese event stories i
 - Game assets (`.asset` scripts, backgrounds, character images, and `dist/` which contains them) are never committed; they live only under the git-ignored `assets/`.
 - The reader never contacts Sekai-World at runtime, and no page may contain a `sekai.best` URL or a file picker for downloaded scripts.
 - Requests to storage.sekai.best go only through `scripts/fetch_episode.py`. One run fetches at most one event (its scripts, backgrounds and character images) within a 40-request budget, with at least 5 s between requests; runs are started only by the hourly pipeline (or a person, by hand), never in a loop; never write code that scans or enumerates Sekai-World. Exception, approved by the owner on 2026-11-07: after the queue, each hourly run may fetch the home banner only (`--banners`) of at most 4 events whose images are already fetched and that have no banner record yet, one request each, at least 5 s apart (and 5 s after the run's earlier requests); the list comes from the committed index and pipeline state, a 404 is recorded and never asked again.
+- An event's story is fetched and published only after the event has closed on the TC server (`closed` in the index, from the master data's `closedAt`); an event without a known close time counts as running. The official fan-work guideline bans posting full episodes of an ongoing event.
 - Storyboards contain structure only (line numbers, framing); dialogue text must never be written into a storyboard.
 - No full-panel halftone and no animated SVG filters in the comic (user-rejected noise; iOS performance).
 - Path-type constraints are mirrored in `kit.toml [protected]`; keep the two in sync (one glob per line).

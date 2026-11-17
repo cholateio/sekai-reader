@@ -8,7 +8,7 @@ import { validateStoryboard } from '../src/storyboard/validate';
 import { syntheticBoard, syntheticEpisode } from './helpers';
 
 const ev = (id: number, date: string, n: number): IndexEvent => ({
-  id, name: `E${id}`, date, bundle: `b${id}`,
+  id, name: `E${id}`, date, bundle: `b${id}`, closed: '2026-10-31T00:00:00Z',
   eps: Array.from({ length: n }, (_, i) => [i + 1, `t${i + 1}`, `event_${id}_0${i + 1}`] as [number, string, string]),
 });
 const INDEX: IndexFile = { events: [ev(174, '2026-10-20', 2), ev(173, '2026-10-01', 3)], built: '2026-11-04' };

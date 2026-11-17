@@ -32,7 +32,12 @@ export interface PipelineState {
   /** build_banners failed as a whole; kept until a run's build succeeds so the plan step does not call that run idle. */
   bannerBuildFailed?: boolean;
 }
-export interface IndexEvent { id: number; name: string; date: string; bundle: string; eps: [number, string, string][] }
+export interface IndexEvent {
+  id: number; name: string; date: string; bundle: string; eps: [number, string, string][];
+  /** closedAt on the TC server (ISO). Stories are fetched only after it: the official fan-work guideline bans
+   *  posting full episodes of an ongoing event. Null or absent counts as still running. */
+  closed?: string | null;
+}
 export interface IndexFile { events: IndexEvent[]; built: string }
 export type FetchStatus = 'done' | 'partial' | 'jp' | 'missing' | 'error';
 
@@ -80,20 +85,31 @@ export function syncIndex(s: PipelineState, index: IndexFile, _now: Date): numbe
 const byNewest = (index: IndexFile) =>
   [...index.events].sort((a, b) => (a.date === b.date ? b.id - a.id : a.date < b.date ? 1 : -1));
 
+/** Only build_index.py's exact UTC form counts; anything else (date only, no Z, impossible dates) is still running. */
+export function isClosed(e: IndexEvent, now: Date): boolean {
+  const c = e.closed;
+  if (typeof c !== 'string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/.test(c)) return false;
+  const t = Date.parse(c);
+  return Number.isFinite(t) && new Date(t).toISOString() === c.replace('Z', '.000Z') && t <= now.getTime();
+}
+
+/** Only events that have closed are eligible, whatever the reason (forced included). */
 export function pickEvent(
-  s: PipelineState, index: IndexFile, o: { backfill: boolean; today: string; forced?: number },
+  s: PipelineState, index: IndexFile, o: { backfill: boolean; now: Date; forced?: number },
 ): { id: number; reason: 'forced' | 'new' | 'resume' | 'jp-recheck' | 'backfill' } | null {
+  const today = dayOf(o.now);
   if (o.forced !== undefined) {
     const e = s.events[String(o.forced)];
-    return e && e.assets !== 'done' ? { id: o.forced, reason: 'forced' } : null;
+    const ev = index.events.find(x => x.id === o.forced);
+    return e && ev && isClosed(ev, o.now) && e.assets !== 'done' ? { id: o.forced, reason: 'forced' } : null;
   }
-  const ordered = byNewest(index).map(e => ({ id: e.id, st: s.events[String(e.id)] })).filter(x => x.st);
+  const ordered = byNewest(index).filter(e => isClosed(e, o.now)).map(e => ({ id: e.id, st: s.events[String(e.id)] })).filter(x => x.st);
   const fresh = (st: EventState) => st.assets === 'pending' && st.failures < MAX_FAILURES;
   const pick = ordered.find(x => x.st.kind === 'new' && fresh(x.st));
   if (pick) return { id: pick.id, reason: 'new' };
   const resume = ordered.find(x => x.st.partialAt && fresh(x.st));
   if (resume) return { id: resume.id, reason: 'resume' };
-  const jp = ordered.find(x => (x.st.assets === 'jp' || x.st.assets === 'missing') && (x.st.jpCheckedAt ?? '').slice(0, 10) !== o.today);
+  const jp = ordered.find(x => (x.st.assets === 'jp' || x.st.assets === 'missing') && (x.st.jpCheckedAt ?? '').slice(0, 10) !== today);
   if (jp) return { id: jp.id, reason: 'jp-recheck' };
   if (!o.backfill) return null;
   const old = ordered.find(x => x.st.kind === 'old' && fresh(x.st));

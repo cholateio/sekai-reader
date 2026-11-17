@@ -3,12 +3,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, expect, test, vi } from 'vitest';
 import {
-  addSpend, authorizeDirect, bannerLane, dayOf, dueEpisodes, loadState, pickEvent, recordBanner, recordFetch, rememberBatch, saveState, seedState,
+  addSpend, authorizeDirect, bannerLane, dayOf, dueEpisodes, isClosed, loadState, pickEvent, recordBanner, recordFetch, rememberBatch, saveState, seedState,
   spentToday, syncIndex, type IndexEvent, type IndexFile,
 } from '../scripts/pipeline/state';
 
 const ev = (id: number, date: string, n = 2): IndexEvent => ({
-  id, name: `E${id}`, date, bundle: `b${id}`,
+  id, name: `E${id}`, date, bundle: `b${id}`, closed: '2026-10-31T00:00:00Z',
   eps: Array.from({ length: n }, (_, i) => [i + 1, `t${i + 1}`, `event_${id}_0${i + 1}`] as [number, string, string]),
 });
 const index = (...events: IndexEvent[]): IndexFile => ({ events, built: '2026-11-04' });
@@ -46,7 +46,7 @@ test('pickEvent 順序：forced > new > jp-recheck > backfill', () => {
   syncIndex(s, idx, NOW);
   s.events['171'].assets = 'jp';
   s.events['171'].jpCheckedAt = '2026-11-03T00:00:00Z';
-  const o = { backfill: true, today: '2026-11-04' };
+  const o = { backfill: true, now: new Date('2026-11-04T12:00:00Z') };
   expect(pickEvent(s, idx, { ...o, forced: 172 })).toEqual({ id: 172, reason: 'forced' });
   expect(pickEvent(s, idx, o)).toEqual({ id: 175, reason: 'new' });
   s.events['175'].assets = 'done';
@@ -59,30 +59,30 @@ test('pickEvent 順序：forced > new > jp-recheck > backfill', () => {
 test('pickEvent forced 已 done 的期回 null', () => {
   const s = seeded();
   s.events['172'].assets = 'done';
-  expect(pickEvent(s, base, { backfill: true, today: '2026-11-04', forced: 172 })).toBeNull();
+  expect(pickEvent(s, base, { backfill: true, now: new Date('2026-11-04T12:00:00Z'), forced: 172 })).toBeNull();
 });
 
 test('pickEvent 在 backfill=false 時不挑舊活動', () => {
-  expect(pickEvent(seeded(), base, { backfill: false, today: '2026-11-04' })).toBeNull();
+  expect(pickEvent(seeded(), base, { backfill: false, now: new Date('2026-11-04T12:00:00Z') })).toBeNull();
 });
 
 test('pickEvent 跳過 failures>=3 與 assets=done', () => {
   const s = seeded();
   s.events['173'].assets = 'done';
   s.events['172'].failures = 3;
-  expect(pickEvent(s, base, { backfill: true, today: '2026-11-04' })).toEqual({ id: 171, reason: 'backfill' });
+  expect(pickEvent(s, base, { backfill: true, now: new Date('2026-11-04T12:00:00Z') })).toEqual({ id: 171, reason: 'backfill' });
   const idx = index(ev(174, '2026-10-20'), ...base.events);
   syncIndex(s, idx, NOW);
   s.events['174'].failures = 3;
-  expect(pickEvent(s, idx, { backfill: false, today: '2026-11-04' })).toBeNull();
+  expect(pickEvent(s, idx, { backfill: false, now: new Date('2026-11-04T12:00:00Z') })).toBeNull();
 });
 
 test('pickEvent 當天查過的 jp 活動不再挑', () => {
   const s = seeded();
   s.events['172'].assets = 'jp';
   s.events['172'].jpCheckedAt = '2026-11-04T00:30:00Z';
-  expect(pickEvent(s, base, { backfill: false, today: '2026-11-04' })).toBeNull();
-  expect(pickEvent(s, base, { backfill: false, today: '2026-11-05' })).toEqual({ id: 172, reason: 'jp-recheck' });
+  expect(pickEvent(s, base, { backfill: false, now: new Date('2026-11-04T12:00:00Z') })).toBeNull();
+  expect(pickEvent(s, base, { backfill: false, now: new Date('2026-11-05T12:00:00Z') })).toEqual({ id: 172, reason: 'jp-recheck' });
 });
 
 test('recordFetch done 清零 failures、新活動各話轉 none、舊活動維持 manual', () => {
@@ -134,11 +134,11 @@ test('recordFetch missing：assets missing、記查核時間、failures 歸零�
 test('pickEvent 把 missing 和 jp 一樣每天重查一次，失敗三次的期可用 forced 救回', () => {
   const s = seeded();
   recordFetch(s, 172, { status: 'missing' }, NOW);
-  expect(pickEvent(s, base, { backfill: false, today: '2026-11-04' })).toBeNull();
-  expect(pickEvent(s, base, { backfill: false, today: '2026-11-05' })).toEqual({ id: 172, reason: 'jp-recheck' });
+  expect(pickEvent(s, base, { backfill: false, now: new Date('2026-11-04T12:00:00Z') })).toBeNull();
+  expect(pickEvent(s, base, { backfill: false, now: new Date('2026-11-05T12:00:00Z') })).toEqual({ id: 172, reason: 'jp-recheck' });
   for (let i = 0; i < 3; i++) recordFetch(s, 171, { status: 'error', error: 'x' }, NOW);
   expect(s.events['171'].assets).toBe('error');
-  expect(pickEvent(s, base, { backfill: true, today: '2026-11-05', forced: 171 })).toEqual({ id: 171, reason: 'forced' });
+  expect(pickEvent(s, base, { backfill: true, now: new Date('2026-11-05T12:00:00Z'), forced: 171 })).toEqual({ id: 171, reason: 'forced' });
   recordFetch(s, 171, { status: 'jp' }, NOW);
   expect(s.events['171']).toMatchObject({ assets: 'jp', failures: 0 });
 });
@@ -236,21 +236,21 @@ test('partial 的舊活動在 backfill 關閉時下一小時仍續抓（resume �
   const s = seeded();
   recordFetch(s, 172, { status: 'partial' }, NOW);
   expect(s.events['172'].partialAt).toBe(NOW.toISOString());
-  expect(pickEvent(s, base, { backfill: false, today: '2026-11-04' })).toEqual({ id: 172, reason: 'resume' });
+  expect(pickEvent(s, base, { backfill: false, now: new Date('2026-11-04T12:00:00Z') })).toEqual({ id: 172, reason: 'resume' });
   const idx = index(ev(174, '2026-10-20'), ...base.events);
   syncIndex(s, idx, NOW);
-  expect(pickEvent(s, idx, { backfill: false, today: '2026-11-04' })).toEqual({ id: 174, reason: 'new' });
+  expect(pickEvent(s, idx, { backfill: false, now: new Date('2026-11-04T12:00:00Z') })).toEqual({ id: 174, reason: 'new' });
   recordFetch(s, 172, { status: 'done' }, NOW);
   expect(s.events['172'].partialAt).toBeUndefined();
   s.events['174'].assets = 'done';
-  expect(pickEvent(s, idx, { backfill: false, today: '2026-11-04' })).toBeNull();
+  expect(pickEvent(s, idx, { backfill: false, now: new Date('2026-11-04T12:00:00Z') })).toBeNull();
 });
 
 test('resume 也跳過 failures>=3', () => {
   const s = seeded();
   recordFetch(s, 172, { status: 'partial' }, NOW);
   s.events['172'].failures = 3;
-  expect(pickEvent(s, base, { backfill: false, today: '2026-11-04' })).toBeNull();
+  expect(pickEvent(s, base, { backfill: false, now: new Date('2026-11-04T12:00:00Z') })).toBeNull();
 });
 
 test('authorizeDirect 指名的期把 fallback 的話重新排隊並歸零 tries；newest 不碰 fallback', () => {
@@ -302,4 +302,32 @@ test('recordBanner：done 觸發部署，404 記 missing，其他錯誤不記狀
   expect(s.events['173'].banner).toBe('done');
   expect(s.pendingDeploy).toBe(true);
   expect(() => recordBanner(s, 999, 'done')).toThrow();
+});
+
+test('pickEvent 只挑台服已結束的活動：進行中、沒有結束時間的都不抓，手動指名也一樣', () => {
+  const live = { ...ev(174, '2026-11-01'), closed: '2026-11-10T06:59:00Z' };
+  const unknown = { ...ev(175, '2026-11-02'), closed: null };
+  const idx = index(unknown, live, ev(173, '2026-10-01', 8));
+  const s = seedState(idx, [], NOW);
+  for (const id of ['174', '175']) s.events[id].kind = 'new';
+  const before = new Date('2026-11-10T06:58:59Z');
+  const after = new Date('2026-11-10T06:59:00Z');
+  expect(pickEvent(s, idx, { backfill: true, now: before })).toEqual({ id: 173, reason: 'backfill' });
+  expect(pickEvent(s, idx, { backfill: false, now: before })).toBeNull();
+  expect(pickEvent(s, idx, { backfill: false, now: before, forced: 174 })).toBeNull();
+  expect(pickEvent(s, idx, { backfill: false, now: after })).toEqual({ id: 174, reason: 'new' });
+  expect(pickEvent(s, idx, { backfill: false, now: after, forced: 174 })).toEqual({ id: 174, reason: 'forced' });
+  expect(pickEvent(s, idx, { backfill: false, now: after, forced: 175 })).toBeNull();
+  Object.assign(s.events['174'], { assets: 'missing', jpCheckedAt: '2026-11-01T00:00:00Z' });
+  expect(pickEvent(s, idx, { backfill: false, now: before })).toBeNull();
+  expect(pickEvent(s, idx, { backfill: false, now: after })).toEqual({ id: 174, reason: 'jp-recheck' });
+});
+
+test('isClosed 只認 build_index 的精確 UTC 格式；只有日期、沒有 Z、不存在的日期都當進行中', () => {
+  const later = new Date('2030-01-01T00:00:00Z');
+  const at = (closed: unknown) => isClosed({ ...ev(1, '2026-01-01'), closed: closed as string }, later);
+  expect(at('2026-11-20T06:59:00Z')).toBe(true);
+  for (const bad of ['2026-11-20', '2026-11-20T06:59:00', '2026-11-20T06:59:00.000Z', '2026-02-30T00:00:00Z', '2026-11-20T24:00:00Z', ' 2026-11-20T06:59:00Z', null, undefined, 5])
+    expect(at(bad), String(bad)).toBe(false);
+  expect(isClosed({ ...ev(1, '2026-01-01'), closed: '2026-11-20T06:59:00Z' }, new Date('2026-11-20T06:58:59Z'))).toBe(false);
 });

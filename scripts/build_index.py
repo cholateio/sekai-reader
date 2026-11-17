@@ -75,6 +75,8 @@ def build_rows(events, stories, units, now_ms, jp_ids, event_chars, chars=()):
             "unit": event_unit(e, event_chars.get(e["id"], []), unit_of_char, first_tagged),
             "type": e["eventType"],
             "date": time.strftime("%Y-%m-%d", time.gmtime(e["startAt"] / 1000)),
+            # The pipeline publishes a story only after this (official guideline: no full episodes of an ongoing event).
+            "closed": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(e["closedAt"] / 1000)) if e.get("closedAt") else None,
             "bundle": s["assetbundleName"],
             "color": banner["colorCode"] if banner else None,
             "jp": e["id"] in jp_ids,

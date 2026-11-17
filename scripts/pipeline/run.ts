@@ -122,10 +122,10 @@ export async function runOnce(d: RunDeps, o: RunOptions): Promise<RunSummary> {
  * An idle run (no reasons) skips both R2 syncs, both phases and the deploy, so whatever they would do must show up
  * here. Not covered: reconcile adopting a batch lost by a crashed runner waits for the next run with work.
  */
-export function workReasons(s: PipelineState, index: IndexFile, o: RunOptions, env: RunDeps['env'], today: string): string[] {
+export function workReasons(s: PipelineState, index: IndexFile, o: RunOptions, env: RunDeps['env'], now: Date): string[] {
   const why: string[] = [];
   if (o.event !== undefined || (o.direct ?? 0) > 0) why.push('manual inputs');
-  const picked = pickEvent(s, index, { backfill: env.backfill, today, forced: o.event });
+  const picked = pickEvent(s, index, { backfill: env.backfill, now, forced: o.event });
   if (picked) why.push(`event ${picked.id} (${picked.reason})`);
   if (bannerLane(s, index).length) why.push('banners due');
   if (s.pendingDeploy) why.push('deploy pending');
@@ -143,7 +143,7 @@ function planPhase(d: RunDeps, o: RunOptions, s: PipelineState, index: IndexFile
     s.pendingDeploy = true;
     d.log('site sources changed since the last deploy');
   }
-  sum.work = workReasons(s, index, o, d.env, dayOf(d.now()));
+  sum.work = workReasons(s, index, o, d.env, d.now());
   d.log(sum.work.length ? `work: ${sum.work.join('; ')}` : 'idle: nothing to fetch, direct or deploy');
 }
 
@@ -151,7 +151,7 @@ async function fetchPhase(d: RunDeps, o: RunOptions, s: PipelineState, index: In
   const now = d.now();
   const added = syncIndex(s, index, now);
   if (added.length) d.log(`new events: ${added.join(', ')}`);
-  const picked = pickEvent(s, index, { backfill: d.env.backfill, today: dayOf(now), forced: o.event });
+  const picked = pickEvent(s, index, { backfill: d.env.backfill, now, forced: o.event });
   if (picked) {
     sum.picked = picked;
     d.log(`event ${picked.id} (${picked.reason})`);
