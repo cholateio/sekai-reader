@@ -331,3 +331,18 @@ test('isClosed 只認 build_index 的精確 UTC 格式；只有日期、沒有 Z
     expect(at(bad), String(bad)).toBe(false);
   expect(isClosed({ ...ev(1, '2026-01-01'), closed: '2026-11-20T06:59:00Z' }, new Date('2026-11-20T06:58:59Z'))).toBe(false);
 });
+
+test('重查頻率：活動結束後第一週每天一次，之後每週一次', () => {
+  const idx = index({ ...ev(181, '2026-09-30'), closed: '2026-10-11T06:59:00Z' });
+  const s = seedState(idx, [], NOW);
+  Object.assign(s.events['181'], { assets: 'jp', jpCheckedAt: '2026-10-12T00:25:00Z' });
+  const at = (iso: string) => pickEvent(s, idx, { backfill: false, now: new Date(iso) });
+  expect(at('2026-10-12T23:00:00Z')).toBeNull();
+  expect(at('2026-10-13T00:25:00Z')).toEqual({ id: 181, reason: 'jp-recheck' });
+  s.events['181'].jpCheckedAt = '2026-10-17T01:00:00Z';
+  expect(at('2026-10-18T01:00:00Z')).toBeNull();
+  expect(at('2026-10-23T01:00:00Z')).toBeNull();
+  expect(at('2026-10-24T01:00:00Z')).toEqual({ id: 181, reason: 'jp-recheck' });
+  delete s.events['181'].jpCheckedAt;
+  expect(at('2026-11-17T01:00:00Z')).toEqual({ id: 181, reason: 'jp-recheck' });
+});

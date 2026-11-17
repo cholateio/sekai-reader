@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 
-/** missing = the mirror has no script for it yet (404); rechecked daily like jp. */
+/** missing = the mirror has no script for it yet (404); rechecked like jp (see recheckDue). */
 export type AssetStatus = 'pending' | 'jp' | 'missing' | 'done' | 'error';
 /** none = waiting to be sent (new event, authorized old event, or retry). */
 export type EpStatus = 'none' | 'manual' | 'batch' | 'done' | 'fallback';
@@ -8,7 +8,7 @@ export type EpStatus = 'none' | 'manual' | 'batch' | 'done' | 'fallback';
 export interface EpState { s: EpStatus; tries: number; err?: string }
 export interface EventState {
   kind: 'old' | 'new'; assets: AssetStatus; assetsAt?: string; failures: number; lastError?: string;
-  /** Last daily recheck of a jp or missing event. */
+  /** Last recheck of a jp or missing event. */
   jpCheckedAt?: string;
   /** Set when a fetch ran out of budget; the queue resumes it next hour whatever BACKFILL says. */
   partialAt?: string;
@@ -93,23 +93,34 @@ export function isClosed(e: IndexEvent, now: Date): boolean {
   return Number.isFinite(t) && new Date(t).toISOString() === c.replace('Z', '.000Z') && t <= now.getTime();
 }
 
+/** Daily for the first week after the event closes (the mirror usually catches up then), weekly after that. */
+export const RECHECK_DAILY_DAYS = 7;
+export const RECHECK_WEEKLY_GAP_DAYS = 7;
+const dayNo = (iso: string) => Math.floor(Date.parse(iso.slice(0, 10)) / 86400e3);
+function recheckDue(ev: IndexEvent, st: EventState, now: Date): boolean {
+  if (!st.jpCheckedAt) return true;
+  const today = dayNo(dayOf(now));
+  const since = today - dayNo(st.jpCheckedAt);
+  const sinceClose = today - dayNo(ev.closed as string);
+  return since >= (sinceClose < RECHECK_DAILY_DAYS ? 1 : RECHECK_WEEKLY_GAP_DAYS);
+}
+
 /** Only events that have closed are eligible, whatever the reason (forced included). */
 export function pickEvent(
   s: PipelineState, index: IndexFile, o: { backfill: boolean; now: Date; forced?: number },
 ): { id: number; reason: 'forced' | 'new' | 'resume' | 'jp-recheck' | 'backfill' } | null {
-  const today = dayOf(o.now);
   if (o.forced !== undefined) {
     const e = s.events[String(o.forced)];
     const ev = index.events.find(x => x.id === o.forced);
     return e && ev && isClosed(ev, o.now) && e.assets !== 'done' ? { id: o.forced, reason: 'forced' } : null;
   }
-  const ordered = byNewest(index).filter(e => isClosed(e, o.now)).map(e => ({ id: e.id, st: s.events[String(e.id)] })).filter(x => x.st);
+  const ordered = byNewest(index).filter(e => isClosed(e, o.now)).map(e => ({ ev: e, id: e.id, st: s.events[String(e.id)] })).filter(x => x.st);
   const fresh = (st: EventState) => st.assets === 'pending' && st.failures < MAX_FAILURES;
   const pick = ordered.find(x => x.st.kind === 'new' && fresh(x.st));
   if (pick) return { id: pick.id, reason: 'new' };
   const resume = ordered.find(x => x.st.partialAt && fresh(x.st));
   if (resume) return { id: resume.id, reason: 'resume' };
-  const jp = ordered.find(x => (x.st.assets === 'jp' || x.st.assets === 'missing') && (x.st.jpCheckedAt ?? '').slice(0, 10) !== today);
+  const jp = ordered.find(x => (x.st.assets === 'jp' || x.st.assets === 'missing') && recheckDue(x.ev, x.st, o.now));
   if (jp) return { id: jp.id, reason: 'jp-recheck' };
   if (!o.backfill) return null;
   const old = ordered.find(x => x.st.kind === 'old' && fresh(x.st));

@@ -8,7 +8,7 @@ Constraints (spec 2026-11-04): one event per run, at most 40 requests, >= 5 s be
 header, User-Agent names this project, existing files are never re-fetched. Started only by the hourly
 pipeline or by a person; never loop this over many events.
 --event prints a JSON result as its last line; exit codes: done 0, jp 3, partial 4, missing 5, error 1.
-missing = a script is not on the mirror yet (HTTP 404); the pipeline rechecks it daily.
+missing = a script is not on the mirror yet (HTTP 404); the pipeline rechecks it (daily the first week after the event closes, then weekly).
 A Japanese first episode (kana ratio > 0.05) reports jp and keeps no script.
 A background the mirror lacks (404) is recorded as bg/<id>.missing and the episode is still built.
 --event and SID refuse, before any request, an event whose TC close time (`closed` in the index) is missing or
