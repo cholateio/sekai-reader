@@ -8293,5 +8293,12 @@
  },
  "pendingDeploy": false,
  "promptVersion": "v4-caps",
- "deployedSite": "84de544d652efab8284fe5c5df4cc454311de903f7b0f116152a483571cd611e"
+ "deployedSite": "84de544d652efab8284fe5c5df4cc454311de903f7b0f116152a483571cd611e",
+ "chibiSkel": "done",
+ "chibi": {
+  "v2_sd_01ichika_casual": "done",
+  "v2_sd_01ichika_kakizome": "missing",
+  "v2_sd_01ichika_school": "done",
+  "v2_sd_02saki_casual": "done"
+ }
 }
