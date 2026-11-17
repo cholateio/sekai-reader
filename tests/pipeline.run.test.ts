@@ -241,6 +241,20 @@ test('fetch：missing 的新活動：記 missing、不計失敗、已抓到的�
   expect(t.state().events['174'].jpCheckedAt).toBe(NOW.toISOString());
 });
 
+test('fetch：每日重查仍是第一話 404（什麼都沒建）→ 不部署；後面話數 404 但前面有建 → 部署', async () => {
+  const none = setup({ fetch: () => ({ status: 'missing', requests: 1, sids: [] }) });
+  await runOnce(none.deps, { phase: 'fetch' });
+  none.addNew();
+  const r0 = await runOnce(none.deps, { phase: 'fetch' });
+  expect(r0.picked).toEqual({ id: 174, reason: 'new' });
+  expect(none.built).toEqual([]);
+  expect(r0.deploy).toBe(false);
+  const some = setup({ fetch: () => ({ status: 'missing', requests: 3, sids: ['event_174_01'] }) });
+  await runOnce(some.deps, { phase: 'fetch' });
+  some.addNew();
+  expect((await runOnce(some.deps, { phase: 'fetch' })).deploy).toBe(true);
+});
+
 test('fetchResultFromChild 對亂碼的最後一行回 error', () => {
   expect(fetchResultFromChild(0, 'Traceback').status).toBe('error');
   expect(fetchResultFromChild(0, JSON.stringify({ status: 'jp', requests: 1, sids: [] })).status).toBe('error');

@@ -121,11 +121,13 @@ test('recordFetch jp 記錄查核時間', () => {
   expect(s.pendingDeploy).toBe(false);
 });
 
-test('recordFetch missing：assets missing、記查核時間、failures 歸零、要求部署', () => {
+test('recordFetch missing：assets missing、記查核時間、failures 歸零；有建出話數才要求部署', () => {
   const s = seeded();
   s.events['172'].failures = 2;
-  recordFetch(s, 172, { status: 'missing' }, NOW);
+  recordFetch(s, 172, { status: 'missing', sids: [] }, NOW);
   expect(s.events['172']).toMatchObject({ assets: 'missing', failures: 0, jpCheckedAt: NOW.toISOString() });
+  expect(s.pendingDeploy).toBe(false);
+  recordFetch(s, 172, { status: 'missing', sids: ['event_172_01'] }, NOW);
   expect(s.pendingDeploy).toBe(true);
 });
 

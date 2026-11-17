@@ -100,8 +100,9 @@ export function pickEvent(
   return old ? { id: old.id, reason: 'backfill' } : null;
 }
 
-/** Callers pass done/partial only after every fetched episode built; a build failure is passed as error. */
-export function recordFetch(s: PipelineState, id: number, r: { status: FetchStatus; error?: string }, now: Date): void {
+/** Callers pass done/partial only after every fetched episode built; a build failure is passed as error.
+ *  sids: episodes built this run; a missing result deploys only when some were (a first-script 404 builds none). */
+export function recordFetch(s: PipelineState, id: number, r: { status: FetchStatus; error?: string; sids?: string[] }, now: Date): void {
   const e = s.events[String(id)];
   if (!e) throw new Error(`unknown event ${id}`);
   switch (r.status) {
@@ -128,7 +129,7 @@ export function recordFetch(s: PipelineState, id: number, r: { status: FetchStat
       e.assets = 'missing';
       e.jpCheckedAt = now.toISOString();
       e.failures = 0;
-      s.pendingDeploy = true;
+      if (r.sids?.length) s.pendingDeploy = true;
       break;
     case 'error':
       e.failures += 1;
