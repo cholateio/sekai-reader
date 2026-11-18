@@ -8355,7 +8355,11 @@
   "v2_sd_20mizuki_casual": "done",
   "v2_sd_20mizuki_kotatsu": "missing",
   "v2_sd_20mizuki_school": "done",
-  "v2_sd_21miku_akuno": "missing"
+  "v2_sd_21miku_akuno": "missing",
+  "v2_sd_21miku_band": "done",
+  "v2_sd_21miku_idol": "done",
+  "v2_sd_21miku_kakizome": "missing",
+  "v2_sd_21miku_kotatsu": "missing"
  },
  "episodeBuild": "ce76671fe8cc3e5dd8379884ba6b0985098b2738e9504a7bca1c1355798daef2"
 }
