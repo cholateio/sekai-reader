@@ -8387,7 +8387,13 @@
   "v2_sd_23len_street": "done",
   "v2_sd_23len_wonder": "done",
   "v2_sd_24luka_akuno": "missing",
-  "v2_sd_24luka_band": "done"
+  "v2_sd_24luka_band": "done",
+  "v2_sd_24luka_idol": "done",
+  "v2_sd_24luka_kakizome": "missing"
  },
- "episodeBuild": "0daab56acd8cd5e971044c51d13f0373e3a1bd87ac6856328747a47da4bfc7a6"
+ "episodeBuild": "0daab56acd8cd5e971044c51d13f0373e3a1bd87ac6856328747a47da4bfc7a6",
+ "chibiPausedDay": "2026-11-18",
+ "chibiFails": {
+  "v2_sd_24luka_kotatsu": 1
+ }
 }
