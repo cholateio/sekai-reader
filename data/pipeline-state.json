@@ -8291,7 +8291,7 @@
   "msgbatch_013NJy4b3mKWgMXEZGqJaVN3": "2026-11-07",
   "msgbatch_01N1wCTz7vqkyeq9JWGb6aYi": "2026-11-08"
  },
- "pendingDeploy": false,
+ "pendingDeploy": true,
  "promptVersion": "v4-caps",
  "deployedSite": "63085021280c54e520f6fe22fabdcc95ff16e6cdef60129e016868c1b77163c0",
  "chibiSkel": "done",
@@ -8343,6 +8343,11 @@
   "v2_sd_15nene_unit": "missing",
   "v2_sd_16rui_casual": "done",
   "v2_sd_16rui_school": "done",
-  "v2_sd_16rui_unit": "missing"
- }
+  "v2_sd_16rui_unit": "missing",
+  "v2_sd_17kanade_casual": "done",
+  "v2_sd_17kanade_kotatsu": "missing",
+  "v2_sd_18mafuyu_casual": "done",
+  "v2_sd_18mafuyu_kotatsu": "missing"
+ },
+ "episodeBuild": "ce76671fe8cc3e5dd8379884ba6b0985098b2738e9504a7bca1c1355798daef2"
 }
