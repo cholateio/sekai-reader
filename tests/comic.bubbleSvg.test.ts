@@ -163,3 +163,34 @@ test('吶喊框的內凹點貼在文字方框外緣（框外 3px 的矩形）上
     expect(onEdge).toBe(true);
   });
 });
+
+const bottom = g.h + g.pad + 3;
+test('aim：尾巴從最靠近角色的底邊出發，斜向角色，長度有上限', () => {
+  const [b1, tip, b2] = pairs(tailPath('l', g, { x: 180, y: bottom + 80 })!);
+  expect((b1[0] + b2[0]) / 2).toBeCloseTo(180);
+  expect(tip[1] - bottom).toBeGreaterThanOrEqual(12);
+  expect(tip[1] - bottom).toBeLessThanOrEqual(34);
+  // Figure far to the right of the bubble: the base stops inside the edge and the tip leans toward the figure.
+  const [l1, tip2, l2] = pairs(tailPath('l', g, { x: 400, y: bottom + 40 })!);
+  const bx = (l1[0] + l2[0]) / 2;
+  expect(bx).toBeLessThanOrEqual(g.w + g.pad + 3 - 26);
+  expect(tip2[0]).toBeGreaterThan(bx);
+  expect(tip2[1] - bottom).toBeGreaterThanOrEqual(12);
+});
+test('aim：角色不在對話框下方（特寫格在旁邊）就用原本的角落尾巴；無尾巴形狀不畫', () => {
+  expect(tailPath('l', g, { x: -40, y: bottom })).toBe(tailPath('l', g));
+  expect(tailPath('none', g, { x: 100, y: bottom + 60 })).toBeNull();
+});
+test('aim：雲朵的小圓點朝角色方向排', () => {
+  const svg = svgEl();
+  drawBubble(svg, 'cloud', 'l', g, { ...opts, aim: { x: 220, y: bottom + 60 } });
+  const dots = [...svg.querySelectorAll('circle')].slice(-2).map(c => [Number(c.getAttribute('cx')), Number(c.getAttribute('cy'))]);
+  expect(dots[1][0]).toBeGreaterThan(dots[0][0]);
+  expect(dots[1][1]).toBeGreaterThan(dots[0][1]);
+});
+test('aim：下面緊接著另一個框時，尾巴只伸到 room 為止（至少保留原本的 12px）', () => {
+  const tipY = (room?: number) => pairs(tailPath('l', g, { x: 100, y: bottom + 200, room })!)[1][1] - bottom;
+  expect(tipY()).toBeCloseTo(34);
+  expect(tipY(20)).toBeCloseTo(20);
+  expect(tipY(4)).toBeCloseTo(12);
+});

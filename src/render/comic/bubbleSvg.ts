@@ -3,11 +3,16 @@ import type { BubbleShape } from '../../storyboard/types';
 export type Tail = 'l' | 'r' | 'c' | 'none';
 /** w/h = text box size; pad = how far the SVG canvas extends past the text box on every side. */
 export interface BubbleGeom { w: number; h: number; pad: number }
-export interface DrawOpts { seed: number; stroke: string; radius: number; double?: boolean }
+/** The speaker's figure in canvas coordinates; a tail then points at it instead of at a fixed corner. `room` caps how
+ *  far the tip may drop below the bubble (the next stacked bubble starts there). */
+export interface Aim { x: number; y: number; room?: number }
+export interface DrawOpts { seed: number; stroke: string; radius: number; double?: boolean; aim?: Aim }
 
 const NS = 'http://www.w3.org/2000/svg';
 const INK_W = 2.5;
 const TAIL_DROP = 12;
+/** Longest aimed tail: stacked bubbles sit close, so a longer one would run under the next bubble. */
+const TAIL_MAX = 34;
 const PHONE_FILL = '#eef1f6';
 const DEFAULT_RADIUS = 18;
 
@@ -95,9 +100,36 @@ export function cloudCircles(g: BubbleGeom, rnd: () => number): { cx: number; cy
   });
 }
 
-export function tailPath(tail: Tail, g: BubbleGeom): string | null {
+/**
+ * Where an aimed tail leaves the bottom edge (bx) and its unit direction, or null when the figure is not below the
+ * bubble (a close-up figure beside it): the fixed corner tail is used then.
+ */
+export function aimedTail(g: BubbleGeom, aim: Aim | undefined): { bx: number; ux: number; uy: number; len: number } | null {
+  const { x0, x1, y1 } = frame(g);
+  if (!aim || aim.y < y1 + TAIL_DROP) return null;
+  const lo = x0 + 26, hi = Math.max(lo, x1 - 26);
+  const bx = Math.min(hi, Math.max(lo, aim.x));
+  const dx = aim.x - bx, dy = aim.y - y1, d = Math.hypot(dx, dy), uy = dy / d;
+  // Painted points drop by at least half their distance (dropOf), so the room caps the length at that slope.
+  const len = Math.min(TAIL_MAX, d - 6, (aim.room ?? Infinity) / Math.max(uy, MIN_SLOPE));
+  return { bx, ux: dx / d, uy, len: Math.max(TAIL_DROP, len) };
+}
+
+const MIN_SLOPE = 0.5;
+/** How far below the frame a point `k` along an aimed tail is painted: never flatter than MIN_SLOPE. */
+function dropOf(uy: number, k: number): number {
+  return k * Math.max(uy, MIN_SLOPE);
+}
+
+export function tailPath(tail: Tail, g: BubbleGeom, aim?: Aim): string | null {
   const { x0, x1, y1, cx } = frame(g);
   const tip = y1 + TAIL_DROP, base = y1 - 2;
+  const a = tail === 'none' ? null : aimedTail(g, aim);
+  if (a) {
+    // A flat tail reads as part of the outline, so the tip always drops at least TAIL_DROP below the edge.
+    const tx = a.bx + a.ux * a.len, ty = Math.max(y1 + dropOf(a.uy, a.len), tip);
+    return `M${pt(a.bx - 9, base)}L${pt(tx, ty)}L${pt(a.bx + 9, base)}`;
+  }
   if (tail === 'l') return `M${pt(x0 + 22, base)}L${pt(x0 + 12, tip)}L${pt(x0 + 40, base)}`;
   if (tail === 'r') return `M${pt(x1 - 40, base)}L${pt(x1 - 12, tip)}L${pt(x1 - 22, base)}`;
   if (tail === 'c') return `M${pt(cx - 10, base)}L${pt(cx, tip)}L${pt(cx + 10, base)}`;
@@ -115,7 +147,7 @@ export function drawBubble(svg: SVGSVGElement, shape: BubbleShape, tail: Tail, g
   };
   const rnd = seeded(opts.seed);
   const ink = { stroke: opts.stroke, 'stroke-width': INK_W, 'stroke-linejoin': 'round' };
-  const t = shape === 'box' || shape === 'cut' ? null : tailPath(tail, g);
+  const t = shape === 'box' || shape === 'cut' ? null : tailPath(tail, g, opts.aim);
 
   if (shape === 'cloud') {
     const { cx, x0, y0, x1, y1 } = frame(g);
@@ -123,7 +155,14 @@ export function drawBubble(svg: SVGSVGElement, shape: BubbleShape, tail: Tail, g
     for (const c of cs) add('circle', { cx: c.cx, cy: c.cy, r: c.r, fill: '#fff', ...ink });
     add('rect', { x: n1(x0 + 2), y: n1(y0 + 2), width: n1(x1 - x0 - 4), height: n1(y1 - y0 - 4), rx: 14, fill: '#fff', 'data-role': 'body' });
     for (const c of cs) add('circle', { cx: c.cx, cy: c.cy, r: n1(c.r - 1.3), fill: '#fff' });
-    if (tail !== 'none') {
+    const a = tail === 'none' ? null : aimedTail(g, opts.aim);
+    if (a) {
+      // The far dot's painted bottom (centre drop + radius 3 + stroke 1) stays within the capped drop.
+      const s = Math.max(a.uy, MIN_SLOPE), far = Math.max(5, a.len - 4 / s);
+      for (const [k, r] of [[5, 5], [far, 3]] as const) {
+        add('circle', { cx: n1(a.bx + a.ux * k), cy: n1(y1 + dropOf(a.uy, k)), r, fill: '#fff', ...ink, 'stroke-width': 2 });
+      }
+    } else if (tail !== 'none') {
       const tx = tail === 'r' ? x1 - 30 : tail === 'c' ? cx : x0 + 30, dir = tail === 'r' ? 1 : tail === 'c' ? 0 : -1;
       add('circle', { cx: n1(tx), cy: n1(y1 + 4), r: 5, fill: '#fff', ...ink, 'stroke-width': 2 });
       add('circle', { cx: n1(tx + dir * 10), cy: n1(y1 + 12), r: 3, fill: '#fff', ...ink, 'stroke-width': 2 });

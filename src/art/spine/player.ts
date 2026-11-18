@@ -12,11 +12,11 @@ import type { ChibiPlayer, ChibiSource, ChibiTarget } from '../SpineChibiArt';
 const SKELETON = 'v2_sd_main.skel';
 const FPS = 30;
 /** CSS width of each figure size (comic.css .cc .sd); the box keeps the static image's 160:136 aspect. */
-const WIDTH: Record<ArtSize, number> = { sm: 92, md: 118, lg: 168 };
+const WIDTH: Record<ArtSize, number> = { sm: 120, md: 150, lg: 160 };
 const ASPECT = 136 / 160;
 /** Upper-body framing (spec 「大小」, to be tuned on the owner's phone): the top UPPER of the setup-pose height,
  *  starting HEADROOM above the head. */
-export const UPPER = 0.75;
+export const UPPER = 0.85;
 export const HEADROOM = 0.03;
 
 interface SetData { data: SkeletonData; stateData: AnimationStateData; pma: boolean; anims: string[] }

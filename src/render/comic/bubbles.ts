@@ -2,9 +2,12 @@ import { resolveCharacter } from '../../data/characters';
 import type { Line } from '../../scenario/types';
 import type { BubbleShape } from '../../storyboard/types';
 import { h } from '../dom';
-import { drawBubble, type Tail } from './bubbleSvg';
+import { drawBubble, type Aim, type Tail } from './bubbleSvg';
 
 export type Side = 'l' | 'r' | 'c';
+
+/** One key per character however the script spells the name; bubbles and figures carry it as data-who. */
+export const speakerKey = (name: string): string => String(resolveCharacter(name)?.id ?? name);
 
 export function speakerSide(): { side(name: string): Side; reset(): void } {
   let sides = new Map<string, Side>();
@@ -12,7 +15,7 @@ export function speakerSide(): { side(name: string): Side; reset(): void } {
   return {
     side(name: string): Side {
       if (!name) return 'c';
-      const key = String(resolveCharacter(name)?.id ?? name);
+      const key = speakerKey(name);
       let s = sides.get(key);
       if (!s) { s = next++ % 2 ? 'r' : 'l'; sides.set(key, s); }
       return s;
@@ -41,13 +44,36 @@ export function bubble(line: Line, side: Side, shape: BubbleShape, extra = '', t
   svg.setAttribute('aria-hidden', 'true');
   return h('div', {
     class: `bb bb-${shape} ${side}${extra}`, 'data-r': line.r, 'data-seed': line.r,
-    'data-tail': TAILLESS.has(shape) ? 'none' : side,
+    'data-tail': TAILLESS.has(shape) ? 'none' : side, 'data-who': line.who ? speakerKey(line.who) : null,
   }, svg, h('span', { class: 'bt' }, text));
 }
 
 export interface FitOpts { stroke?: string; roundRadius?: number }
 
 const round1 = (v: number) => Math.round(v * 10) / 10;
+
+/** Panels whose figure stands beside the bubbles, not under them: their tails keep the fixed side. */
+const BESIDE = '.closeup, .beat';
+
+/**
+ * The speaker's figure in the same panel (or the same inset), as a point near its head in the bubble's SVG canvas
+ * coordinates, so the tail tells who is talking when a panel shows several people. Undefined without one.
+ */
+function aimOf(bb: HTMLElement): Aim | undefined {
+  const who = bb.dataset.who;
+  if (!who || bb.dataset.tail === 'none' || bb.closest(BESIDE)) return undefined;
+  const inset = bb.closest('.inset'), box = inset ?? bb.closest('.pn');
+  if (!box) return undefined;
+  const fig = [...box.querySelectorAll<HTMLElement>('.cc')].find(c => c.dataset.who === who && c.closest('.inset') === inset);
+  if (!fig) return undefined;
+  const b = bb.getBoundingClientRect(), f = fig.getBoundingClientRect();
+  if (!b.width || !f.width) return undefined;
+  // Frames are drawn 3px outside their boxes (bubbleSvg frame()): this frame ends at b.bottom + 3 and the next
+  // stacked one starts at next.top - 3; 2px more keeps the tip clear of that outline's stroke.
+  const next = bb.nextElementSibling?.classList.contains('bb') ? bb.nextElementSibling.getBoundingClientRect() : null;
+  const room = next && next.height ? Math.max(0, next.top - 3 - (b.bottom + 3) - 2) : undefined;
+  return { x: round1(f.left + f.width / 2 - b.left + PAD), y: round1(f.top + f.height * 0.2 - b.top + PAD), room };
+}
 
 /** (Re)draws every bubble outline under `root` from its current layout size; zero-size bubbles are skipped. */
 export function fitBubbles(root: ParentNode, opts: FitOpts = {}): void {
@@ -67,7 +93,7 @@ export function fitBubbles(root: ParentNode, opts: FitOpts = {}): void {
     const shape = ([...bb.classList].find(c => c.startsWith('bb-'))?.slice(3) ?? 'round') as BubbleShape;
     drawBubble(svg, shape, (bb.dataset.tail ?? 'none') as Tail, { w, h: hgt, pad: PAD }, {
       seed: Number(bb.dataset.seed ?? 0), stroke: opts.stroke ?? INK, radius: opts.roundRadius ?? 18,
-      double: bb.classList.contains('huge'),
+      double: bb.classList.contains('huge'), aim: aimOf(bb),
     });
   }
 }

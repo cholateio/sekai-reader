@@ -44,6 +44,9 @@ export function applyEdges(root: HTMLElement, S = 22, G = 10, INK = 2.5): void {
       pn.style.setProperty('clip-path', `polygon(0 ${tl}px, 100% ${tr}px, 100% calc(100% - ${br}px), 0 calc(100% - ${bl}px))`);
       pn.style.setProperty('--st', `${Math.max(tl, tr)}px`);
       pn.style.setProperty('--sb', `${Math.max(bl, br)}px`);
+      // Per-corner bottom slant: figures run down to the clipped edge above where they stand (comic.css .at-*).
+      pn.style.setProperty('--sbl', `${bl}px`);
+      pn.style.setProperty('--sbr', `${br}px`);
     }
   });
 

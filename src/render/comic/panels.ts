@@ -5,7 +5,7 @@ import type { Episode, Line } from '../../scenario/types';
 import { stripParen } from '../../scenario/text';
 import type { Panel } from '../../storyboard/types';
 import { h } from '../dom';
-import { bubble, lineEl, speakerSide, type Side } from './bubbles';
+import { bubble, lineEl, speakerKey, speakerSide, type Side } from './bubbles';
 import type { UnitFlavor } from './flavor';
 import { shapeFor } from './shape';
 
@@ -21,9 +21,17 @@ export interface PanelCtx {
 
 const colorOf = (name: string) => resolveCharacter(name)?.color ?? SIDE_COLOR;
 
+/** Tags a figure with where it stands across the panel (comic.css meets a slanted bottom edge there) and whose
+ *  it is (bubble tails aim at it, bubbles.ts). */
+function placed(el: HTMLElement, who: string, side: Side): HTMLElement {
+  el.classList.add(`at-${side}`);
+  el.dataset.who = speakerKey(who);
+  return el;
+}
+
 function chip(ctx: PanelCtx, line: Line | undefined, side: Side, size: ArtSize = 'sm'): HTMLElement | null {
   if (!line || !line.who) return null;
-  return ctx.art.render(artRequest(line, side), size);
+  return placed(ctx.art.render(artRequest(line, side), size), line.who, side);
 }
 
 function stage(ctx: PanelCtx, L: Line[]): HTMLElement | null {
@@ -127,7 +135,7 @@ export function buildPanel(p: Panel, ctx: PanelCtx): HTMLElement {
         h('div', { class: 'cast' }, names.map((n, k) => {
           const side: Side = k < Math.floor(names.length / 2) ? 'l' : names.length % 2 && k === (names.length - 1) / 2 ? 'c' : 'r';
           const x = L.find(y => y.who === n);
-          return ctx.art.render(x ? { ...artRequest(x, side), face: '', mood: null } : { name: n, face: '', motion: '', mood: null, side }, 'sm');
+          return placed(ctx.art.render(x ? { ...artRequest(x, side), face: '', mood: null } : { name: n, face: '', motion: '', mood: null, side }, 'sm'), n, side);
         })));
     }
     case 'mono':

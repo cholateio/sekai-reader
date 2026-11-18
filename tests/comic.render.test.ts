@@ -219,3 +219,15 @@ test('沒有 page signal 時不掛全域字型監聽（避免留住離開的漫�
     else delete (document as { fonts?: unknown }).fonts;
   }
 });
+test('每個人物帶說話者鍵與站位（尾巴與斜邊下緣用）', () => {
+  const root = render();
+  const figs = [...root.querySelectorAll<HTMLElement>('.cc')];
+  expect(figs.length).toBeGreaterThan(0);
+  for (const f of figs) {
+    expect(f.dataset.who).toBeTruthy();
+    expect([...f.classList].some(c => /^at-[lrc]$/.test(c))).toBe(true);
+  }
+  const whos = new Set([...root.querySelectorAll<HTMLElement>('.bb[data-who]')].map(b => b.dataset.who));
+  // Shout casts may list people who do not speak in that panel; every other figure belongs to a speaker.
+  for (const f of figs.filter(x => !x.closest('.cast'))) expect(whos.has(f.dataset.who)).toBe(true);
+});

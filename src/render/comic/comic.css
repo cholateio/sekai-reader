@@ -10,7 +10,7 @@
 :root[data-theme="dark"] .comic { --frame: #5d6875; --c-ink: #2e3a48; --c-muted: #78828d; } /* text on white panels keeps light-theme ink */
 .comic .pn {
   position: relative; border: 2.5px solid var(--frame); background: var(--panel); border-radius: 3px;
-  overflow: hidden; padding: 14px; display: flex; flex-direction: column; gap: 10px; min-height: 140px;
+  overflow: hidden; padding: 14px; display: flex; flex-direction: column; gap: 10px; min-height: 140px; --pb: 14px;
   box-sizing: border-box;
 }
 .comic .scene-start { margin-top: 18px; }
@@ -56,9 +56,20 @@
 .comic .cc-lg .circle { width: 104px; height: 104px; font-size: 32px; font-family: var(--font-display); }
 .comic .cc-lg .circle.long { font-size: 24px; }
 .comic .cc-lg .circle.xlong { font-size: 18px; }
-.comic .cc .sd { width: 92px; height: auto; aspect-ratio: 160 / 136; display: block; margin-bottom: -4px; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .35)); }
-.comic .cc-md .sd { width: 118px; }
-.comic .cc-lg .sd { width: 168px; }
+.comic .cc { min-width: 0; }
+/* The figure is cut at the waist, so it runs through the bottom padding (--pb) down to the panel's visible bottom
+   edge, which a slant raises by --rise where the figure stands (--sbl/--sbr from layout.ts): the frame cuts it and
+   it stands behind the frame instead of floating above it. Widths are mirrored by WIDTH in src/art/spine/player.ts. */
+.comic .at-l { --rise: calc(var(--sbl, 0px) * .75 + var(--sbr, 0px) * .25); }
+.comic .at-r { --rise: calc(var(--sbl, 0px) * .25 + var(--sbr, 0px) * .75); }
+.comic .at-c { --rise: calc((var(--sbl, 0px) + var(--sbr, 0px)) / 2); }
+.comic .cc .sd {
+  width: 120px; max-width: 100%; height: auto; aspect-ratio: 160 / 136; display: block;
+  margin-bottom: calc(var(--rise, 0px) - var(--pb, 4px) - 3px); filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .35));
+}
+.comic .cc-md .sd { width: 150px; }
+.comic .cc-lg .sd { width: 160px; }
+.comic .closeup > .cc, .comic .pn.beat > .cc { align-self: end; }
 .comic .closeup {
   display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; min-height: 230px;
   background: radial-gradient(circle at 22% 62%, color-mix(in srgb, var(--hue) 34%, var(--panel)) 0, var(--panel) 68%);
@@ -115,7 +126,7 @@
 .comic .inset {
   position: absolute; right: 10px; bottom: 10px; width: 46%; z-index: 2; overflow: hidden;
   /* 18px padding: bubble outlines extend up to ~16px past their text box and the frame clips (overflow hidden). */
-  border: 2.5px solid var(--frame); background: var(--panel); padding: 18px; box-shadow: 4px 4px 0 var(--line-ink);
+  border: 2.5px solid var(--frame); background: var(--panel); padding: 18px; --pb: 18px; --sbl: 0px; --sbr: 0px; box-shadow: 4px 4px 0 var(--line-ink);
   display: flex; flex-direction: column; gap: 6px;
 }
 .comic .inset .bb { max-width: 100%; }
@@ -187,7 +198,10 @@
     drop-shadow(0 2.5px 0 var(--frame)) drop-shadow(0 -2.5px 0 var(--frame));
 }
 .comic .pw.bleed { filter: none; }
-.comic .pw > .pn { border: 0; border-radius: 0; padding: calc(14px + var(--st, 0px)) 18px calc(14px + var(--sb, 0px)); }
+.comic .pw > .pn {
+  border: 0; border-radius: 0; padding: calc(14px + var(--st, 0px)) 18px calc(14px + var(--sb, 0px));
+  --pb: calc(14px + var(--sb, 0px));
+}
 .comic .split .pw, .comic .pair .pw { height: 100%; }
 .comic .split .pw > .pn, .comic .pair .pw > .pn { width: 100%; height: 100%; }
 
