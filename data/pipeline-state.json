@@ -8383,7 +8383,11 @@
   "v2_sd_23len_kotatsu": "missing",
   "v2_sd_23len_miko": "missing",
   "v2_sd_23len_night": "done",
-  "v2_sd_23len_school": "done"
+  "v2_sd_23len_school": "done",
+  "v2_sd_23len_street": "done",
+  "v2_sd_23len_wonder": "done",
+  "v2_sd_24luka_akuno": "missing",
+  "v2_sd_24luka_band": "done"
  },
  "episodeBuild": "0daab56acd8cd5e971044c51d13f0373e3a1bd87ac6856328747a47da4bfc7a6"
 }
