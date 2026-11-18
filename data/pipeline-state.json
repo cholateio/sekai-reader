@@ -8291,7 +8291,7 @@
   "msgbatch_013NJy4b3mKWgMXEZGqJaVN3": "2026-11-07",
   "msgbatch_01N1wCTz7vqkyeq9JWGb6aYi": "2026-11-08"
  },
- "pendingDeploy": false,
+ "pendingDeploy": true,
  "promptVersion": "v4-caps",
  "deployedSite": "1270bec0fb2de3aeca2b63825fc4fa36b234fa8efbdf12173c3b9a0ae7b8ea92",
  "chibiSkel": "done",
@@ -8371,7 +8371,11 @@
   "v2_sd_22rin_idol": "done",
   "v2_sd_22rin_kakizome": "missing",
   "v2_sd_22rin_kotatsu": "missing",
-  "v2_sd_22rin_miko": "missing"
+  "v2_sd_22rin_miko": "missing",
+  "v2_sd_22rin_night": "done",
+  "v2_sd_22rin_school": "done",
+  "v2_sd_22rin_street": "done",
+  "v2_sd_22rin_wonder": "done"
  },
- "episodeBuild": "ce76671fe8cc3e5dd8379884ba6b0985098b2738e9504a7bca1c1355798daef2"
+ "episodeBuild": "0daab56acd8cd5e971044c51d13f0373e3a1bd87ac6856328747a47da4bfc7a6"
 }
