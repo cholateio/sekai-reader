@@ -8359,7 +8359,11 @@
   "v2_sd_21miku_band": "done",
   "v2_sd_21miku_idol": "done",
   "v2_sd_21miku_kakizome": "missing",
-  "v2_sd_21miku_kotatsu": "missing"
+  "v2_sd_21miku_kotatsu": "missing",
+  "v2_sd_21miku_miko": "missing",
+  "v2_sd_21miku_movie": "missing",
+  "v2_sd_21miku_night": "done",
+  "v2_sd_21miku_school": "done"
  },
  "episodeBuild": "ce76671fe8cc3e5dd8379884ba6b0985098b2738e9504a7bca1c1355798daef2"
 }
