@@ -56,9 +56,9 @@
 .comic .cc-lg .circle { width: 104px; height: 104px; font-size: 32px; font-family: var(--font-display); }
 .comic .cc-lg .circle.long { font-size: 24px; }
 .comic .cc-lg .circle.xlong { font-size: 18px; }
-.comic .cc img.sd { width: 92px; height: auto; display: block; margin-bottom: -4px; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .35)); }
-.comic .cc-md img.sd { width: 118px; }
-.comic .cc-lg img.sd { width: 168px; }
+.comic .cc .sd { width: 92px; height: auto; aspect-ratio: 160 / 136; display: block; margin-bottom: -4px; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .35)); }
+.comic .cc-md .sd { width: 118px; }
+.comic .cc-lg .sd { width: 168px; }
 .comic .closeup {
   display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; min-height: 230px;
   background: radial-gradient(circle at 22% 62%, color-mix(in srgb, var(--hue) 34%, var(--panel)) 0, var(--panel) 68%);
@@ -194,7 +194,7 @@
 /* ---- black-and-white mode and unit easter eggs ---- */
 .comic .bgl { filter: blur(var(--blur, 0px)) saturate(1.1); }
 body.bw .comic .bgl { filter: blur(var(--blur, 0px)) grayscale(1) contrast(1.06); }
-body.bw .comic img.sd { filter: grayscale(1) contrast(1.06) drop-shadow(0 2px 3px rgba(0, 0, 0, .35)); }
+body.bw .comic .sd { filter: grayscale(1) contrast(1.06) drop-shadow(0 2px 3px rgba(0, 0, 0, .35)); }
 .comic.has-unit .cap { background: linear-gradient(90deg, var(--line-ink) 0 82%, var(--unit) 82% 100%); padding-right: 22px; }
 .comic .glyph {
   position: absolute; right: 14px; bottom: 12px; z-index: 3; pointer-events: none; font-size: 22px; line-height: 1;

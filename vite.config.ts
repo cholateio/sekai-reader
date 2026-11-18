@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
+import { CHIBI_FILE, CHIBI_RAW, CHIBI_TYPES, chibiDevIndex } from './scripts/chibi_dev';
 import { publishableGate } from './scripts/check_publishable';
 
 const BOARD_DIR = 'storyboards';
@@ -56,10 +57,33 @@ function staticFiles(): Plugin {
   };
 }
 
+/**
+ * Spine chibis (spec 2026-11-18, phase 3), dev server only: /chibi/* is served from the raw store, so nothing reaches
+ * assets/public or dist before the owner buys the Spine licence (phase 4 publishes them and lists them in the manifest).
+ */
+function chibisDev(): Plugin {
+  return {
+    name: 'sekai-chibis-dev',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/chibi/', (req, res, next) => {
+        const f = decodeURIComponent((req.url ?? '').replace(/^\//, '').split('?')[0]);
+        if (f === 'index.json') {
+          res.setHeader('content-type', 'application/json');
+          return res.end(JSON.stringify(chibiDevIndex()));
+        }
+        if (!CHIBI_FILE.test(f) || !existsSync(join(CHIBI_RAW, f))) return next();
+        res.setHeader('content-type', CHIBI_TYPES[f.slice(f.lastIndexOf('.') + 1)]);
+        res.end(readFileSync(join(CHIBI_RAW, f)));
+      });
+    },
+  };
+}
+
 export default defineConfig({
   // Reader runtime only sees assets/public (git-ignored); raw .asset files stay out of dist.
   publicDir: 'assets/public',
-  plugins: [storyboards(), staticFiles(), publishableGate()],
+  plugins: [storyboards(), staticFiles(), chibisDev(), publishableGate()],
   test: {
     environment: 'jsdom',
     include: ['tests/**/*.test.ts'],

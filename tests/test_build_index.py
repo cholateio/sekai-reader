@@ -77,7 +77,7 @@ class BuildRowsTest(unittest.TestCase):
 
 class BuildChibiTest(unittest.TestCase):
     C2D = [{'id': 1, 'characterType': 'game_character', 'characterId': 1},
-           {'id': 2, 'characterType': 'game_character', 'characterId': 21},
+           {'id': 2, 'characterType': 'game_character', 'characterId': 21, 'isEnabledFlipDisplay': False},
            {'id': 3, 'characterType': 'sub_game_character', 'characterId': 15},
            {'id': 4, 'characterType': 'mob', 'characterId': 900}]
 
@@ -104,6 +104,7 @@ class BuildChibiTest(unittest.TestCase):
                                          'v2_01ichika_school02': 'v2_sd_01ichika_school', 'v2_21miku_street': 'v2_sd_21miku_street'})
         self.assertEqual(r['default'], {'1': 'v2_sd_01ichika_school', '21': 'v2_sd_21miku_street'})
         self.assertEqual(r['chars'], {'1': 1, '2': 21})
+        self.assertEqual(r['noflip'], ['v2_sd_21miku_street'])
 
     def test_lacking_lists_characters_without_a_chibi(self):
         full = {'default': {str(c): f'v2_sd_{c:02d}x_school' for c in range(1, 27)}}
@@ -119,6 +120,8 @@ class BuildChibiTest(unittest.TestCase):
         self.assertEqual(bi.chibi_lost(None, grown), [])
         self.assertEqual(bi.chibi_lost(old, {'chibis': ['a'], 'costumes': {'x': 'a'}, 'chars': {'1': 1}}),
                          ['chibis:b', 'costumes:y', 'chars:2'])
+        self.assertEqual(bi.chibi_lost(dict(old, noflip=['a', 'b']), dict(grown, noflip=['a'])), ['noflip:b'])
+        self.assertEqual(bi.chibi_lost(old, dict(grown, noflip=['a'])), [])          # first noflip list: growth
         # Same keys, other values: a remap counts as a loss too.
         self.assertEqual(bi.chibi_lost(old, dict(grown, costumes={'x': 'b', 'y': 'b'}, chars={'1': 1, '2': 5})),
                          ['costumes:x', 'chars:2'])

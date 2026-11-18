@@ -1,4 +1,5 @@
 import { StaticChibiArt } from '../../art/StaticChibiArt';
+import { SpineChibiArt } from '../../art/SpineChibiArt';
 import { renderComic } from '../../render/comic';
 import type { UnitFlavor } from '../../render/comic/flavor';
 import { h } from '../../render/dom';
@@ -33,7 +34,13 @@ export function viewReader(ep: Episode, board: Storyboard, ctx: ReaderCtx): HTML
   applyPrefs();
   document.body.classList.add('paper');
   const bg = new Set(ctx.manifest.bg);
-  const body = renderComic(ep, board, new StaticChibiArt('/sd', ctx.manifest.sd.length ? ctx.manifest.sd : undefined),
+  const still = new StaticChibiArt('/sd', ctx.manifest.sd.length ? ctx.manifest.sd : undefined);
+  // Spine chibis run only on the dev server until the owner buys the Spine licence (spec 2026-11-18, phase 4);
+  // a production build drops this branch and never bundles spine-webgl.
+  const art = import.meta.env.DEV && import.meta.env.MODE !== 'test'
+    ? new SpineChibiArt(still, ep.lines, kinds => import('../../art/spine/dev').then(m => m.loadDevPlayer(kinds)))
+    : still;
+  const body = renderComic(ep, board, art,
     { bgUrl: id => (bg.has(id) ? `/bg/${id}.webp` : null), unit: ctx.unit ?? null, signal: pageSignal() });
 
   const bwBtn = h('button', {

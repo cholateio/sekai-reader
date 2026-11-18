@@ -102,9 +102,11 @@ GAME_CHARACTERS = 26
 
 def build_chibi(costumes, character2ds):
     """The chibi lane's list (`chibis`), costume -> chibi (`costumes`), each character's default chibi, and
-    character2d id -> character id (`chars`) for characters that have one, so a script's unmapped costume falls back."""
+    character2d id -> character id (`chars`) for characters that have one, so a script's unmapped costume falls back,
+    and the chibis the game never mirrors (`noflip`: a costume row whose character2d has isEnabledFlipDisplay false)."""
     char_of = {c["id"]: c["characterId"] for c in character2ds if c.get("characterType") == "game_character"}
-    by_costume, by_char = {}, {}
+    no_flip = {c["id"] for c in character2ds if c.get("isEnabledFlipDisplay") is False}
+    by_costume, by_char, noflip = {}, {}, set()
     for c in costumes:
         name = c.get("spineAssetbundleName") or ""
         m = CHIBI_RE.match(name)
@@ -112,6 +114,8 @@ def build_chibi(costumes, character2ds):
         if not m or cid is None or int(m.group(1)) != cid:
             continue
         by_char.setdefault(cid, set()).add(name)
+        if c.get("character2dId") in no_flip:
+            noflip.add(name)
         live = c.get("live2dAssetbundleName")
         if live:
             by_costume.setdefault(live, name)
@@ -122,7 +126,8 @@ def build_chibi(costumes, character2ds):
     return {"chibis": sorted(n for names in by_char.values() for n in names),
             "costumes": dict(sorted(by_costume.items())),
             "default": dict(sorted(default.items(), key=lambda kv: int(kv[0]))),
-            "chars": {str(k): v for k, v in sorted(char_of.items()) if v in by_char}}
+            "chars": {str(k): v for k, v in sorted(char_of.items()) if v in by_char},
+            "noflip": sorted(noflip)}
 
 
 def chibi_lacking(chibi):
@@ -131,13 +136,15 @@ def chibi_lacking(chibi):
 
 
 def chibi_lost(old, new):
-    """Entries of the existing catalogue that the new one drops or remaps (chibis; costumes and chars by key and value);
-    the catalogue only grows. `default` may change: a newly added school or casual set legitimately becomes it."""
+    """Entries of the existing catalogue that the new one drops or remaps (chibis and noflip; costumes and chars by key
+    and value); the catalogue only grows. `default` may change: a newly added school or casual set legitimately becomes it."""
     if not isinstance(old, dict):
         return []
-    before = old.get("chibis")
-    now = set(new.get("chibis") or [])
-    lost = [f"chibis:{k}" for k in (before if isinstance(before, list) else []) if k not in now]
+    lost = []
+    for table in ("chibis", "noflip"):
+        before = old.get(table)
+        now = set(new.get(table) or [])
+        lost += [f"{table}:{k}" for k in (before if isinstance(before, list) else []) if k not in now]
     for table in ("costumes", "chars"):
         before, after = old.get(table), new.get(table) or {}
         for k, v in (before.items() if isinstance(before, dict) else []):

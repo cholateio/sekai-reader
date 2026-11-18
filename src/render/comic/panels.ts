@@ -21,9 +21,9 @@ export interface PanelCtx {
 
 const colorOf = (name: string) => resolveCharacter(name)?.color ?? SIDE_COLOR;
 
-function chip(ctx: PanelCtx, line: Line | undefined, size: ArtSize = 'sm'): HTMLElement | null {
+function chip(ctx: PanelCtx, line: Line | undefined, side: Side, size: ArtSize = 'sm'): HTMLElement | null {
   if (!line || !line.who) return null;
-  return ctx.art.render(artRequest(line), size);
+  return ctx.art.render(artRequest(line, side), size);
 }
 
 function stage(ctx: PanelCtx, L: Line[]): HTMLElement | null {
@@ -33,7 +33,7 @@ function stage(ctx: PanelCtx, L: Line[]): HTMLElement | null {
     if (x.who && !firsts.has(key)) firsts.set(key, x);
   }
   if (!firsts.size) return null;
-  const byside = (s: string) => [...firsts.values()].filter(x => ctx.sides.side(x.who) === s).map(x => chip(ctx, x));
+  const byside = (s: Side) => [...firsts.values()].filter(x => ctx.sides.side(x.who) === s).map(x => chip(ctx, x, s));
   return h('div', { class: 'stage' }, h('span', { class: 'side' }, byside('l')), h('span', { class: 'side' }, byside('r')));
 }
 
@@ -71,7 +71,7 @@ export function buildPanel(p: Panel, ctx: PanelCtx): HTMLElement {
         L.map(x => [h('small', {}, `${x.who || '旁白'} 唸出的內容`), lineEl('span', 'itext', x)])));
     case 'close': {
       // The close-up figure always sits on the left of the grid, so tails point left.
-      const el = pn(`closeup${tone}`, chip(ctx, L[0], 'lg'), bubbles(ctx, p, L, '', 'l'));
+      const el = pn(`closeup${tone}`, chip(ctx, L[0], 'l', 'lg'), bubbles(ctx, p, L, '', 'l'));
       el.style.setProperty('--hue', colorOf(L[0]?.who ?? ''));
       if (p.fx === 'blush') el.append(h('span', { class: 'fx blush', 'aria-hidden': 'true' }, '///'));
       return el;
@@ -86,44 +86,49 @@ export function buildPanel(p: Panel, ctx: PanelCtx): HTMLElement {
       // Full-width short panel: figure on the speaker's side, bubble next to it, tone fills the far side.
       const sp = L[0] && ctx.sides.side(L[0].who) === 'r' ? 'r' : 'l';
       return pn(`beat beat-${sp}`, h('div', { class: `fxl fx-tone-${sp === 'l' ? 'r' : 'l'}`, 'aria-hidden': 'true' }),
-        chip(ctx, L[0]), bubbles(ctx, p, L, '', sp));
+        chip(ctx, L[0], sp), bubbles(ctx, p, L, '', sp));
     }
     case 'pair':
       return h('div', { class: 'pair' }, L.map((x, k) => {
         const side: Side = k ? 'r' : 'l';
         const el = h('div', { class: `pn half half-${side}` }, h('div', { class: 'bubbles' }, bub(ctx, p, x, side)),
-          h('div', { class: `stage stage-${side}` }, chip(ctx, x)));
+          h('div', { class: `stage stage-${side}` }, chip(ctx, x, side)));
         ctx.decorate(el, p, k);
         return el;
       }));
     case 'inset': {
       if (L.length < 2) return pn(`talk${tone}`, bubbles(ctx, p, L), stage(ctx, L));
       const big = L.slice(0, -1), last = L[L.length - 1];
-      const small = h('div', { class: 'inset' }, bub(ctx, p, last, 'c'), h('div', { class: 'center' }, chip(ctx, last)));
+      const small = h('div', { class: 'inset' }, bub(ctx, p, last, 'c'), h('div', { class: 'center' }, chip(ctx, last, 'c')));
       ctx.decorate(small, p, 2);
       return pn(`inset-pn${tone}`, caps.map(c => h('span', { class: 'cap' }, c.text)), bubbles(ctx, p, big), stage(ctx, big), small);
     }
     case 'split':
       return h('div', { class: 'split' }, L.map((x, k) => {
-        const el = h('div', { class: 'pn half' }, bub(ctx, p, x, 'c'), h('div', { class: 'center' }, chip(ctx, x, 'md')));
+        const el = h('div', { class: 'pn half' }, bub(ctx, p, x, 'c'), h('div', { class: 'center' }, chip(ctx, x, 'c', 'md')));
         ctx.decorate(el, p, k);
         return el;
       }));
     case 'impact':
       return pn('impact', p.sfx ? h('span', { class: 'sfx', 'aria-hidden': 'true' }, p.sfx) : null,
-        L.map(x => bub(ctx, p, x, 'c', ' huge')), h('div', { class: 'center' }, chip(ctx, L[0])));
+        L.map(x => bub(ctx, p, x, 'c', ' huge')), h('div', { class: 'center' }, chip(ctx, L[0], 'c')));
     case 'reveal': {
       const x = L[0];
       const m = x ? (p.big === 'num' ? x.body.match(/\d[\d,]{2,}/) : p.big === 'quote' ? x.body.match(/「([^」]+)」/) : null) : null;
       const big = m ? (m[1] ?? m[0]) : '';
       return pn('reveal', big ? h('div', { class: 'bigtxt', 'aria-hidden': 'true' }, big) : null,
-        L.map(y => bub(ctx, p, y, 'c', ' small')), chip(ctx, x));
+        L.map(y => bub(ctx, p, y, 'c', ' small')), chip(ctx, x, 'c'));
     }
     case 'shout': {
       const names = p.cast?.length ? p.cast : [...new Set(L.map(x => x.who).filter(Boolean))];
       return pn('shout-pn', h('div', { class: 'shout-wrap' },
         L.map(x => bub(ctx, p, x, 'c', ' huge', x.body.replace(/^「|」$/g, '')))),
-        h('div', { class: 'cast' }, names.map(n => ctx.art.render({ name: n, face: '', motion: '', mood: null }, 'sm'))));
+        // A row of figures: the left half faces right, the right half faces left (towards the middle).
+        h('div', { class: 'cast' }, names.map((n, k) => {
+          const side: Side = k < Math.floor(names.length / 2) ? 'l' : names.length % 2 && k === (names.length - 1) / 2 ? 'c' : 'r';
+          const x = L.find(y => y.who === n);
+          return ctx.art.render(x ? { ...artRequest(x, side), face: '', mood: null } : { name: n, face: '', motion: '', mood: null, side }, 'sm');
+        })));
     }
     case 'mono':
       return pn('mono', h('div', { class: 'bubbles' },

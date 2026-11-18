@@ -90,6 +90,8 @@ AGENTS.md Constraints 已加上這條例外（owner 2026-11-18 同意）。
 ## 顯示
 
 - 新增 `SpineChibiArt`，實作既有的 `CharacterArt` 介面；`ArtRequest` 多帶 `chibi`、`side`。
+- 階段 3 只在開發伺服器（`npm run dev`）開啟：`vite.config.ts` 的開發外掛把 `/chibi/*` 直接對到 `assets/raw/chibi/`，`/chibi/index.json` 列出本機兩個檔都在的套組與 `noflip`。正式建置時這段程式整段剔除，`dist/` 不含 spine-webgl 也不含任何小人檔（2026-11-18 實測：建置產物裡找不到 Spine 字串）。
+- 程式分三層：`src/art/chibiPose.ts`（動作、朝向的規則，純函式）、`src/art/SpineChibiArt.ts`（先回靜態圖、播放器載好再接手）、`src/art/spine/player.ts`（唯一引用 spine-webgl 的模組，動態載入）。
 - **先顯示現在的靜態圖**，播放程式和骨架檔在首次繪製之後才載入（動態 import），載好再換成小人。位置先保留，換的時候版面不跳。
 - 以下情況維持靜態圖：這個角色或這套衣服沒有小人、瀏覽器沒有 WebGL、載入失敗、使用者開了「減少動態效果」。
 - **只用一個 WebGL 畫布**在背景算圖，再貼到每格自己的 2D 畫布。iOS 同時能開的 WebGL 畫布有上限，不能每格一個。
@@ -110,7 +112,7 @@ AGENTS.md Constraints 已加上這條例外（owner 2026-11-18 同意）。
 - 站在格子左側的（`side` 為 `l`、特寫格、`pair` 的左半）鏡像，朝右。
 - 站在右側的維持預設，朝左。
 - 置中的單人維持預設；一排多人（`shout`）左半鏡像、右半不鏡像。
-- 主資料 `character2ds.json` 標了 `isEnabledFlipDisplay: false` 的角色（部分虛擬歌手造型）不鏡像，遊戲自己也不翻。
+- 主資料 `character2ds.json` 標了 `isEnabledFlipDisplay: false` 的角色（部分虛擬歌手造型）不鏡像，遊戲自己也不翻。小人目錄的 `noflip` 列出這些立繪用到的小人（目前 20 套，全是虛擬歌手）。
 
 ### 大小
 
@@ -118,6 +120,7 @@ AGENTS.md Constraints 已加上這條例外（owner 2026-11-18 同意）。
 
 - 一般格（92、118）：取上半身，頭的大小接近現在。
 - 特寫格（168）：先試 Spine 上半身；太糊就保留現在的靜態圖。
+- 取景：初始姿勢外框的上方 75%（`UPPER`），頭頂多留 3%（`HEADROOM`）。本機截圖比過 60%（只到下巴）、75%（頭加上半身，接近現在的靜態圖）、90%（幾乎全身，人變小），先定 75%。開發時網址加 `?upper=0.7&headroom=0.05`（放在 `#` 前面）可以直接換，手機實測用。
 
 ## 階段
 

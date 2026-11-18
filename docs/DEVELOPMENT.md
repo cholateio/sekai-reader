@@ -16,7 +16,7 @@ npm run dev                          # -> http://localhost:5173 (opens #library)
 
 | Command | Purpose |
 |---------|---------|
-| `npm run dev` | Local development (Vite serves `assets/public/` as the public dir) |
+| `npm run dev` | Local development (Vite serves `assets/public/` as the public dir). Also plays the Spine chibis (spec 2026-11-18, phase 3) from `assets/raw/chibi/` for the sets on this machine; `?upper=0.75&headroom=0.03` before the `#` changes the framing. A production build leaves the chibi code out |
 | `npm run build` | Type-check and production build into `dist/` (includes `assets/public/`). Every Vite build, `check:layout` included, first runs the publish gate in `scripts/check_publishable.ts`: it fails if `assets/public` has a path outside the expected layout, or an episode whose event has not closed, is not in the index, or whose content `sid` differs from its file name |
 | `npm run preview` | Serve `dist/` |
 | `npm test` | Vitest (jsdom) + Python unittest. Real-data tests skip when `assets/raw/event_173_01.asset` is absent |
