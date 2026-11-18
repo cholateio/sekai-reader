@@ -8367,7 +8367,11 @@
   "v2_sd_21miku_street": "done",
   "v2_sd_21miku_wonder": "done",
   "v2_sd_22rin_akuno": "missing",
-  "v2_sd_22rin_band": "done"
+  "v2_sd_22rin_band": "done",
+  "v2_sd_22rin_idol": "done",
+  "v2_sd_22rin_kakizome": "missing",
+  "v2_sd_22rin_kotatsu": "missing",
+  "v2_sd_22rin_miko": "missing"
  },
  "episodeBuild": "ce76671fe8cc3e5dd8379884ba6b0985098b2738e9504a7bca1c1355798daef2"
 }
