@@ -42,6 +42,11 @@ export interface PipelineState {
   chibiPausedDay?: string;
   /** Set after three failed lane runs; the lane stays off until a person removes this field. */
   chibiHalted?: string;
+  /** Episode build key (EPISODE_PATHS fingerprint in run.ts) every published episode JSON was last rebuilt with. */
+  episodeBuild?: string;
+  /** Key whose rebuild failed as a whole: retried only by runs that have other work, so a broken rebuild cannot
+   *  make every hourly run non-idle. */
+  episodeBuildFailed?: string;
 }
 export interface IndexEvent {
   id: number; name: string; date: string; bundle: string; eps: [number, string, string][];

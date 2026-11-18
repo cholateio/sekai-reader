@@ -3,8 +3,7 @@
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import sharp from 'sharp';
-import { parseScenario } from '../src/scenario/parse';
-import type { RawScenario } from '../src/scenario/types';
+import { episodeOf, loadChibis } from './episode_json';
 import { writeManifest } from './manifest';
 
 const RAW = 'assets/raw';
@@ -19,9 +18,9 @@ async function main(): Promise<number> {
   if (!existsSync(src)) { console.error(`missing ${src}`); return 1; }
   for (const d of ['episodes', 'bg', 'sd']) mkdirSync(join(PUB, d), { recursive: true });
 
-  const ep = parseScenario(JSON.parse(readFileSync(src, 'utf8')) as RawScenario);
+  const ep = episodeOf(readFileSync(src, 'utf8'), loadChibis());
   writeFileSync(join(PUB, 'episodes', `${sid}.json`), JSON.stringify(ep));
-  console.log(`episode ${sid}: ${ep.lines.length} lines, ${ep.scenes.length} scenes`);
+  console.log(`episode ${sid}: ${ep.lines.length} lines, ${ep.scenes.length} scenes, ${ep.lines.filter(l => l.chibi).length} with a chibi`);
 
   const needed = new Set<string>();
   for (const id of [ep.firstBg, ...ep.lines.map(l => l.bg), ...ep.scenes.map(s => s.bg)]) if (id) needed.add(id);

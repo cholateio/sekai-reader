@@ -25,6 +25,9 @@ export interface ChibisResult {
   skel: 'done' | 'missing' | 'error' | null;
   chibis: { name: string; status: 'done' | 'missing' | 'error' }[];
 }
+/** reported: the child printed a valid result line (else it may have replaced some files before dying);
+ *  ok: reported and no episode failed. */
+export interface RebuildResult { ok: boolean; reported: boolean; checked: number; changed: number; skipped: string[]; failed: string[] }
 export interface FetchResult { status: FetchStatus; requests: number; sids: string[]; error?: string; removed?: string[] }
 export interface RunDeps {
   statePath: string; indexPath: string; boardsDir: string;
@@ -42,6 +45,10 @@ export interface RunDeps {
   chibiCatalogue(): string | null;
   /** siteFingerprint of the working tree; compared with the state's deployedSite. */
   siteHash(): string;
+  /** siteFingerprint of EPISODE_PATHS; compared with the state's episodeBuild. */
+  episodeBuildKey(): string;
+  /** Rewrites the published episode JSON from the raw scripts (scripts/rebuild_episodes.ts). */
+  rebuildEpisodes(): Promise<RebuildResult>;
   /** null without ANTHROPIC_API_KEY: the direct phase makes no API calls. runOnce supplies persist. */
   director: Omit<DirectorDeps, 'persist'> | null;
   env: { backfill: boolean; dailyCapUsd: number; chibis?: boolean };
@@ -58,6 +65,7 @@ export interface RunSummary {
   work?: string[];
   banners?: { requests: number; done: number[]; missing: number[]; built: number };
   chibis?: { requests: number; skel: ChibisResult['skel']; done: string[]; missing: string[] };
+  rebuilt?: RebuildResult;
 }
 
 const BANNER_GAP_MS = 5_000;
@@ -89,6 +97,9 @@ export function fetchResultFromChild(code: number, lastLine: string): FetchResul
  * static files, storyboards, build config and the event index (its `built` date is shown in the library).
  */
 export const SITE_PATHS = ['index.html', 'src', 'static', 'storyboards', 'data/tc-event-index.json', 'vite.config.ts', 'tsconfig.json', 'package.json', 'package-lock.json'];
+
+/** What the episode JSON is made of besides the raw script: parser, shared writer and chibi catalogue. */
+export const EPISODE_PATHS = ['src/scenario', 'scripts/episode_json.ts', 'data/chibi-index.json'];
 
 export function siteFingerprint(root: string, paths = SITE_PATHS): string {
   const files: string[] = [];
@@ -134,7 +145,7 @@ export async function runOnce(d: RunDeps, o: RunOptions): Promise<RunSummary> {
  * An idle run (no reasons) skips both R2 syncs, both phases and the deploy, so whatever they would do must show up
  * here. Not covered: reconcile adopting a batch lost by a crashed runner waits for the next run with work.
  */
-export function workReasons(s: PipelineState, index: IndexFile, o: RunOptions, env: RunDeps['env'], now: Date, chibiNames: string[] = []): string[] {
+export function workReasons(s: PipelineState, index: IndexFile, o: RunOptions, env: RunDeps['env'], now: Date, chibiNames: string[] = [], buildKey?: string): string[] {
   const why: string[] = [];
   if (o.event !== undefined || (o.direct ?? 0) > 0) why.push('manual inputs');
   const picked = pickEvent(s, index, { backfill: env.backfill, now, forced: o.event });
@@ -146,6 +157,7 @@ export function workReasons(s: PipelineState, index: IndexFile, o: RunOptions, e
   if (s.promptVersion !== PROMPT_VERSION) why.push('prompt version changed');
   if (s.bannerBuildFailed) why.push('banner build retry');
   if (dueEpisodes(s, index).length) why.push('storyboards due');
+  if (buildKey !== undefined && buildKey !== s.episodeBuild && buildKey !== s.episodeBuildFailed) why.push('episode rebuild');
   return why;
 }
 
@@ -156,7 +168,7 @@ function planPhase(d: RunDeps, o: RunOptions, s: PipelineState, index: IndexFile
     s.pendingDeploy = true;
     d.log('site sources changed since the last deploy');
   }
-  sum.work = workReasons(s, index, o, d.env, d.now(), d.env.chibis ? parseChibiNames(d.chibiCatalogue()) : []);
+  sum.work = workReasons(s, index, o, d.env, d.now(), d.env.chibis ? parseChibiNames(d.chibiCatalogue()) : [], d.episodeBuildKey());
   d.log(sum.work.length ? `work: ${sum.work.join('; ')}` : 'idle: nothing to fetch, direct or deploy');
 }
 
@@ -187,6 +199,7 @@ async function fetchPhase(d: RunDeps, o: RunOptions, s: PipelineState, index: In
   }
   await bannerPhase(d, s, index, sum);
   await chibiPhase(d, s, sum);
+  await rebuildPhase(d, s, sum);
   if (o.event !== undefined) sum.authorized.push(...authorizeDirect(s, index, { eventIds: [o.event] }));
   if (o.direct && o.direct > 0) sum.authorized.push(...authorizeDirect(s, index, { newest: o.direct }));
   if (sum.authorized.length) d.log(`storyboards authorized: ${sum.authorized.join(', ')}`);
@@ -255,6 +268,21 @@ async function chibiPhase(d: RunDeps, s: PipelineState, sum: RunSummary) {
     if (s.chibi?.[e.name] === 'done') c.done.push(e.name);
     else if (s.chibi?.[e.name] === 'missing') c.missing.push(e.name);
   }
+}
+
+// Local only (no requests): brings every published episode to the current parser and catalogue, e.g. the chibi
+// field (spec 2026-11-18). Runs after this run's own builds, which already use them.
+async function rebuildPhase(d: RunDeps, s: PipelineState, sum: RunSummary) {
+  const key = d.episodeBuildKey();
+  if (key === s.episodeBuild) return;
+  const r = await d.rebuildEpisodes();
+  sum.rebuilt = r;
+  d.log(`rebuild episodes: ${r.ok ? 'done' : r.reported ? 'incomplete' : 'error'}, ${r.checked} checked, ${r.changed} changed, ${r.skipped.length} without a raw script, ${r.failed.length} failed`);
+  if (r.failed.length) d.log(`rebuild failed (left as they were): ${r.failed.join(', ')}`);
+  // Without a result line the child may have replaced some files before it died; those are whole files, so ship them.
+  if (r.changed > 0 || !r.reported) s.pendingDeploy = true;
+  if (r.ok) { s.episodeBuild = key; delete s.episodeBuildFailed; }
+  else s.episodeBuildFailed = key;
 }
 
 async function directPhase(d: RunDeps, s: PipelineState, index: IndexFile, sum: RunSummary) {
@@ -354,6 +382,21 @@ export function spawnChibis(script: string, log: (line: string) => void): (names
   };
 }
 
+export function rebuildResultFromChild(code: number, lastLine: string): RebuildResult {
+  const bad: RebuildResult = { ok: false, reported: false, checked: 0, changed: 0, skipped: [], failed: [] };
+  if (code !== 0) return bad;
+  try {
+    const j = JSON.parse(lastLine) as Record<string, unknown>;
+    const strs = (v: unknown) => Array.isArray(v) && v.every(x => typeof x === 'string');
+    const count = (v: unknown) => Number.isInteger(v) && (v as number) >= 0;
+    if (j.status !== 'done' || !count(j.checked) || !count(j.changed) || !strs(j.skipped) || !strs(j.failed)) return bad;
+    const failed = j.failed as string[];
+    return { ok: failed.length === 0, reported: true, checked: j.checked as number, changed: j.changed as number, skipped: j.skipped as string[], failed };
+  } catch {
+    return bad;
+  }
+}
+
 export function parseChibiNames(catalogue: string | null): string[] {
   if (catalogue === null) return [];
   try {
@@ -415,6 +458,12 @@ function realDeps(): RunDeps {
       return r.code === 0;
     },
     siteHash: () => siteFingerprint('.'),
+    episodeBuildKey: () => siteFingerprint('.', EPISODE_PATHS),
+    rebuildEpisodes: async () => {
+      const r = await run('npx', ['tsx', 'scripts/rebuild_episodes.ts'], 10 * 60e3);
+      if (r.code !== 0) log(`rebuild episodes failed: exit ${r.code} ${r.stderr.trim().split('\n').slice(-3).join(' ')}`);
+      return rebuildResultFromChild(r.code, r.stdout.trim().split('\n').at(-1) ?? '');
+    },
     director,
     env: { backfill: process.env.BACKFILL === 'on', chibis: process.env.CHIBIS === 'on', dailyCapUsd: process.env.DIRECT_DAILY_USD && Number.isFinite(cap) && cap >= 0 ? cap : 20 },
     now: () => new Date(), log,
@@ -425,8 +474,9 @@ function realDeps(): RunDeps {
 const HELP = `usage: tsx scripts/pipeline/run.ts <phase> [--event N] [--direct N]
 phases:
   plan           add new index events, flag a deploy if site sources changed, report whether this run has work (work=)
-  fetch          update the queue, fetch at most one event, build its episodes, then up to 4 home banners
-                 and (CHIBIS=on) up to 4 Spine chibi sets
+  fetch          update the queue, fetch at most one event, build its episodes, then up to 4 home banners,
+                 (CHIBIS=on) up to 4 Spine chibi sets, and rebuild the published episodes when the parser or
+                 chibi catalogue changed
   direct         reconcile and collect storyboard batches, submit due episodes (needs ANTHROPIC_API_KEY)
   mark-deployed  clear pendingDeploy and record the deployed site fingerprint after a successful deploy
 options (fetch only):
@@ -448,6 +498,7 @@ function writeGithub(sum: RunSummary) {
     if (sum.fetch) lines.push(`- fetch: ${sum.fetch.status}, ${sum.fetch.requests} requests`);
     lines.push(`- built: ${list(sum.built)}`, `- authorized: ${sum.authorized.join(', ') || '-'}`);
     if (sum.chibis) lines.push(`- chibis: ${sum.chibis.requests} requests, skeleton ${sum.chibis.skel ?? '-'}, done ${sum.chibis.done.join(', ') || '-'}, missing ${sum.chibis.missing.join(', ') || '-'}`);
+    if (sum.rebuilt) lines.push(`- rebuilt episodes: ${sum.rebuilt.reported ? `${sum.rebuilt.changed}/${sum.rebuilt.checked} changed, ${sum.rebuilt.failed.length} failed` : 'error'}`);
     if (sum.banners) lines.push(`- banners: ${sum.banners.requests} requests, done ${sum.banners.done.join(', ') || '-'}, missing ${sum.banners.missing.join(', ') || '-'}, built ${sum.banners.built}`);
   } else if (sum.phase === 'direct') {
     lines.push(`- adopted: ${list(sum.reconciled?.adopted)}`, `- collected done: ${list(sum.collected?.done)}`,

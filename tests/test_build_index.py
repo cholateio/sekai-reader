@@ -103,6 +103,50 @@ class BuildChibiTest(unittest.TestCase):
         self.assertEqual(r['costumes'], {'v2_01ichika_casual': 'v2_sd_01ichika_casual', 'v2_01ichika_school01': 'v2_sd_01ichika_school',
                                          'v2_01ichika_school02': 'v2_sd_01ichika_school', 'v2_21miku_street': 'v2_sd_21miku_street'})
         self.assertEqual(r['default'], {'1': 'v2_sd_01ichika_school', '21': 'v2_sd_21miku_street'})
+        self.assertEqual(r['chars'], {'1': 1, '2': 21})
+
+    def test_lacking_lists_characters_without_a_chibi(self):
+        full = {'default': {str(c): f'v2_sd_{c:02d}x_school' for c in range(1, 27)}}
+        self.assertEqual(bi.chibi_lacking(full), [])
+        del full['default']['17']
+        self.assertEqual(bi.chibi_lacking(full), [17])
+        self.assertEqual(bi.chibi_lacking({'default': {'1': 'v2_sd_01ichika_school'}}), list(range(2, 27)))
+
+    def test_lost_lists_dropped_entries_only(self):
+        old = {'chibis': ['a', 'b'], 'costumes': {'x': 'a', 'y': 'b'}, 'chars': {'1': 1, '2': 2}, 'default': {'1': 'a'}}
+        grown = {'chibis': ['a', 'b', 'c'], 'costumes': {'x': 'a', 'y': 'b', 'z': 'c'}, 'chars': {'1': 1, '2': 2, '3': 3}}
+        self.assertEqual(bi.chibi_lost(old, grown), [])
+        self.assertEqual(bi.chibi_lost(None, grown), [])
+        self.assertEqual(bi.chibi_lost(old, {'chibis': ['a'], 'costumes': {'x': 'a'}, 'chars': {'1': 1}}),
+                         ['chibis:b', 'costumes:y', 'chars:2'])
+        # Same keys, other values: a remap counts as a loss too.
+        self.assertEqual(bi.chibi_lost(old, dict(grown, costumes={'x': 'b', 'y': 'b'}, chars={'1': 1, '2': 5})),
+                         ['costumes:x', 'chars:2'])
+
+    def test_main_keeps_catalogue_that_would_shrink_or_lack_characters(self):
+        import tempfile
+        from unittest import mock
+        full = [{'id': c, 'characterType': 'game_character', 'characterId': c} for c in range(1, 27)]
+        rows = [self.row(c, f'v2_{c:02d}c_school01', f'v2_sd_{c:02d}c_school') for c in range(1, 27)]
+        extra = self.row(1, 'v2_01c_casual', 'v2_sd_01c_casual')
+        tables = {'events': [], 'eventStories': [], 'gameCharacters': [], 'gameCharacterUnits': [], 'eventCards': [], 'cards': []}
+        with tempfile.TemporaryDirectory() as d:
+            cat = os.path.join(d, 'chibi.json')
+            def run(costumes, c2d):
+                data = dict(tables, costume2ds=costumes, character2ds=c2d)
+                with mock.patch.object(bi, 'get', side_effect=lambda t: data[t]), mock.patch('builtins.print'):
+                    bi.main([os.path.join(d, 'index.json'), '--state', os.path.join(d, 'none.json'), '--chibi', cat])
+                with open(cat, 'rb') as f:
+                    return f.read()
+            first = run(rows + [extra], full)
+            self.assertIn(b'v2_sd_01c_casual', first)
+            self.assertEqual(run(rows, full), first)                      # one costume gone: kept byte for byte
+            self.assertEqual(run(rows[:25] + [extra], full[:25]), first)  # a character gone: kept
+            remapped = [extra] + [self.row(c, f'v2_{c:02d}c_school01', 'v2_sd_01c_casual' if c == 1 else f'v2_sd_{c:02d}c_school')
+                                  for c in range(1, 27)] + [self.row(1, 'v2_01c_spare', 'v2_sd_01c_school')]
+            self.assertEqual(run(remapped, full), first)                  # same keys, a costume remapped: kept
+            grown = run(rows + [extra, self.row(2, 'v2_02c_casual', 'v2_sd_02c_casual')], full)
+            self.assertIn(b'v2_sd_02c_casual', grown)                     # growth is written
 
     def test_default_prefers_school_then_casual(self):
         r = bi.build_chibi([self.row(1, 'a', 'v2_sd_01ichika_band'), self.row(1, 'b', 'v2_sd_01ichika_casual')], self.C2D)

@@ -51,8 +51,12 @@ Live2D 的每個動作、每個表情各是一個檔。`event_173_01` 一話就�
   - `chibis`：可抓的小人名，排序後的清單。只收 26 個角色自己的 v2 小人（名稱符合 `v2_sd_{兩位數角色編號}{名字}_{服裝}`，目前 118 套）；聯名角色、路人、工作人員不收。
   - `costumes`：劇本的服裝名 → 小人名。
   - `default`：每個角色的預設小人（優先 `_school`，沒有就 `_casual`，再沒有就該角色排序後第一套）。
-- **話數 JSON**（階段 2）：`build_episode.ts` 從劇本的 `AppearCharacters`、`LayoutData` 取每個角色當下的服裝，每句台詞多帶 `chibi`（小人名，沒有就省略）。
+  - `chars`：角色立繪編號（`character2dId`）→ 角色編號，只收有小人的 26 個角色，給查不到服裝時找預設小人用。
+- **話數 JSON**（階段 2）：解析器從劇本的 `AppearCharacters` 取每個角色登場時的服裝，再照劇本順序讀 `LayoutData`（片段動作 2、4），有 `CostumeType` 就換裝。台詞只有一位說話者（`TalkCharacters`）時多帶 `chibi`（小人名）；沒有小人、「眾人」、多人同時說話都省略這個欄位。
 - 劇本裡的服裝在對照表查不到時，用該角色的預設小人；配角沒有小人，維持名字圓圈。
+- 話數 JSON 只寫小人名，不管那套有沒有抓到（例如書法服 404）；階段 3 的閱讀器依 manifest 的 `chibis` 判斷，沒有就退回預設小人或靜態圖。
+- **已發布話數的重建**：產線只在抓到新活動時建該期話數，舊話數不會自己多出 `chibi`。所以每輪 fetch 階段最後比對「重建鍵」：`src/scenario/`、`scripts/episode_json.ts`、`data/chibi-index.json` 的指紋。和狀態檔的 `episodeBuild` 不同時，`scripts/rebuild_episodes.ts` 從 R2 同步下來的原檔重寫 `assets/public/episodes/` 裡**已經有的**話數（不會新增話數，發布關卡照常檢查），有內容變動才部署。沒有原檔的略過；解析失敗或 sid 不符的保留原檔，但這一輪不算完成。小人目錄不見、壞掉、不完整（26 個角色都要有預設小人、名稱合格式、對照表指到的小人都在清單裡），整輪不做、一個檔都不動，新話數的建置也失敗（不然會把所有話數的 `chibi` 清掉）。小人目錄只增不減：`build_index.py` 重建出來的目錄缺角色，或比現有的少了任何一個小人、服裝或角色立繪編號時，保留現有的目錄不覆蓋（主資料被截斷時不會把話數降級）；真的要刪的項目由人手動提交。暫存檔寫在 `assets/.rebuild/`，不在同步到 R2 或發布的資料夾裡，中途被砍只會留下完整的檔。1,500 話實測約 0.5 秒。
+- 沒完成（有話數失敗、子程序沒回報結果）時記 `episodeBuildFailed`，之後只在有別的工作時重試，不會讓每小時都變成有工作。子程序沒回報結果時可能已經換掉部分檔案，所以照樣標記部署。
 
 ## 抓取（小人通道）
 
@@ -75,6 +79,8 @@ Live2D 的每個動作、每個表情各是一個檔。`event_173_01` 一話就�
 AGENTS.md Constraints 已加上這條例外（owner 2026-11-18 同意）。
 
 ## 產出
+
+階段 2 只改話數 JSON。以下公開檔、manifest、關卡移到階段 3（本機）與階段 4（上線）：顯示程式還沒做，先放上網站只是多 18 MB 沒人用的檔案，而且通道每小時抓新的一批，每輪都會觸發部署（owner 2026-11-18 同意這個切法）。
 
 - 公開檔：`assets/public/chibi/v2_sd_main.skel`、`assets/public/chibi/{name}/sekai_atlas.atlas.txt`、`assets/public/chibi/{name}/sekai_atlas.png`。
 - `manifest.json` 新增 `chibis: string[]`。
@@ -116,9 +122,9 @@ AGENTS.md Constraints 已加上這條例外（owner 2026-11-18 同意）。
 ## 階段
 
 1. 資料與抓取：小人目錄、`fetch_episode.py --chibis`、狀態、小人通道、AGENTS.md 例外。動到抓檔規則，每輪都要整包審查。
-2. 產出與關卡：`build_episode.ts`、manifest、`check_publishable.ts`。
-3. 顯示：`SpineChibiArt`，先只在本機開，owner 用手機確認大小與動作。
-4. owner 買好授權後上線。
+2. 話數資料：小人目錄加 `chars`、解析器帶 `chibi`、已發布話數重建。
+3. 顯示：`SpineChibiArt`、本機的公開小人檔，先只在本機開，owner 用手機確認大小與動作。
+4. owner 買好授權後上線：公開小人檔、manifest `chibis`、`check_publishable.ts` 允許清單、部署。
 
 ## 不做
 

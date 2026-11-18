@@ -13,7 +13,7 @@ A static web reader that turns Project SEKAI Traditional Chinese event stories i
 
 ## File layout
 
-- `src/scenario/` — `.asset` → episode model (`parseScenario`), mood labels
+- `src/scenario/` — `.asset` → episode model (`parseScenario`), per-line Spine chibi from the costume worn (`chibi.ts`), mood labels
 - `src/storyboard/` — storyboard types, validation, rule-based fallback board, per-episode board fetch (`/storyboards/{sid}.json`, served and emitted by the plugin in `vite.config.ts`)
 - `src/render/` — comic renderer (`comic/`: panels, bubble shape rules `shape.ts`, SVG outlines `bubbleSvg.ts`, backgrounds and effect layers, slanted layout)
 - `src/art/` — `CharacterArt` seam (static chibi now, Spine or Live2D later) and fallback name circles
@@ -23,7 +23,7 @@ A static web reader that turns Project SEKAI Traditional Chinese event stories i
 - `storyboards/` — AI-director storyboards, line numbers only (committed)
 - `static/` — committed site files served at the root by the plugin in `vite.config.ts`: `favicon.svg`, `apple-touch-icon.png`, `og.png` (share preview; original art, regenerate with `scripts/build_share_images.ts`)
 - `prompts/` — storyboard director prompt
-- `scripts/` — `build_episode.ts`, `build_banners.ts` (event banners, two sizes), `manifest.ts` (shared `manifest.json` writer), `fetch_episode.py`, `check_layout.ts`, `build_share_images.ts`, `build_index.py`, `compact_script.py`, `check_publishable.ts` (Vite build gate: no episode of a running event)
+- `scripts/` — `build_episode.ts`, `episode_json.ts` (episode JSON shared with `rebuild_episodes.ts`, which rewrites the published episodes when the parser or chibi catalogue changes), `build_banners.ts` (event banners, two sizes), `manifest.ts` (shared `manifest.json` writer), `fetch_episode.py`, `check_layout.ts`, `build_share_images.ts`, `build_index.py`, `compact_script.py`, `check_publishable.ts` (Vite build gate: no episode of a running event)
 - `scripts/pipeline/` — hourly pipeline: `state.ts` (queue, spend), `director.ts` (storyboard batches), `run.ts` (phases), `commit.sh`, `setup.sh`, `setup-cron.sh`
 - `worker/` — Cloudflare Worker `sekai-reader-cron`: hourly cron that dispatches the pipeline workflow
 - `assets/` — git-ignored game assets: `raw/` inputs, `public/` reader files (Vite publicDir)

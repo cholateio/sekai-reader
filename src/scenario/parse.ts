@@ -1,10 +1,14 @@
+import { chibiOf, type ChibiCatalogue } from './chibi';
 import type { Episode, Line, RawScenario, Scene } from './types';
 
 const ACTION_TALK = 1;
+const ACTION_LAYOUT = 2;
+const ACTION_MOTION = 4;
 const ACTION_EFFECT = 6;
 const PHONE_SUFFIX = '的訊息';
 
-export function parseScenario(raw: RawScenario): Episode {
+/** With a chibi catalogue, each single-speaker line also names that speaker's chibi in the costume worn at that point. */
+export function parseScenario(raw: RawScenario, chibis?: ChibiCatalogue | null): Episode {
   if (!raw || !Array.isArray(raw.TalkData) || !Array.isArray(raw.Snippets)) throw new Error('not a scenario file');
   const fx = raw.SpecialEffectData ?? [];
   const lines: Line[] = [];
@@ -14,6 +18,12 @@ export function parseScenario(raw: RawScenario): Episode {
   let flash = false;
   let shake = false;
   let lastScene: Scene | null = null;
+  const layouts = raw.LayoutData ?? [];
+  const costume = new Map<number, string>();
+  const wear = (c: { Character2dId?: number; CostumeType?: string } | undefined) => {
+    if (c && typeof c.Character2dId === 'number' && c.CostumeType) costume.set(c.Character2dId, c.CostumeType);
+  };
+  for (const c of raw.AppearCharacters ?? []) wear(c);
 
   for (const s of raw.Snippets) {
     if (s.Action === ACTION_TALK) {
@@ -25,11 +35,20 @@ export function parseScenario(raw: RawScenario): Episode {
       const phone = who.endsWith(PHONE_SUFFIX) && who.length > PHONE_SUFFIX.length;
       if (phone) who = who.slice(0, -PHONE_SUFFIX.length);
       const m = (t.Motions ?? []).find(x => x.FacialName) ?? {};
-      lines.push({
-        r: s.ReferenceIndex, who, phone, group: who === '眾人', body,
+      const group = who === '眾人';
+      const line: Line = {
+        r: s.ReferenceIndex, who, phone, group, body,
         face: m.FacialName ?? '', motion: m.MotionName ?? '', bg, flash, shake,
-      });
+      };
+      const speakers = (t.TalkCharacters ?? []).map(c => c.Character2dId).filter((id): id is number => typeof id === 'number');
+      if (chibis && !group && speakers.length === 1) {
+        const chibi = chibiOf(chibis, speakers[0], costume.get(speakers[0]));
+        if (chibi) line.chibi = chibi;
+      }
+      lines.push(line);
       shake = false;
+    } else if (s.Action === ACTION_LAYOUT || s.Action === ACTION_MOTION) {
+      wear(layouts[s.ReferenceIndex]);
     } else if (s.Action === ACTION_EFFECT) {
       const e = fx[s.ReferenceIndex];
       if (!e) continue;

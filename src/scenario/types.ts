@@ -1,5 +1,7 @@
 export interface RawMotion { MotionName?: string; FacialName?: string }
-export interface RawTalk { WindowDisplayName?: string; Body?: string; Motions?: RawMotion[] }
+export interface RawTalk { WindowDisplayName?: string; Body?: string; Motions?: RawMotion[]; TalkCharacters?: { Character2dId?: number }[] }
+/** AppearCharacters entries and LayoutData rows (snippet actions 2 and 4 index LayoutData). */
+export interface RawCostume { Character2dId?: number; CostumeType?: string }
 export interface RawEffect { EffectType: number; StringVal?: string }
 export interface RawSnippet { Action: number; ReferenceIndex: number }
 export interface RawScenario {
@@ -9,6 +11,8 @@ export interface RawScenario {
   Snippets: RawSnippet[];
   TalkData: RawTalk[];
   SpecialEffectData?: RawEffect[];
+  AppearCharacters?: RawCostume[];
+  LayoutData?: RawCostume[];
 }
 
 export interface Line {
@@ -22,6 +26,8 @@ export interface Line {
   bg: string | null;
   flash: boolean;
   shake: boolean;
+  /** Spine chibi of the single speaker in the costume worn at this line (data/chibi-index.json); absent when none. */
+  chibi?: string;
 }
 
 export interface Scene {

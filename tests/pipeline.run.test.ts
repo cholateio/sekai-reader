@@ -4,8 +4,8 @@ import path from 'node:path';
 import { expect, test } from 'vitest';
 import { PROMPT_VERSION } from '../scripts/pipeline/director';
 import {
-  chibisResultFromChild, committedFile, fetchResultFromChild, parseChibiNames, runOnce, siteFingerprint, spawnBanners, spawnChibis, spawnFetch,
-  type BannersResult, type ChibisResult, type FetchResult, type RunDeps,
+  chibisResultFromChild, committedFile, fetchResultFromChild, parseChibiNames, rebuildResultFromChild, runOnce, siteFingerprint, spawnBanners, spawnChibis, spawnFetch,
+  type BannersResult, type ChibisResult, type FetchResult, type RebuildResult, type RunDeps,
 } from '../scripts/pipeline/run';
 import { loadState, type IndexEvent, type IndexFile, type PipelineState } from '../scripts/pipeline/state';
 import { syntheticEpisode } from './helpers';
@@ -16,7 +16,7 @@ const ev = (id: number, date: string, n = 2): IndexEvent => ({
 });
 const NOW = new Date('2026-11-04T10:00:00Z');
 
-function setup(o: { fetch?: (id: number) => FetchResult; build?: (sid: string) => boolean; withDirector?: boolean; backfill?: boolean; cap?: number; banners?: (ids: number[]) => BannersResult; bannersBuilt?: () => { ok: boolean; built: number; changed: boolean; failed: string[] }; chibiNames?: string[]; chibis?: (names: string[]) => ChibisResult } = {}) {
+function setup(o: { fetch?: (id: number) => FetchResult; build?: (sid: string) => boolean; withDirector?: boolean; backfill?: boolean; cap?: number; banners?: (ids: number[]) => BannersResult; bannersBuilt?: () => { ok: boolean; built: number; changed: boolean; failed: string[] }; chibiNames?: string[]; chibis?: (names: string[]) => ChibisResult; rebuild?: () => RebuildResult } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'run-'));
   const index: IndexFile = { events: [ev(173, '2026-10-01', 3), ev(172, '2026-09-20'), ev(171, '2026-09-10')], built: '2026-11-04' };
   const indexPath = path.join(dir, 'index.json');
@@ -30,6 +30,8 @@ function setup(o: { fetch?: (id: number) => FetchResult; build?: (sid: string) =
   const chibiCalls: string[][] = [];
   let bannerBuilds = 0;
   let site = 'site-v1';
+  let buildKey = 'eb-v1';
+  let rebuilds = 0;
   let clock = NOW;
   const logs: string[] = [];
   const sleeps: number[] = [];
@@ -51,6 +53,8 @@ function setup(o: { fetch?: (id: number) => FetchResult; build?: (sid: string) =
     statePath: path.join(dir, 'pipeline-state.json'), indexPath, boardsDir, r2DeletePath: path.join(dir, 'r2-delete.txt'),
     fetchEvent: async id => { fetched.push(id); return o.fetch ? o.fetch(id) : { status: 'done', requests: 5, sids: (JSON.parse(fs.readFileSync(indexPath, 'utf8')) as IndexFile).events.find(e => e.id === id)!.eps.map(e => e[2]) }; },
     siteHash: () => site,
+    episodeBuildKey: () => buildKey,
+    rebuildEpisodes: async () => { rebuilds++; return o.rebuild ? o.rebuild() : { ok: true, reported: true, checked: 0, changed: 0, skipped: [], failed: [] }; },
     buildEpisode: async sid => { built.push(sid); return o.build ? o.build(sid) : true; },
     fetchBanners: async ids => {
       bannerCalls.push(ids);
@@ -76,7 +80,7 @@ function setup(o: { fetch?: (id: number) => FetchResult; build?: (sid: string) =
     fs.writeFileSync(indexPath, JSON.stringify(idx));
   };
   const state = () => loadState(deps.statePath) as PipelineState;
-  return { deps, calls, fetched, built, addNew, state, ended, index, sleeps, bannerCalls, chibiCalls, logs, setNow: (d: Date) => { clock = d; }, builds: () => bannerBuilds, setSite: (v: string) => { site = v; } };
+  return { deps, calls, fetched, built, addNew, state, ended, index, sleeps, bannerCalls, chibiCalls, logs, setNow: (d: Date) => { clock = d; }, builds: () => bannerBuilds, setSite: (v: string) => { site = v; }, setKey: (v: string) => { buildKey = v; }, rebuilds: () => rebuilds };
 }
 const epStates = (s: PipelineState, id: number) => Object.values(s.events[String(id)].eps).map(e => e.s);
 
@@ -715,4 +719,71 @@ test('parseChibiNames 只取字串；committedFile 讀 HEAD 的內容，沒提�
   expect(parseChibiNames(JSON.stringify({ chibis: ['v2_sd_01ichika_school', 7] }))).toEqual(['v2_sd_01ichika_school']);
   expect(committedFile('package.json')).toContain('"name"');
   expect(committedFile('assets/nope.json')).toBeNull();
+});
+
+test('重建話數：解析器或小人目錄變了 → plan 有工作、fetch 重建一次並記住；有改才部署', async () => {
+  const t = await idleSetup({ rebuild: () => ({ ok: true, reported: true, checked: 3, changed: 2, skipped: [], failed: [] }) });
+  expect((await runOnce(t.deps, { phase: 'plan' })).work).toEqual([]);
+  t.setKey('eb-v2');
+  expect((await runOnce(t.deps, { phase: 'plan' })).work).toEqual(['episode rebuild']);
+  const before = t.rebuilds();
+  const r = await runOnce(t.deps, { phase: 'fetch' });
+  expect(t.rebuilds()).toBe(before + 1);
+  expect(r.rebuilt).toMatchObject({ ok: true, changed: 2 });
+  expect(r.deploy).toBe(true);
+  expect(t.state().episodeBuild).toBe('eb-v2');
+  await runOnce(t.deps, { phase: 'fetch' });
+  expect(t.rebuilds()).toBe(before + 1);
+});
+
+test('重建話數：內容都沒變就不部署', async () => {
+  const t = await idleSetup();
+  t.setKey('eb-v2');
+  const r = await runOnce(t.deps, { phase: 'fetch' });
+  expect(r.rebuilt).toMatchObject({ ok: true, changed: 0 });
+  expect(r.deploy).toBe(false);
+  expect(t.state().episodeBuild).toBe('eb-v2');
+});
+
+test('重建話數：整輪失敗不記完成，也不讓之後每小時都變成有工作；別的工作來時再試', async () => {
+  let ok = true;
+  const t = await idleSetup({ rebuild: () => ({ ok, reported: ok, checked: ok ? 3 : 0, changed: ok ? 1 : 0, skipped: [], failed: [] }) });
+  edit(t, s => { s.pendingDeploy = false; });
+  ok = false;
+  t.setKey('eb-v2');
+  const r = await runOnce(t.deps, { phase: 'fetch' });
+  // No result line: some files may already be replaced, so the run ships what is there.
+  expect(r.deploy).toBe(true);
+  edit(t, s => { s.pendingDeploy = false; });
+  expect(t.state()).toMatchObject({ episodeBuild: 'eb-v1', episodeBuildFailed: 'eb-v2' });
+  expect((await runOnce(t.deps, { phase: 'plan' })).work).toEqual([]);
+  ok = true;
+  await runOnce(t.deps, { phase: 'fetch' });
+  expect(t.state().episodeBuild).toBe('eb-v2');
+  expect(t.state().episodeBuildFailed).toBeUndefined();
+  // A newer key is due again even though an older one failed.
+  t.setKey('eb-v3');
+  expect((await runOnce(t.deps, { phase: 'plan' })).work).toContain('episode rebuild');
+});
+
+test('rebuildResultFromChild：結束碼 0 且格式完全正確才算成功', () => {
+  const ok = { status: 'done', checked: 3, changed: 1, skipped: ['a'], failed: [] };
+  expect(rebuildResultFromChild(0, JSON.stringify(ok))).toEqual({ ok: true, reported: true, checked: 3, changed: 1, skipped: ['a'], failed: [] });
+  // Some episodes failed: reported, but not complete, so the key is not recorded.
+  expect(rebuildResultFromChild(0, JSON.stringify({ ...ok, failed: ['b'] }))).toMatchObject({ ok: false, reported: true, failed: ['b'] });
+  expect(rebuildResultFromChild(1, JSON.stringify({ status: 'error', error: 'invalid or empty chibi catalogue' }))).toMatchObject({ ok: false, reported: false });
+  for (const [code, line] of [
+    [1, JSON.stringify(ok)], [0, 'boom'], [0, JSON.stringify({ ...ok, status: 'error' })], [0, JSON.stringify({ ...ok, changed: -1 })],
+    [0, JSON.stringify({ ...ok, checked: 1.5 })], [0, JSON.stringify({ ...ok, failed: [3] })], [0, JSON.stringify({ ...ok, skipped: 'a' })], [0, 'null'],
+  ] as [number, string][]) expect(rebuildResultFromChild(code, line), line).toMatchObject({ ok: false, reported: false });
+});
+
+test('重建話數：有話數失敗 → 不記完成；改到的照樣部署', async () => {
+  const t = await idleSetup({ rebuild: () => ({ ok: false, reported: true, checked: 3, changed: 1, skipped: [], failed: ['event_172_01'] }) });
+  edit(t, s => { s.pendingDeploy = false; delete s.episodeBuildFailed; s.episodeBuild = 'eb-v1'; });
+  t.setKey('eb-v2');
+  const r = await runOnce(t.deps, { phase: 'fetch' });
+  expect(r.deploy).toBe(true);
+  expect(t.state()).toMatchObject({ episodeBuild: 'eb-v1', episodeBuildFailed: 'eb-v2' });
+  expect(t.logs.some(l => l.includes('event_172_01'))).toBe(true);
 });

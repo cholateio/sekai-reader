@@ -96,10 +96,13 @@ def build_rows(events, stories, units, now_ms, jp_ids, event_chars, chars=()):
 
 # Only the 26 game characters' own v2 chibis: collab characters, mobs and staff have other name shapes.
 CHIBI_RE = re.compile(r'^v2_sd_(\d{2})[a-z]+_[a-z0-9_]+$')
+# Game characters 1-26 all have v2 chibis; fewer means truncated master data (kept in step with src/scenario/chibi.ts).
+GAME_CHARACTERS = 26
 
 
 def build_chibi(costumes, character2ds):
-    """The chibi lane's list (`chibis`), costume -> chibi (`costumes`) and each character's default chibi."""
+    """The chibi lane's list (`chibis`), costume -> chibi (`costumes`), each character's default chibi, and
+    character2d id -> character id (`chars`) for characters that have one, so a script's unmapped costume falls back."""
     char_of = {c["id"]: c["characterId"] for c in character2ds if c.get("characterType") == "game_character"}
     by_costume, by_char = {}, {}
     for c in costumes:
@@ -118,7 +121,29 @@ def build_chibi(costumes, character2ds):
         default[str(cid)] = next((n for suffix in ("_school", "_casual") for n in ordered if n.endswith(suffix)), ordered[0])
     return {"chibis": sorted(n for names in by_char.values() for n in names),
             "costumes": dict(sorted(by_costume.items())),
-            "default": dict(sorted(default.items(), key=lambda kv: int(kv[0])))}
+            "default": dict(sorted(default.items(), key=lambda kv: int(kv[0]))),
+            "chars": {str(k): v for k, v in sorted(char_of.items()) if v in by_char}}
+
+
+def chibi_lacking(chibi):
+    """Game characters without a default chibi; non-empty means the master data was truncated."""
+    return [c for c in range(1, GAME_CHARACTERS + 1) if str(c) not in chibi["default"]]
+
+
+def chibi_lost(old, new):
+    """Entries of the existing catalogue that the new one drops or remaps (chibis; costumes and chars by key and value);
+    the catalogue only grows. `default` may change: a newly added school or casual set legitimately becomes it."""
+    if not isinstance(old, dict):
+        return []
+    before = old.get("chibis")
+    now = set(new.get("chibis") or [])
+    lost = [f"chibis:{k}" for k in (before if isinstance(before, list) else []) if k not in now]
+    for table in ("costumes", "chars"):
+        before, after = old.get(table), new.get(table) or {}
+        for k, v in (before.items() if isinstance(before, dict) else []):
+            if k not in after or after[k] != v:
+                lost.append(f"{table}:{k}")
+    return lost
 
 
 def main(argv=None):
@@ -152,6 +177,19 @@ def main(argv=None):
     print(f"{len(rows)} events, {sum(len(r['eps']) for r in rows)} episodes -> {out}")
 
     chibi = build_chibi(get("costume2ds"), get("character2ds"))
+    old = None
+    if os.path.exists(args.chibi):
+        try:
+            with open(args.chibi, encoding="utf-8") as f:
+                old = json.load(f)
+        except (OSError, ValueError):
+            old = None
+    # Keep the committed catalogue when the new one is incomplete or lost entries: either would strip or downgrade
+    # chibis in every rebuilt episode. Real removals are committed by hand.
+    lacking, lost = chibi_lacking(chibi), chibi_lost(old, chibi)
+    if lacking or lost:
+        print(f"chibi catalogue not updated: no chibi for characters {lacking}; entries gone: {lost[:10]} ({len(lost)} total)")
+        return
     tmp = args.chibi + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(chibi, f, ensure_ascii=False, separators=(",", ":"))
