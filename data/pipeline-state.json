@@ -8347,7 +8347,11 @@
   "v2_sd_17kanade_casual": "done",
   "v2_sd_17kanade_kotatsu": "missing",
   "v2_sd_18mafuyu_casual": "done",
-  "v2_sd_18mafuyu_kotatsu": "missing"
+  "v2_sd_18mafuyu_kotatsu": "missing",
+  "v2_sd_18mafuyu_school": "done",
+  "v2_sd_19ena_casual": "done",
+  "v2_sd_19ena_kotatsu": "missing",
+  "v2_sd_19ena_school": "done"
  },
  "episodeBuild": "ce76671fe8cc3e5dd8379884ba6b0985098b2738e9504a7bca1c1355798daef2"
 }
