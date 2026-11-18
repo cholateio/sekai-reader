@@ -8291,9 +8291,9 @@
   "msgbatch_013NJy4b3mKWgMXEZGqJaVN3": "2026-11-07",
   "msgbatch_01N1wCTz7vqkyeq9JWGb6aYi": "2026-11-08"
  },
- "pendingDeploy": true,
+ "pendingDeploy": false,
  "promptVersion": "v4-caps",
- "deployedSite": "84de544d652efab8284fe5c5df4cc454311de903f7b0f116152a483571cd611e",
+ "deployedSite": "63085021280c54e520f6fe22fabdcc95ff16e6cdef60129e016868c1b77163c0",
  "chibiSkel": "done",
  "chibi": {
   "v2_sd_01ichika_casual": "done",
