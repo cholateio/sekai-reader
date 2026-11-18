@@ -8291,7 +8291,7 @@
   "msgbatch_013NJy4b3mKWgMXEZGqJaVN3": "2026-11-07",
   "msgbatch_01N1wCTz7vqkyeq9JWGb6aYi": "2026-11-08"
  },
- "pendingDeploy": false,
+ "pendingDeploy": true,
  "promptVersion": "v4-caps",
  "deployedSite": "84de544d652efab8284fe5c5df4cc454311de903f7b0f116152a483571cd611e",
  "chibiSkel": "done",
@@ -8323,6 +8323,10 @@
   "v2_sd_08shizuku_casual": "done",
   "v2_sd_08shizuku_miko": "missing",
   "v2_sd_08shizuku_miko_r": "missing",
-  "v2_sd_08shizuku_school": "done"
+  "v2_sd_08shizuku_school": "done",
+  "v2_sd_09kohane_casual": "done",
+  "v2_sd_09kohane_school": "done",
+  "v2_sd_10an_casual": "done",
+  "v2_sd_10an_school": "done"
  }
 }
