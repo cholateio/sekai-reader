@@ -8291,7 +8291,7 @@
   "msgbatch_013NJy4b3mKWgMXEZGqJaVN3": "2026-11-07",
   "msgbatch_01N1wCTz7vqkyeq9JWGb6aYi": "2026-11-08"
  },
- "pendingDeploy": false,
+ "pendingDeploy": true,
  "promptVersion": "v4-caps",
  "deployedSite": "49baf1a81d5df125edd5364be7f115f3e6edfb9df094d57356cd229039a7f09d",
  "chibiSkel": "done",
@@ -8389,11 +8389,12 @@
   "v2_sd_24luka_akuno": "missing",
   "v2_sd_24luka_band": "done",
   "v2_sd_24luka_idol": "done",
-  "v2_sd_24luka_kakizome": "missing"
+  "v2_sd_24luka_kakizome": "missing",
+  "v2_sd_24luka_kotatsu": "missing",
+  "v2_sd_24luka_miko": "missing",
+  "v2_sd_24luka_night": "done",
+  "v2_sd_24luka_school": "done"
  },
  "episodeBuild": "0daab56acd8cd5e971044c51d13f0373e3a1bd87ac6856328747a47da4bfc7a6",
- "chibiPausedDay": "2026-11-18",
- "chibiFails": {
-  "v2_sd_24luka_kotatsu": 1
- }
+ "chibiPausedDay": "2026-11-18"
 }
