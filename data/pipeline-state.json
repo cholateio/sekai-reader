@@ -8393,7 +8393,11 @@
   "v2_sd_24luka_kotatsu": "missing",
   "v2_sd_24luka_miko": "missing",
   "v2_sd_24luka_night": "done",
-  "v2_sd_24luka_school": "done"
+  "v2_sd_24luka_school": "done",
+  "v2_sd_24luka_street": "done",
+  "v2_sd_24luka_wonder": "done",
+  "v2_sd_25meiko_akuno": "missing",
+  "v2_sd_25meiko_band": "done"
  },
  "episodeBuild": "0daab56acd8cd5e971044c51d13f0373e3a1bd87ac6856328747a47da4bfc7a6",
  "chibiPausedDay": "2026-11-18"
