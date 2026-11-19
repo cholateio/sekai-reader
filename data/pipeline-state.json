@@ -8409,7 +8409,11 @@
   "v2_sd_26kaito_band": "done",
   "v2_sd_26kaito_idol": "done",
   "v2_sd_26kaito_kakizome": "missing",
-  "v2_sd_26kaito_miko": "missing"
+  "v2_sd_26kaito_miko": "missing",
+  "v2_sd_26kaito_night": "done",
+  "v2_sd_26kaito_school": "done",
+  "v2_sd_26kaito_street": "done",
+  "v2_sd_26kaito_wonder": "done"
  },
  "episodeBuild": "0daab56acd8cd5e971044c51d13f0373e3a1bd87ac6856328747a47da4bfc7a6",
  "chibiPausedDay": "2026-11-18"
