@@ -8291,7 +8291,7 @@
   "msgbatch_013NJy4b3mKWgMXEZGqJaVN3": "2026-11-07",
   "msgbatch_01N1wCTz7vqkyeq9JWGb6aYi": "2026-11-08"
  },
- "pendingDeploy": false,
+ "pendingDeploy": true,
  "promptVersion": "v4-caps",
  "deployedSite": "a5e6f014d068687017b76263247b0f323a639ce01e839ee8f468cc73d76b72a4",
  "chibiSkel": "done",
