@@ -7892,7 +7892,46 @@
      "tries": 0
     }
    },
-   "jpCheckedAt": "2026-11-17T00:25:33.599Z"
+   "jpCheckedAt": "2026-11-20T07:25:30.482Z"
+  },
+  "187": {
+   "kind": "new",
+   "assets": "pending",
+   "failures": 0,
+   "eps": {
+    "event_187_01": {
+     "s": "manual",
+     "tries": 0
+    },
+    "event_187_02": {
+     "s": "manual",
+     "tries": 0
+    },
+    "event_187_03": {
+     "s": "manual",
+     "tries": 0
+    },
+    "event_187_04": {
+     "s": "manual",
+     "tries": 0
+    },
+    "event_187_05": {
+     "s": "manual",
+     "tries": 0
+    },
+    "event_187_06": {
+     "s": "manual",
+     "tries": 0
+    },
+    "event_187_07": {
+     "s": "manual",
+     "tries": 0
+    },
+    "event_187_08": {
+     "s": "manual",
+     "tries": 0
+    }
+   }
   }
  },
  "batches": [],
@@ -8291,7 +8330,7 @@
   "msgbatch_013NJy4b3mKWgMXEZGqJaVN3": "2026-11-07",
   "msgbatch_01N1wCTz7vqkyeq9JWGb6aYi": "2026-11-08"
  },
- "pendingDeploy": false,
+ "pendingDeploy": true,
  "promptVersion": "v4-caps",
  "deployedSite": "809807f92e4d7d4310fba143d72ae4b9bd92e225d49be6139a1cf88edead6cbf",
  "chibiSkel": "done",
