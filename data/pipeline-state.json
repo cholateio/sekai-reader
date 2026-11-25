@@ -7892,7 +7892,7 @@
      "tries": 0
     }
    },
-   "jpCheckedAt": "2026-11-24T00:27:21.037Z"
+   "jpCheckedAt": "2026-11-25T00:25:49.326Z"
   },
   "187": {
    "kind": "new",
@@ -8330,7 +8330,7 @@
   "msgbatch_013NJy4b3mKWgMXEZGqJaVN3": "2026-11-07",
   "msgbatch_01N1wCTz7vqkyeq9JWGb6aYi": "2026-11-08"
  },
- "pendingDeploy": false,
+ "pendingDeploy": true,
  "promptVersion": "v4-caps",
  "deployedSite": "6cad35c2956692dcb783d730b8316c1d8e65c6cb3d86e1065c219a2ec6163ad2",
  "chibiSkel": "done",
